@@ -24,10 +24,20 @@ public partial class App : Application
         });
 
         MainWindow window = new() { DataContext = mainVm };
+
+        // Restore window position from settings
+        if (!double.IsNaN(mainVm.Settings.WindowTop))  window.Top  = mainVm.Settings.WindowTop;
+        if (!double.IsNaN(mainVm.Settings.WindowLeft)) window.Left = mainVm.Settings.WindowLeft;
+        if (mainVm.Settings.WindowMaximized)
+            window.WindowState = System.Windows.WindowState.Maximized;
+
         window.Show();
 
-        // Handle file path passed as command-line argument
-        if (e.Args.Length > 0 && File.Exists(e.Args[0]))
-            _ = mainVm.OpenFileTabAsync(e.Args[0]);
+        // Handle all file paths passed as command-line arguments
+        foreach (string arg in e.Args)
+        {
+            if (File.Exists(arg))
+                _ = mainVm.OpenFileTabAsync(arg);
+        }
     }
 }

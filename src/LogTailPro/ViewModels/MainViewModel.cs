@@ -166,6 +166,13 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SelectTab(string? indexStr)
+    {
+        if (int.TryParse(indexStr, out int index) && index >= 0 && index < Tabs.Count)
+            SelectedTab = Tabs[index];
+    }
+
+    [RelayCommand]
     private async Task MergeTabsAsync()
     {
         if (Tabs.Count < 2) { StatusMessage = "Need at least 2 tabs to merge"; return; }

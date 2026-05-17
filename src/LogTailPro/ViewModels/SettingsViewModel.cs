@@ -13,6 +13,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         MaxLinesInMemory = settings.MaxLinesInMemory;
         FollowTailOnOpen = settings.FollowTailOnOpen;
         IsDarkTheme = settings.Theme == "Dark";
+        TabWidth = settings.TabWidth;
     }
 
     [ObservableProperty] private string _fontFamily = "Consolas";
@@ -20,6 +21,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _maxLinesInMemory = 100_000;
     [ObservableProperty] private bool _followTailOnOpen = true;
     [ObservableProperty] private bool _isDarkTheme = true;
+    [ObservableProperty] private int _tabWidth = 8;
 
     partial void OnIsDarkThemeChanged(bool value) => OnPropertyChanged(nameof(IsLightTheme));
 
@@ -37,5 +39,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.MaxLinesInMemory = MaxLinesInMemory;
         settings.FollowTailOnOpen = FollowTailOnOpen;
         settings.Theme = IsDarkTheme ? "Dark" : "Light";
+        settings.TabWidth = TabWidth;
     }
 }

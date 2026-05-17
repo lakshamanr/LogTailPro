@@ -172,6 +172,49 @@
                         ToolTip="Close (Escape)"/>
             </Grid>
 
+            <!-- ── Saved patterns row ── -->
+            <Grid Margin="6,0,6,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="240"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="Saved:" VerticalAlignment="Center"
+                       Foreground="{StaticResource ForegroundBrush}" Padding="0,0,4,0"/>
+                <ComboBox Grid.Column="1"
+                          ItemsSource="{Binding Settings.SavedPatterns,
+                                        RelativeSource={RelativeSource AncestorType=Window}}"
+                          DisplayMemberPath="Name"
+                          VerticalAlignment="Center">
+                    <ComboBox.Style>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                            <Setter Property="Padding" Value="4,2"/>
+                        </Style>
+                    </ComboBox.Style>
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem">
+                            <EventSetter Event="PreviewMouseLeftButtonDown"
+                                         Handler="SavedPattern_Selected"/>
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                </ComboBox>
+                <Button Grid.Column="2"
+                        Content="Save"
+                        Style="{StaticResource SearchButtonStyle}"
+                        Command="{Binding SavePatternCommand}"
+                        ToolTip="Save current pattern"/>
+                <Button Grid.Column="3"
+                        Content="Show Results"
+                        Style="{StaticResource SearchButtonStyle}"
+                        Command="{Binding ToggleSearchResultsCommand}"
+                        ToolTip="Toggle search results table"/>
+            </Grid>
+
             <!-- Error text -->
             <TextBlock Text="{Binding SearchError}"
                        Foreground="#CC3333"

@@ -43,4 +43,7 @@ public sealed class LogLine
 
     /// <summary>Source file name (used in merged tabs to label lines from different files).</summary>
     public string? SourceFileName { get; set; }
+
+    /// <summary>Wall-clock time when this line arrived from the file watcher. DateTime.MinValue for initial load.</summary>
+    public DateTime ArrivedAt { get; set; } = DateTime.MinValue;
 }

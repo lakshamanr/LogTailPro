@@ -100,6 +100,20 @@ public sealed class SearchService
         return compiled;
     }
 
+    /// <summary>Returns positional capture group values (groups 1..N) for the first match, or an empty array.</summary>
+    public string[] GetCapturingGroups(Regex pattern, string text)
+    {
+        try
+        {
+            Match match = pattern.Match(text);
+            if (!match.Success) return [];
+            return Enumerable.Range(1, match.Groups.Count - 1)
+                .Select(i => match.Groups[i].Value)
+                .ToArray();
+        }
+        catch (RegexMatchTimeoutException) { return []; }
+    }
+
     private static bool SafeIsMatch(Regex pattern, string text)
     {
         try { return pattern.IsMatch(text); }

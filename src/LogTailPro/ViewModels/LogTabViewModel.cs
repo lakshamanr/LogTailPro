@@ -107,6 +107,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int _currentMatchIndex = -1;
     [ObservableProperty] private LogLine? _selectedLogLine;
 
+    // ── Search results table ──────────────────────────────────────────────────
+    [ObservableProperty] private ObservableCollection<SearchResultRow> _searchResults = new();
+    [ObservableProperty] private bool _isSearchResultsVisible;
+
     // ── Filter chain ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<FilterRuleViewModel> _filterRules = new();
 
@@ -213,13 +217,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         }
     }
 
-    private List<LogLine> BuildLogLines(IReadOnlyList<string> rawLines)
+    private List<LogLine> BuildLogLines(IReadOnlyList<string> rawLines, bool isFromWatcher = false)
     {
         List<LogLine> result = new(rawLines.Count);
         long lineNumber = _nextLineNumber;
+        string tabExpansion = _settings.TabWidth > 0 ? new string(' ', _settings.TabWidth) : "\t";
 
-        foreach (string text in rawLines)
+        foreach (string raw in rawLines)
         {
+            string text = raw.Contains('\t') ? raw.Replace("\t", tabExpansion) : raw;
             DateTime? ts = _timestampParser.TryParse(text);
             TimeSpan? elapsed = (ts.HasValue && _lastTimestamp.HasValue && ts > _lastTimestamp)
                 ? ts - _lastTimestamp : null;
@@ -230,7 +236,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 Text = text,
                 Timestamp = ts,
                 ElapsedSincePrevious = elapsed,
-                MatchedRule = _highlightService.GetMatchingRule(text, _compiledHighlightRules)
+                MatchedRule = _highlightService.GetMatchingRule(text, _compiledHighlightRules),
+                ArrivedAt = isFromWatcher ? DateTime.Now : DateTime.MinValue
             };
             result.Add(line);
 
@@ -247,7 +254,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            List<LogLine> created = BuildLogLines(newLines);
+            List<LogLine> created = BuildLogLines(newLines, isFromWatcher: true);
             TotalLineCount += created.Count;
 
             _allLines.AddRange(created);
@@ -354,6 +361,27 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             MatchCount = pattern != null ? filtered.Count(l => l.IsSearchMatch) : 0;
             CurrentMatchIndex = -1;
             SelectedLogLine = null;
+
+            // Populate search results table with capturing groups
+            SearchResults.Clear();
+            if (pattern != null)
+            {
+                foreach (LogLine line in filtered.Where(l => l.IsSearchMatch))
+                {
+                    string[] groups = _searchService.GetCapturingGroups(pattern, line.Text);
+                    SearchResults.Add(new SearchResultRow
+                    {
+                        LineNumber = line.LineNumber,
+                        Timestamp = line.Timestamp,
+                        Text = line.Text,
+                        Group1 = groups.Length > 0 ? groups[0] : string.Empty,
+                        Group2 = groups.Length > 1 ? groups[1] : string.Empty,
+                        Group3 = groups.Length > 2 ? groups[2] : string.Empty,
+                        Source = line
+                    });
+                }
+            }
+
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) { }
@@ -487,6 +515,40 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         List<string> lines = VisibleLines.Select(l => l.Text).ToList();
         await File.WriteAllLinesAsync(dialog.FileName, lines);
         StatusText = $"Exported {lines.Count:N0} lines to {System.IO.Path.GetFileName(dialog.FileName)}";
+    }
+
+    [RelayCommand]
+    private void ToggleSearchResults() => IsSearchResultsVisible = !IsSearchResultsVisible;
+
+    [RelayCommand]
+    private void SavePattern()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText)) return;
+        string name = $"{(IsRegexMode ? ".*" : "Aa")} {SearchText}";
+        if (_settings.SavedPatterns.Any(p => p.Pattern == SearchText && p.IsRegex == IsRegexMode))
+            return;
+        _settings.SavedPatterns.Add(new SavedSearchPattern
+        {
+            Name = name,
+            Pattern = SearchText,
+            IsRegex = IsRegexMode,
+            IsCaseSensitive = IsCaseSensitive
+        });
+    }
+
+    [RelayCommand]
+    private void LoadPattern(SavedSearchPattern? pattern)
+    {
+        if (pattern == null) return;
+        SearchText = pattern.Pattern;
+        IsRegexMode = pattern.IsRegex;
+        IsCaseSensitive = pattern.IsCaseSensitive;
+    }
+
+    [RelayCommand]
+    private void DeleteSavedPattern(SavedSearchPattern? pattern)
+    {
+        if (pattern != null) _settings.SavedPatterns.Remove(pattern);
     }
 
     [RelayCommand]

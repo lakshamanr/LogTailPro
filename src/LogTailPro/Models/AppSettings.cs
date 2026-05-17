@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace LogTailPro.Models;
 
 /// <summary>Persisted application settings stored in %AppData%\LogTailPro\settings.json.</summary>
@@ -41,4 +43,10 @@ public sealed class AppSettings
 
     /// <summary>Whether the main window was maximized on last close.</summary>
     public bool WindowMaximized { get; set; }
+
+    /// <summary>Number of spaces used to expand tab characters in log lines.</summary>
+    public int TabWidth { get; set; } = 8;
+
+    /// <summary>User-saved search patterns.</summary>
+    public ObservableCollection<SavedSearchPattern> SavedPatterns { get; set; } = new();
 }

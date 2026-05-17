@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:LogTailPro.ViewModels"
         mc:Ignorable="d"
-        Title="Settings" Height="360" Width="460"
+        Title="Settings" Height="400" Width="460"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         d:DataContext="{d:DesignInstance Type={x:Type vm:SettingsViewModel}}">
@@ -72,6 +72,17 @@
             <CheckBox Content="Follow tail when opening a new file"
                       IsChecked="{Binding FollowTailOnOpen}"
                       Margin="0,0,0,6"/>
+
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="80"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="Tab width (spaces):" VerticalAlignment="Center" Padding="0"/>
+                <TextBox Grid.Column="1"
+                         Text="{Binding TabWidth, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="4,3"/>
+            </Grid>
         </StackPanel>
 
         <!-- ══ OK / Cancel ══ -->

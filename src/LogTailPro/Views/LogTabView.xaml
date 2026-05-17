@@ -63,6 +63,23 @@
 
             <!-- Main content: log list + navigation bar + stats panel -->
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Search results panel (collapsed when IsSearchResultsVisible=false) -->
+                    <RowDefinition>
+                        <RowDefinition.Style>
+                            <Style TargetType="RowDefinition">
+                                <Setter Property="Height" Value="0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSearchResultsVisible}" Value="True">
+                                        <Setter Property="Height" Value="180"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </RowDefinition.Style>
+                    </RowDefinition>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <!-- Navigation bar -->
@@ -73,6 +90,7 @@
 
                 <!-- Virtualized log line list -->
                 <ListView x:Name="LogListView"
+                          Grid.Row="0"
                           Grid.Column="0"
                           ItemsSource="{Binding VisibleLines}"
                           SelectedItem="{Binding SelectedLogLine, Mode=TwoWay}"
@@ -214,6 +232,7 @@
 
                 <!-- Navigation bar (minimap) -->
                 <Canvas x:Name="NavCanvas"
+                        Grid.Row="0"
                         Grid.Column="1"
                         Background="#1A1A1A"
                         Cursor="Hand"
@@ -226,7 +245,8 @@
                 </Canvas>
 
                 <!-- Stats panel -->
-                <Border Grid.Column="2"
+                <Border Grid.Row="0"
+                        Grid.Column="2"
                         Background="{StaticResource TabBackgroundBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="1,0,0,0"
@@ -251,6 +271,89 @@
                                    Text="{Binding StatsLinesPerSecond, StringFormat='Rate: {0} lines/s'}"/>
                     </StackPanel>
                 </Border>
+
+                <!-- GridSplitter between log list and search results -->
+                <GridSplitter Grid.Row="1"
+                              Grid.ColumnSpan="3"
+                              Height="4"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center"
+                              Background="{StaticResource BorderBrush}"
+                              Visibility="{Binding IsSearchResultsVisible,
+                                           Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Search results table -->
+                <ListView Grid.Row="2"
+                          Grid.ColumnSpan="3"
+                          ItemsSource="{Binding SearchResults}"
+                          BorderThickness="0,1,0,0"
+                          BorderBrush="{StaticResource BorderBrush}"
+                          Background="{StaticResource TabBackgroundBrush}"
+                          Visibility="{Binding IsSearchResultsVisible,
+                                       Converter={StaticResource BoolToVisibilityConverter}}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Line" Width="60">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding LineNumber}"
+                                                   Foreground="Gray"
+                                                   FontFamily="Consolas"
+                                                   TextAlignment="Right"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Timestamp" Width="140">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}"
+                                                   Foreground="{StaticResource ForegroundBrush}"
+                                                   FontFamily="Consolas"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Match text" Width="400">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Text}"
+                                                   Foreground="{StaticResource ForegroundBrush}"
+                                                   FontFamily="Consolas"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Group 1" Width="120">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Group1}"
+                                                   Foreground="{StaticResource ForegroundBrush}"
+                                                   FontFamily="Consolas"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Group 2" Width="120">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Group2}"
+                                                   Foreground="{StaticResource ForegroundBrush}"
+                                                   FontFamily="Consolas"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Group 3" Width="120">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Group3}"
+                                                   Foreground="{StaticResource ForegroundBrush}"
+                                                   FontFamily="Consolas"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
 
             </Grid>
 
