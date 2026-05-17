@@ -388,3 +388,58 @@ dotnet build src/LogTailPro/LogTailPro.csproj
 
 ## Phase 4 Complete When
 All checkboxes above are ticked. Then read `PHASE_5.md`.
+
+---
+
+## Step 6b: Tab Strip Positioning (Any Side)
+
+BareTailPro allows tabs on top, bottom, left or right of the window.
+WPF TabControl has a built-in TabStripPlacement property (Dock enum).
+
+Add to AppSettings:
+```csharp
+public System.Windows.Controls.Dock TabStripPlacement { get; set; } = System.Windows.Controls.Dock.Top;
+```
+
+Bind in MainWindow.xaml:
+```xml
+<TabControl TabStripPlacement="{Binding Settings.TabStripPlacement}" ...>
+```
+
+Add to View menu:
+```xml
+<MenuItem Header="Tab Position">
+  <MenuItem Header="Top"    Command="{Binding SetTabPlacementCommand}" CommandParameter="Top"/>
+  <MenuItem Header="Bottom" Command="{Binding SetTabPlacementCommand}" CommandParameter="Bottom"/>
+  <MenuItem Header="Left"   Command="{Binding SetTabPlacementCommand}" CommandParameter="Left"/>
+  <MenuItem Header="Right"  Command="{Binding SetTabPlacementCommand}" CommandParameter="Right"/>
+</MenuItem>
+```
+
+## Step 6c: Command Line Argument Support
+
+Implement full CLI as specified in SKILL.md section 11.
+Supported flags:
+  -wp  / --window-position left top width height
+  -ws  / --window-state 0|1|2
+  -tc  / --tile-window-count N
+  -ti  / --tile-window-index N
+  file1.log file2.log ...
+
+Test:
+```powershell
+.\LogTailPro.exe --window-state 2 app.log
+.\LogTailPro.exe --tile-window-count 2 --tile-window-index 0 app.log
+.\LogTailPro.exe --tile-window-count 2 --tile-window-index 1 error.log
+```
+
+---
+
+## Git Commit (Do This Before Moving to Next Phase)
+
+```bash
+git add -A
+git commit -m "Phase 4 complete: multi-tab, drag reorder, tab positioning, CLI args, window tiling"
+```
+
+Do not proceed to Phase 5 until this commit succeeds.

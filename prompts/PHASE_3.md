@@ -316,3 +316,14 @@ $sw.Close()
 
 ## Phase 3 Complete When
 All checkboxes above are ticked. Then read `PHASE_4.md`.
+
+---
+
+## Git Commit (Do This Before Moving to Next Phase)
+
+```bash
+git add -A
+git commit -m "Phase 3 complete: large file support, chunked tail load, Go To Line"
+```
+
+Do not proceed to Phase 4 until this commit succeeds.

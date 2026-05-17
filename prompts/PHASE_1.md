@@ -186,3 +186,14 @@ dotnet build src/LogTailPro/LogTailPro.csproj
 
 ## Phase 1 Complete When
 All checkboxes above are ticked. Then read `PHASE_2.md`.
+
+---
+
+## Git Commit (Do This Before Moving to Next Phase)
+
+```bash
+git add -A
+git commit -m "Phase 1 complete: core log viewer with real-time tailing and follow-tail"
+```
+
+Do not proceed to Phase 2 until this commit succeeds.

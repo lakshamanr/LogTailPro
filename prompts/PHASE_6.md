@@ -347,3 +347,104 @@ dotnet publish ...
 
 When this checklist is fully ticked, LogTailPro is done.
 The EXE is at `./publish/LogTailPro.exe`.
+
+---
+
+## Step 8b: Proper Export Dialog (matching BareTailPro exactly)
+
+The simple export in Step 2 must be replaced with a full column-configurable export dialog.
+
+### ExportColumn model
+```csharp
+public sealed class ExportColumn
+{
+    public string Name { get; set; } = string.Empty;   // "Timestamp", "Line#", "Text", "Group 1"
+    public bool IsIncluded { get; set; } = true;
+    public string Prefix { get; set; } = string.Empty;
+    public string Suffix { get; set; } = "\t";
+    public ExportWidth WidthMode { get; set; } = ExportWidth.Off;
+    public int FixedWidth { get; set; } = 0;
+    public ExportAlignment Alignment { get; set; } = ExportAlignment.Left;
+    public string TruncateLeft { get; set; } = "...";
+    public string TruncateRight { get; set; } = "...";
+}
+
+public enum ExportWidth { Off, Auto, Fixed }
+public enum ExportAlignment { Left, Right, Center, Decimal }
+```
+
+### Export dialog layout
+```
++-----------------------------------------------+
+| Export Search Results                          |
+|                                                |
+| Columns:                                       |
+| [x] Timestamp  Prefix:[ ] Suffix:[\t] Width:[Auto] Align:[Left]  |
+| [x] Line #     Prefix:[ ] Suffix:[\t] Width:[Auto] Align:[Right] |
+| [x] Text       Prefix:[ ] Suffix:[\n] Width:[Off]  Align:[Left]  |
+| [ ] Group 1    Prefix:[ ] Suffix:[\t] Width:[Off]  Align:[Left]  |
+|                                                |
+| Escape sequences supported: \t \n \r \\ etc   |
+|                                                |
+| [Export to File]  [Copy to Clipboard]  [Cancel]|
++-----------------------------------------------+
+```
+
+Escape sequence handling for prefix/suffix:
+```csharp
+private static string UnescapeString(string s)
+{
+    return s.Replace("\\t", "\t")
+            .Replace("\\n", "\n")
+            .Replace("\\r", "\r")
+            .Replace("\\v", "\v")
+            .Replace("\\b", "\b")
+            .Replace("\\f", "\f")
+            .Replace("\\a", "\a")
+            .Replace("\\\\", "\\");
+}
+```
+
+Column width formatting:
+```csharp
+private static string FormatColumn(string value, ExportColumn col)
+{
+    string prefix = UnescapeString(col.Prefix);
+    string suffix = UnescapeString(col.Suffix);
+
+    if (col.WidthMode == ExportWidth.Off)
+        return prefix + value + suffix;
+
+    int width = col.WidthMode == ExportWidth.Auto
+        ? value.Length  // caller must pre-compute max width
+        : col.FixedWidth;
+
+    string fitted = col.Alignment switch
+    {
+        ExportAlignment.Left  => value.PadRight(width),
+        ExportAlignment.Right => value.PadLeft(width),
+        ExportAlignment.Center =>
+            value.PadLeft((width + value.Length) / 2).PadRight(width),
+        _ => value.PadRight(width)
+    };
+
+    if (fitted.Length > width)
+    {
+        fitted = col.Alignment == ExportAlignment.Left
+            ? fitted[..(width - col.TruncateRight.Length)] + col.TruncateRight
+            : col.TruncateLeft + fitted[(fitted.Length - width + col.TruncateLeft.Length)..];
+    }
+
+    return prefix + fitted + suffix;
+}
+```
+
+---
+
+## Git Commit - Final Release
+
+```bash
+git add -A
+git commit -m "Phase 6 complete: notifications, configurable export, stats panel, single EXE published"
+git tag v1.0.0
+```

@@ -426,3 +426,39 @@ dotnet build src/LogTailPro/LogTailPro.csproj
 
 ## Phase 5 Complete When
 All checkboxes above are ticked. Then read `PHASE_6.md`.
+
+---
+
+## Step 8b: Additional Settings (from Official Docs)
+
+Add these to SettingsDialog.xaml:
+
+**Text Rendering:**
+- TAB width: NumericUpDown (1-16, default 8) -- expands \t to spaces
+- Line spacing multiplier: Slider (0.8-2.0, default 1.0)
+- Font character offset: NumericUpDown (-5 to 5 px)
+
+**Preferences Storage:**
+- RadioButtons: "Save to File" | "Save to Registry" | "Don't save on exit"
+- "Load preferences from file" button -- loads a shared .cfg
+- "Save preferences to file" button -- saves a sharable .cfg
+
+**Network:**
+- Polling interval for network files (ms): NumericUpDown (500-10000, default 2000)
+
+**Startup:**
+- Automatically open last file on startup: CheckBox (default true)
+
+Implement TAB expansion in LogParserService as specified in SKILL.md section 11.
+Apply tab expansion BEFORE adding a line to _allLines.
+
+---
+
+## Git Commit (Do This Before Moving to Next Phase)
+
+```bash
+git add -A
+git commit -m "Phase 5 complete: highlight rules, TAB expansion, IIS format, settings dialog"
+```
+
+Do not proceed to Phase 6 until this commit succeeds.

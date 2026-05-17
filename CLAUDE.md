@@ -6,13 +6,50 @@ The end product must be a functional clone of **BareTailPro** — and then exten
 This is a commercial-quality desktop application. Do not cut corners.
 
 ## Golden Rules (Never Break These)
-1. **Read the SKILL.md before writing any code.** It is at `./SKILL.md`.
-2. **Read the current phase file before starting each phase.** They are in `./prompts/`.
-3. **Always review the plan before implementing.** Output a summary of what you will do, wait, then build.
-4. **Never skip a phase.** Each phase builds on the last.
-5. **After each phase, run the build and fix all errors before moving on.**
-6. **Write clean, commented, production-quality C# code.**
-7. **Use MVVM architecture strictly.** No business logic in code-behind.
+1. **Read CHANGELOG.md first, every session.** It tells you what changed in the plan.
+2. **Read SKILL.md before writing any code.** It is at `./SKILL.md`.
+3. **Read the current phase file before starting each phase.** They are in `./prompts/`.
+4. **Always review the plan before implementing.** Output a summary of what you will do, wait, then build.
+5. **Never skip a phase.** Each phase builds on the last.
+6. **After each phase: build, fix all errors, then git commit.**
+7. **Write clean, commented, production-quality C# code.**
+8. **Use MVVM architecture strictly.** No business logic in code-behind.
+
+---
+
+## Git Workflow (After Every Phase)
+
+Initialise git once at the very start:
+```bash
+git init
+echo "bin/\nobj/\npublish/\n*.user\n.vs/" > .gitignore
+git add -A
+git commit -m "Initial scaffold: solution, project structure"
+```
+
+After each phase passes its build and checklist:
+```bash
+git add -A
+git commit -m "Phase N complete: <one line description>"
+```
+
+Commit messages to use:
+- Phase 1: `Phase 1 complete: core log viewer with real-time tailing and follow-tail`
+- Phase 2: `Phase 2 complete: regex search, filter mode, results table, saved patterns`
+- Phase 3: `Phase 3 complete: large file support, chunked tail load, Go To Line`
+- Phase 4: `Phase 4 complete: multi-tab, drag reorder, tab positioning, CLI args`
+- Phase 5: `Phase 5 complete: highlight rules, TAB expansion, settings dialog`
+- Phase 6: `Phase 6 complete: notifications, configurable export, stats panel, EXE publish`
+
+Never commit broken code. Never commit bin/, obj/, or publish/.
+
+---
+
+## How Plan Changes Work
+
+Before every session, read CHANGELOG.md.
+If the version is newer than what you last built, re-read the affected phase files listed in that changelog entry.
+You do not need to redo completed phases unless the changelog explicitly says so.
 
 ---
 

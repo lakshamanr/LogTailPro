@@ -1,0 +1,166 @@
+<Window x:Class="LogTailPro.Views.HighlightRulesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="clr-namespace:LogTailPro.Converters"
+        xmlns:vm="clr-namespace:LogTailPro.ViewModels"
+        mc:Ignorable="d"
+        Title="Highlight Rules" Height="540" Width="740"
+        WindowStartupLocation="CenterOwner"
+        d:DataContext="{d:DesignInstance Type={x:Type vm:HighlightRulesViewModel}}">
+
+    <Window.Resources>
+        <conv:HighlightColorConverter x:Key="HighlightColorConverter"/>
+        <conv:HexToColorConverter    x:Key="HexToColorConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:BoolToTextConverter x:Key="BoolToText" TrueText="Regex" FalseText="Text"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══ Rule list + side buttons ══ -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="86"/>
+            </Grid.ColumnDefinitions>
+
+            <ListView Grid.Column="0"
+                      ItemsSource="{Binding Rules}"
+                      SelectedItem="{Binding SelectedRule}"
+                      Margin="0,0,6,0" BorderThickness="1">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="On" Width="36">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay,
+                                                          UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Pattern" Width="220">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Pattern}" FontFamily="Consolas" FontSize="12"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Mode" Width="52">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding IsRegex, Converter={StaticResource BoolToText}}"
+                                               FontSize="11" Opacity="0.7"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="FG" Width="36">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Width="22" Height="13"
+                                            Background="{Binding Converter={StaticResource HighlightColorConverter}, ConverterParameter=Foreground}"
+                                            BorderBrush="Gray" BorderThickness="1" CornerRadius="2"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="BG" Width="36">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Width="22" Height="13"
+                                            Background="{Binding Converter={StaticResource HighlightColorConverter}, ConverterParameter=Background}"
+                                            BorderBrush="Gray" BorderThickness="1" CornerRadius="2"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Preview" Width="170">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding Converter={StaticResource HighlightColorConverter}, ConverterParameter=Background}"
+                                            CornerRadius="2" Padding="4,1">
+                                        <TextBlock Text="{Binding Pattern}"
+                                                   Foreground="{Binding Converter={StaticResource HighlightColorConverter}, ConverterParameter=Foreground}"
+                                                   FontFamily="Consolas" FontSize="11"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                <Button Content="Add"     Command="{Binding AddRuleCommand}"    Margin="0,0,0,4" Padding="4"/>
+                <Button Content="Delete"  Command="{Binding DeleteRuleCommand}" Margin="0,0,0,4" Padding="4"/>
+                <Separator Margin="0,4"/>
+                <Button Content="▲ Up"   Command="{Binding MoveUpCommand}"     Margin="0,0,0,4" Padding="4"/>
+                <Button Content="▼ Down" Command="{Binding MoveDownCommand}"   Margin="0,0,0,4" Padding="4"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- ══ Edit panel ══ -->
+        <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="#555"
+                Margin="0,8,0,0" Padding="0,10,0,0"
+                IsEnabled="{Binding IsRuleSelected}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 0: pattern + toggles -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Pattern:" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding EditPattern, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas" Padding="4,3" Margin="0,0,6,0"/>
+                    <ToggleButton Grid.Column="2" Content=".*" IsChecked="{Binding EditIsRegex}"
+                                  ToolTip="Regular expression mode" Padding="6,3" Margin="0,0,4,0" Width="36"/>
+                    <ToggleButton Grid.Column="3" Content="Aa" IsChecked="{Binding EditIsCaseSensitive}"
+                                  ToolTip="Case sensitive" Padding="6,3" Width="36"/>
+                </Grid>
+
+                <!-- Row 1: colors + enabled -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+                    <Label Content="Foreground:" VerticalAlignment="Center" Padding="0,0,6,0"/>
+                    <Border Width="26" Height="22" Margin="0,0,4,0" BorderBrush="Gray" BorderThickness="1" CornerRadius="2"
+                            Background="{Binding EditForeground, Converter={StaticResource HexToColorConverter}}"/>
+                    <TextBox Width="88" Text="{Binding EditForeground, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas" Padding="4,3" Margin="0,0,16,0" VerticalAlignment="Center"/>
+
+                    <Label Content="Background:" VerticalAlignment="Center" Padding="0,0,6,0"/>
+                    <Border Width="26" Height="22" Margin="0,0,4,0" BorderBrush="Gray" BorderThickness="1" CornerRadius="2"
+                            Background="{Binding EditBackground, Converter={StaticResource HexToColorConverter}}"/>
+                    <TextBox Width="88" Text="{Binding EditBackground, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas" Padding="4,3" Margin="0,0,16,0" VerticalAlignment="Center"/>
+
+                    <CheckBox Content="Enabled" IsChecked="{Binding EditIsEnabled}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══ OK / Cancel ══ -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="OK"     Width="80" Margin="0,0,8,0" IsDefault="True"  Click="OK_Click"/>
+            <Button Content="Cancel" Width="80"                   IsCancel="True"   Click="Cancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
