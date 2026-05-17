@@ -182,6 +182,11 @@
         <!-- ═══ Status Bar ═══ -->
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
+                <TextBlock Text="{Binding SelectedTab.FileName, FallbackValue='No file open'}"
+                           FontWeight="SemiBold"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
                 <TextBlock Text="{Binding SelectedTab.StatusText, FallbackValue='Ready'}"/>
             </StatusBarItem>
             <Separator/>

@@ -109,4 +109,66 @@
         <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
     </Style>
 
+    <!-- ToggleButton (search panel .* / Aa toggles, toolbar) -->
+    <Style TargetType="ToggleButton">
+        <Setter Property="Background"   Value="{StaticResource TabBackgroundBrush}"/>
+        <Setter Property="Foreground"   Value="{StaticResource ForegroundBrush}"/>
+        <Setter Property="BorderBrush"  Value="{StaticResource BorderBrush}"/>
+        <Setter Property="Padding"      Value="6,2"/>
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- RadioButton -->
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+    </Style>
+
+    <!-- Label -->
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+    </Style>
+
+    <!-- ComboBox -->
+    <Style TargetType="ComboBox">
+        <Setter Property="Background"  Value="{StaticResource TabBackgroundBrush}"/>
+        <Setter Property="Foreground"  Value="{StaticResource ForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    </Style>
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#3F3F46"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ProgressBar -->
+    <Style TargetType="ProgressBar">
+        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    </Style>
+
+    <!-- ToolBar -->
+    <Style TargetType="ToolBar">
+        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+    </Style>
+
+    <!-- Separator -->
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{StaticResource BorderBrush}"/>
+    </Style>
+
 </ResourceDictionary>
