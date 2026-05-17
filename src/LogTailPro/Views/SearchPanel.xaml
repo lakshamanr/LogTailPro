@@ -179,6 +179,7 @@
                     <ColumnDefinition Width="240"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Label Grid.Column="0" Content="Saved:" VerticalAlignment="Center"
@@ -186,6 +187,7 @@
                 <ComboBox Grid.Column="1"
                           ItemsSource="{Binding Settings.SavedPatterns,
                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                          SelectedItem="{Binding SelectedSavedPattern, Mode=TwoWay}"
                           DisplayMemberPath="Name"
                           VerticalAlignment="Center">
                     <ComboBox.Style>
@@ -196,12 +198,6 @@
                             <Setter Property="Padding" Value="4,2"/>
                         </Style>
                     </ComboBox.Style>
-                    <ComboBox.ItemContainerStyle>
-                        <Style TargetType="ComboBoxItem">
-                            <EventSetter Event="PreviewMouseLeftButtonDown"
-                                         Handler="SavedPattern_Selected"/>
-                        </Style>
-                    </ComboBox.ItemContainerStyle>
                 </ComboBox>
                 <Button Grid.Column="2"
                         Content="Save"
@@ -209,6 +205,12 @@
                         Command="{Binding SavePatternCommand}"
                         ToolTip="Save current pattern"/>
                 <Button Grid.Column="3"
+                        Content="Delete"
+                        Style="{StaticResource SearchButtonStyle}"
+                        Command="{Binding DeleteSavedPatternCommand}"
+                        CommandParameter="{Binding SelectedSavedPattern}"
+                        ToolTip="Delete selected saved pattern"/>
+                <Button Grid.Column="4"
                         Content="Show Results"
                         Style="{StaticResource SearchButtonStyle}"
                         Command="{Binding ToggleSearchResultsCommand}"

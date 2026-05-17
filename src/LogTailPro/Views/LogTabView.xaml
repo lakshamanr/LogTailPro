@@ -283,7 +283,8 @@
                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <!-- Search results table -->
-                <ListView Grid.Row="2"
+                <ListView x:Name="SearchResultsListView"
+                          Grid.Row="2"
                           Grid.ColumnSpan="3"
                           ItemsSource="{Binding SearchResults}"
                           BorderThickness="0,1,0,0"
@@ -292,7 +293,8 @@
                           Visibility="{Binding IsSearchResultsVisible,
                                        Converter={StaticResource BoolToVisibilityConverter}}"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          GridViewColumnHeader.Click="SearchResults_ColumnHeaderClick">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Line" Width="60">

@@ -24,6 +24,8 @@ public sealed partial class HighlightRulesViewModel : ObservableObject
     [ObservableProperty] private bool _editIsEnabled = true;
     [ObservableProperty] private string _editForeground = "#FFFFFF";
     [ObservableProperty] private string _editBackground = "#FF4444";
+    [ObservableProperty] private bool _editNotifyOnMatch;
+    [ObservableProperty] private string _editNotifyTitle = "LogTailPro Alert";
 
     public HighlightRulesViewModel(IEnumerable<HighlightRule> existing)
     {
@@ -42,6 +44,8 @@ public sealed partial class HighlightRulesViewModel : ObservableObject
         EditIsEnabled = value.IsEnabled;
         EditForeground = value.ForegroundColor;
         EditBackground = value.BackgroundColor;
+        EditNotifyOnMatch = value.NotifyOnMatch;
+        EditNotifyTitle = value.NotifyTitle;
         _loading = false;
     }
 
@@ -51,6 +55,8 @@ public sealed partial class HighlightRulesViewModel : ObservableObject
     partial void OnEditIsEnabledChanged(bool value) => ApplyToSelected();
     partial void OnEditForegroundChanged(string value) => ApplyToSelected();
     partial void OnEditBackgroundChanged(string value) => ApplyToSelected();
+    partial void OnEditNotifyOnMatchChanged(bool value) => ApplyToSelected();
+    partial void OnEditNotifyTitleChanged(string value) => ApplyToSelected();
 
     private void ApplyToSelected()
     {
@@ -61,6 +67,8 @@ public sealed partial class HighlightRulesViewModel : ObservableObject
         SelectedRule.IsEnabled = EditIsEnabled;
         SelectedRule.ForegroundColor = EditForeground;
         SelectedRule.BackgroundColor = EditBackground;
+        SelectedRule.NotifyOnMatch = EditNotifyOnMatch;
+        SelectedRule.NotifyTitle = EditNotifyTitle;
         CollectionViewSource.GetDefaultView(Rules).Refresh();
     }
 
@@ -123,6 +131,8 @@ public sealed partial class HighlightRulesViewModel : ObservableObject
         ForegroundColor = r.ForegroundColor,
         BackgroundColor = r.BackgroundColor,
         IsEnabled = r.IsEnabled,
-        Priority = r.Priority
+        Priority = r.Priority,
+        NotifyOnMatch = r.NotifyOnMatch,
+        NotifyTitle = r.NotifyTitle
     };
 }

@@ -100,19 +100,18 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Tab strip placement ───────────────────────────────────────────────────
-
-    public void SetTabStripPlacement(Dock placement)
-    {
-        MainTabControl.TabStripPlacement = placement;
-    }
-
     // ── Window lifecycle ──────────────────────────────────────────────────────
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        ViewModel.Settings.WindowWidth = ActualWidth;
+        ViewModel.Settings.WindowWidth  = ActualWidth;
         ViewModel.Settings.WindowHeight = ActualHeight;
+        ViewModel.Settings.WindowMaximized = WindowState == WindowState.Maximized;
+        if (WindowState == WindowState.Normal)
+        {
+            ViewModel.Settings.WindowTop  = Top;
+            ViewModel.Settings.WindowLeft = Left;
+        }
         ViewModel.SaveSettings();
     }
 }

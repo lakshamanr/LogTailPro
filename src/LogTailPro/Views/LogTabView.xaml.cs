@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -161,6 +162,40 @@ public partial class LogTabView : UserControl
             if (line.MatchedRule.BackgroundColor is "#FFA500") return Colors.Orange;
         }
         return Colors.Transparent;
+    }
+
+    // ── Search results column sort ────────────────────────────────────────────
+
+    private string _sortColumn = string.Empty;
+    private ListSortDirection _sortDirection = ListSortDirection.Ascending;
+
+    private void SearchResults_ColumnHeaderClick(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not GridViewColumnHeader header || header.Content == null) return;
+        string column = header.Content.ToString() switch
+        {
+            "Line"       => nameof(SearchResultRow.LineNumber),
+            "Timestamp"  => nameof(SearchResultRow.Timestamp),
+            "Match text" => nameof(SearchResultRow.Text),
+            "Group 1"    => nameof(SearchResultRow.Group1),
+            "Group 2"    => nameof(SearchResultRow.Group2),
+            "Group 3"    => nameof(SearchResultRow.Group3),
+            _ => string.Empty
+        };
+        if (string.IsNullOrEmpty(column)) return;
+
+        if (_sortColumn == column)
+            _sortDirection = _sortDirection == ListSortDirection.Ascending
+                ? ListSortDirection.Descending : ListSortDirection.Ascending;
+        else
+        {
+            _sortColumn = column;
+            _sortDirection = ListSortDirection.Ascending;
+        }
+
+        ICollectionView view = CollectionViewSource.GetDefaultView(SearchResultsListView.ItemsSource);
+        view.SortDescriptions.Clear();
+        view.SortDescriptions.Add(new SortDescription(_sortColumn, _sortDirection));
     }
 
     private void NavCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

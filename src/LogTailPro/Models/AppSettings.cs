@@ -49,4 +49,7 @@ public sealed class AppSettings
 
     /// <summary>User-saved search patterns.</summary>
     public ObservableCollection<SavedSearchPattern> SavedPatterns { get; set; } = new();
+
+    /// <summary>Where the tab strip is placed relative to the content area.</summary>
+    public System.Windows.Controls.Dock TabStripPlacement { get; set; } = System.Windows.Controls.Dock.Top;
 }

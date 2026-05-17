@@ -74,10 +74,4 @@ public partial class SearchPanel : UserControl
         }
     }
 
-    private void SavedPattern_Selected(object sender, MouseButtonEventArgs e)
-    {
-        if (DataContext is not LogTabViewModel vm) return;
-        if (sender is ComboBoxItem { DataContext: SavedSearchPattern pattern })
-            vm.LoadPatternCommand.Execute(pattern);
-    }
 }

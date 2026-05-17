@@ -26,4 +26,10 @@ public sealed class HighlightRule
 
     /// <summary>Evaluation order — lower value means evaluated first.</summary>
     public int Priority { get; set; }
+
+    /// <summary>When true, a Windows toast is shown when a new log line matches this rule.</summary>
+    public bool NotifyOnMatch { get; set; }
+
+    /// <summary>Title shown in the toast notification when <see cref="NotifyOnMatch"/> fires.</summary>
+    public string NotifyTitle { get; set; } = "LogTailPro Alert";
 }

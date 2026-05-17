@@ -208,6 +208,7 @@
         <TabControl x:Name="MainTabControl"
                     ItemsSource="{Binding Tabs}"
                     SelectedItem="{Binding SelectedTab}"
+                    TabStripPlacement="{Binding Settings.TabStripPlacement}"
                     Background="{StaticResource BackgroundBrush}">
 
             <!-- Tab header template: status icon + filename + close button -->

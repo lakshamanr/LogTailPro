@@ -6,7 +6,7 @@
         xmlns:conv="clr-namespace:LogTailPro.Converters"
         xmlns:vm="clr-namespace:LogTailPro.ViewModels"
         mc:Ignorable="d"
-        Title="Highlight Rules" Height="540" Width="740"
+        Title="Highlight Rules" Height="560" Width="820"
         WindowStartupLocation="CenterOwner"
         d:DataContext="{d:DesignInstance Type={x:Type vm:HighlightRulesViewModel}}">
 
@@ -152,7 +152,19 @@
                     <TextBox Width="88" Text="{Binding EditBackground, UpdateSourceTrigger=PropertyChanged}"
                              FontFamily="Consolas" Padding="4,3" Margin="0,0,16,0" VerticalAlignment="Center"/>
 
-                    <CheckBox Content="Enabled" IsChecked="{Binding EditIsEnabled}" VerticalAlignment="Center"/>
+                    <CheckBox Content="Enabled" IsChecked="{Binding EditIsEnabled}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <CheckBox Content="Alert me" IsChecked="{Binding EditNotifyOnMatch}" VerticalAlignment="Center" Margin="0,0,6,0"
+                              ToolTip="Show a desktop notification when a new log line matches this rule"/>
+                    <TextBox Width="180"
+                             Text="{Binding EditNotifyTitle, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,2" VerticalAlignment="Center"
+                             ToolTip="Notification title">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="IsEnabled" Value="{Binding EditNotifyOnMatch}"/>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                 </StackPanel>
             </Grid>
         </Border>

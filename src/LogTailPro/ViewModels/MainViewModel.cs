@@ -264,17 +264,15 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SetTabPlacement(string side)
     {
-        if (Application.Current.MainWindow is MainWindow win)
+        System.Windows.Controls.Dock dock = side switch
         {
-            System.Windows.Controls.Dock dock = side switch
-            {
-                "Bottom" => System.Windows.Controls.Dock.Bottom,
-                "Left"   => System.Windows.Controls.Dock.Left,
-                "Right"  => System.Windows.Controls.Dock.Right,
-                _        => System.Windows.Controls.Dock.Top
-            };
-            win.SetTabStripPlacement(dock);
-        }
+            "Bottom" => System.Windows.Controls.Dock.Bottom,
+            "Left"   => System.Windows.Controls.Dock.Left,
+            "Right"  => System.Windows.Controls.Dock.Right,
+            _        => System.Windows.Controls.Dock.Top
+        };
+        Settings.TabStripPlacement = dock;
+        _settingsService.Save(Settings);
     }
 
     // ── App exit ─────────────────────────────────────────────────────────────

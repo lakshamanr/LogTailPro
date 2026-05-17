@@ -111,6 +111,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private ObservableCollection<SearchResultRow> _searchResults = new();
     [ObservableProperty] private bool _isSearchResultsVisible;
 
+    // ── Saved patterns ────────────────────────────────────────────────────────
+    [ObservableProperty] private SavedSearchPattern? _selectedSavedPattern;
+
     // ── Filter chain ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<FilterRuleViewModel> _filterRules = new();
 
@@ -119,6 +122,11 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public event EventHandler? NavigationBarInvalidated;
 
     // ── Property change hooks ─────────────────────────────────────────────────
+    partial void OnSelectedSavedPatternChanged(SavedSearchPattern? value)
+    {
+        if (value != null) LoadPatternCommand.Execute(value);
+    }
+
     partial void OnSearchTextChanged(string value) { _ = ApplySearchAsync(); }
     partial void OnIsRegexModeChanged(bool value) { _ = ApplySearchAsync(); }
     partial void OnIsCaseSensitiveChanged(bool value) { _ = ApplySearchAsync(); }
@@ -271,6 +279,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
             try { FileSizeBytes = new FileInfo(LogFile.FilePath).Length; } catch { }
             UpdateStats(created);
+            CheckForNotifications(created);
             UpdateStatus();
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
         }, DispatcherPriority.Background);
@@ -327,6 +336,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         else
         {
             _activePattern = null;
+            SearchResults.Clear();
+            IsSearchResultsVisible = false;
         }
 
         IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> compiledChain =
@@ -372,7 +383,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     SearchResults.Add(new SearchResultRow
                     {
                         LineNumber = line.LineNumber,
-                        Timestamp = line.Timestamp,
+                        // Use ArrivedAt (watcher time) if set, else fall back to log timestamp
+                        Timestamp = line.ArrivedAt != DateTime.MinValue ? line.ArrivedAt : line.Timestamp,
                         Text = line.Text,
                         Group1 = groups.Length > 0 ? groups[0] : string.Empty,
                         Group2 = groups.Length > 1 ? groups[1] : string.Empty,
@@ -381,6 +393,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     });
                 }
             }
+            IsSearchResultsVisible = SearchResults.Count > 0;
 
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
         }
@@ -649,6 +662,20 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             foreach (LogLine l in temp) VisibleLines.Add(l);
             UpdateStatsAll();
         });
+    }
+
+    private void CheckForNotifications(IReadOnlyList<LogLine> newLines)
+    {
+        IEnumerable<HighlightRule> notifyRules = _settings.HighlightRules
+            .Where(r => r.IsEnabled && r.NotifyOnMatch);
+
+        foreach (HighlightRule rule in notifyRules)
+        {
+            LogLine? match = newLines.FirstOrDefault(l =>
+                _highlightService.GetMatchingRule(l.Text, _compiledHighlightRules) == rule);
+            if (match != null)
+                NotificationService.Show(rule.NotifyTitle, $"[{FileName}] {match.Text}");
+        }
     }
 
     private void UpdateStats(IReadOnlyList<LogLine> newLines)
