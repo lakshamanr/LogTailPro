@@ -296,7 +296,7 @@
             </ComboBox>
 
             <TextBox IsReadOnly="True"
-                     Text="{Binding SelectedTab.FilePathWithSize, FallbackValue=''}"
+                     Text="{Binding SelectedTab.FilePathWithSize, Mode=OneWay, FallbackValue=''}"
                      Background="#111118"
                      Foreground="#666677"
                      BorderBrush="#333344"
