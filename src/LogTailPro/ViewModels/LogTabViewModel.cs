@@ -114,8 +114,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     // ── Saved patterns ────────────────────────────────────────────────────────
     [ObservableProperty] private SavedSearchPattern? _selectedSavedPattern;
 
+    /// <summary>Exposes the shared SavedPatterns collection for direct binding in SearchPanel.</summary>
+    public ObservableCollection<SavedSearchPattern> SavedPatterns => _settings.SavedPatterns;
+
     // ── Filter chain ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<FilterRuleViewModel> _filterRules = new();
+
+    // ── Detail / pretty-print panel ───────────────────────────────────────────
+    [ObservableProperty] private bool _isDetailPanelVisible;
+    [ObservableProperty] private string _detailText = string.Empty;
 
     // ── Events ────────────────────────────────────────────────────────────────
     public event EventHandler<LogLine>? ScrollToLineRequested;
@@ -130,7 +137,18 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     partial void OnSearchTextChanged(string value) { _ = ApplySearchAsync(); }
     partial void OnIsRegexModeChanged(bool value) { _ = ApplySearchAsync(); }
     partial void OnIsCaseSensitiveChanged(bool value) { _ = ApplySearchAsync(); }
-    partial void OnFilterModeChanged(FilterMode value) { _ = ApplySearchAsync(); }
+    partial void OnFilterModeChanged(FilterMode value)
+    {
+        OnPropertyChanged(nameof(FilterModeIndex));
+        _ = ApplySearchAsync();
+    }
+
+    /// <summary>Maps FilterMode enum (0/1/2) to ComboBox SelectedIndex — same ordinal order.</summary>
+    public int FilterModeIndex
+    {
+        get => (int)FilterMode;
+        set => FilterMode = (FilterMode)value;
+    }
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -211,7 +229,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             _watcher.NewLinesAvailable += OnNewLinesAvailable;
             _watcher.FileDeleted += OnFileDeleted;
             _watcher.FileTruncated += OnFileTruncated;
-            _watcher.StartWatching(LogFile.FilePath, result.FileSize, result.Encoding);
+            _watcher.StartWatching(LogFile.FilePath, result.TailStartByteOffset, result.Encoding);
         }
         catch (OperationCanceledException)
         {
@@ -383,12 +401,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     SearchResults.Add(new SearchResultRow
                     {
                         LineNumber = line.LineNumber,
-                        // Use ArrivedAt (watcher time) if set, else fall back to log timestamp
-                        Timestamp = line.ArrivedAt != DateTime.MinValue ? line.ArrivedAt : line.Timestamp,
+                        Timestamp = line.ArrivedAt != DateTime.MinValue
+                            ? line.ArrivedAt
+                            : line.Timestamp ?? DateTime.MinValue,
                         Text = line.Text,
                         Group1 = groups.Length > 0 ? groups[0] : string.Empty,
                         Group2 = groups.Length > 1 ? groups[1] : string.Empty,
                         Group3 = groups.Length > 2 ? groups[2] : string.Empty,
+                        CapturingGroups = groups.ToList(),
                         Source = line
                     });
                 }
@@ -537,15 +557,21 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private void SavePattern()
     {
         if (string.IsNullOrWhiteSpace(SearchText)) return;
-        string name = $"{(IsRegexMode ? ".*" : "Aa")} {SearchText}";
-        if (_settings.SavedPatterns.Any(p => p.Pattern == SearchText && p.IsRegex == IsRegexMode))
-            return;
+        string defaultName = $"{(IsRegexMode ? ".*" : "Aa")} {SearchText}";
+
+        NameInputDialog dlg = new("Save Pattern", "Pattern name:", defaultName)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.InputValue)) return;
+
         _settings.SavedPatterns.Add(new SavedSearchPattern
         {
-            Name = name,
+            Name = dlg.InputValue.Trim(),
             Pattern = SearchText,
             IsRegex = IsRegexMode,
-            IsCaseSensitive = IsCaseSensitive
+            IsCaseSensitive = IsCaseSensitive,
+            FilterMode = FilterMode
         });
     }
 
@@ -556,12 +582,64 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         SearchText = pattern.Pattern;
         IsRegexMode = pattern.IsRegex;
         IsCaseSensitive = pattern.IsCaseSensitive;
+        FilterMode = pattern.FilterMode;
     }
 
     [RelayCommand]
     private void DeleteSavedPattern(SavedSearchPattern? pattern)
     {
         if (pattern != null) _settings.SavedPatterns.Remove(pattern);
+    }
+
+    [RelayCommand]
+    private void PrettyPrint()
+    {
+        string? raw = SelectedLogLine?.Text;
+        if (string.IsNullOrWhiteSpace(raw)) return;
+
+        // Extract first JSON object/array or XML fragment found in the line
+        string pretty = TryPrettyPrintJson(raw) ?? TryPrettyPrintXml(raw) ?? raw;
+        DetailText = pretty;
+        IsDetailPanelVisible = true;
+    }
+
+    private static string? TryPrettyPrintJson(string text)
+    {
+        int start = text.IndexOfAny(['{', '[']);
+        if (start < 0) return null;
+        try
+        {
+            string candidate = text[start..];
+            using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(candidate);
+            return System.Text.Json.JsonSerializer.Serialize(
+                doc.RootElement,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { return null; }
+    }
+
+    private static string? TryPrettyPrintXml(string text)
+    {
+        int start = text.IndexOf('<');
+        if (start < 0) return null;
+        try
+        {
+            System.Xml.XmlDocument xml = new();
+            xml.LoadXml(text[start..]);
+            System.Text.StringBuilder sb = new();
+            using System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(sb,
+                new System.Xml.XmlWriterSettings { Indent = true, OmitXmlDeclaration = true });
+            xml.Save(writer);
+            return sb.ToString();
+        }
+        catch { return null; }
+    }
+
+    [RelayCommand]
+    private void CloseDetailPanel()
+    {
+        IsDetailPanelVisible = false;
+        DetailText = string.Empty;
     }
 
     [RelayCommand]

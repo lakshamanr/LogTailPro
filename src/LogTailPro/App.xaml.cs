@@ -36,10 +36,21 @@ public partial class App : Application
 
         window.Show();
 
+        // Open files specified on the command line
         foreach (string path in filePaths)
         {
             if (File.Exists(path))
                 _ = mainVm.OpenFileTabAsync(path);
+        }
+
+        // Auto-open last file when no CLI files were given and setting is enabled
+        if (filePaths.Count == 0
+            && mainVm.Settings.AutomaticallyOpenLastFileOnStartup
+            && mainVm.Settings.RecentFiles.Count > 0)
+        {
+            string lastFile = mainVm.Settings.RecentFiles[0];
+            if (File.Exists(lastFile))
+                _ = mainVm.OpenFileTabAsync(lastFile);
         }
     }
 

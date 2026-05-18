@@ -48,6 +48,7 @@
         <KeyBinding Key="D7"  Modifiers="Ctrl"       Command="{Binding SelectTabCommand}" CommandParameter="6"/>
         <KeyBinding Key="D8"  Modifiers="Ctrl"       Command="{Binding SelectTabCommand}" CommandParameter="7"/>
         <KeyBinding Key="D9"  Modifiers="Ctrl"       Command="{Binding SelectTabCommand}" CommandParameter="8"/>
+        <KeyBinding Key="P"   Modifiers="Ctrl"       Command="{Binding SelectedTab.PrettyPrintCommand}"/>
     </Window.InputBindings>
 
     <DockPanel LastChildFill="True">
@@ -63,6 +64,11 @@
                           InputGestureText="Ctrl+Shift+V"/>
                 <MenuItem Header="Watch _Directory…"
                           Command="{Binding WatchDirectoryCommand}"/>
+                <Separator/>
+                <MenuItem Header="Save _Workspace…"
+                          Command="{Binding SaveWorkspaceCommand}"/>
+                <MenuItem Header="Load Workspace…"
+                          Command="{Binding LoadWorkspaceCommand}"/>
                 <Separator/>
                 <MenuItem Header="Recent Files"
                           ItemsSource="{Binding Settings.RecentFiles}">
@@ -146,6 +152,12 @@
             <MenuItem Header="_Tools">
                 <MenuItem Header="Highlight Rules…"
                           Command="{Binding OpenHighlightRulesCommand}"/>
+                <MenuItem Header="Configure Log _Parser…"
+                          Command="{Binding OpenLogParserCommand}"/>
+                <Separator/>
+                <MenuItem Header="Pretty-Print Selected Line"
+                          Command="{Binding SelectedTab.PrettyPrintCommand}"
+                          InputGestureText="Ctrl+P"/>
                 <Separator/>
                 <MenuItem Header="Settings…"
                           Command="{Binding OpenSettingsCommand}"/>

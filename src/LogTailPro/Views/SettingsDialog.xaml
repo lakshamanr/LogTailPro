@@ -5,88 +5,145 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:LogTailPro.ViewModels"
         mc:Ignorable="d"
-        Title="Settings" Height="400" Width="460"
+        Title="Settings" Height="620" Width="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         d:DataContext="{d:DesignInstance Type={x:Type vm:SettingsViewModel}}">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ══ Sections ══ -->
-        <StackPanel Grid.Row="1">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
 
-            <!-- Appearance -->
-            <TextBlock Text="Appearance" FontWeight="Bold" Margin="0,0,0,8"/>
+                <!-- ══ Appearance ══ -->
+                <TextBlock Text="Appearance" FontWeight="Bold" Margin="0,0,0,8"/>
 
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Font Family:" VerticalAlignment="Center" Padding="0"/>
-                <ComboBox Grid.Column="1" SelectedValue="{Binding FontFamily}" SelectedValuePath="Content">
-                    <ComboBoxItem Content="Consolas"/>
-                    <ComboBoxItem Content="Courier New"/>
-                    <ComboBoxItem Content="Lucida Console"/>
-                    <ComboBoxItem Content="Cascadia Mono"/>
-                    <ComboBoxItem Content="Fixedsys"/>
-                </ComboBox>
-            </Grid>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Font Family:" VerticalAlignment="Center" Padding="0"/>
+                    <ComboBox Grid.Column="1" SelectedValue="{Binding FontFamily}" SelectedValuePath="Content">
+                        <ComboBoxItem Content="Consolas"/>
+                        <ComboBoxItem Content="Courier New"/>
+                        <ComboBoxItem Content="Lucida Console"/>
+                        <ComboBoxItem Content="Cascadia Mono"/>
+                        <ComboBoxItem Content="Fixedsys"/>
+                    </ComboBox>
+                </Grid>
 
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="80"/>
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Font Size (pt):" VerticalAlignment="Center" Padding="0"/>
-                <TextBox Grid.Column="1"
-                         Text="{Binding FontSize, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}"
-                         Padding="4,3"/>
-            </Grid>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Font Size (pt):" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding FontSize, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}"
+                             Padding="4,3"/>
+                </Grid>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                <Label Content="Theme:" Width="140" VerticalAlignment="Center" Padding="0"/>
-                <RadioButton Content="Dark"  IsChecked="{Binding IsDarkTheme}"  Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <RadioButton Content="Light" IsChecked="{Binding IsLightTheme}" VerticalAlignment="Center"/>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Line spacing (×):" VerticalAlignment="Center" Padding="0"/>
+                    <Slider Grid.Column="1"
+                            Value="{Binding LineSpacingMultiplier}"
+                            Minimum="0.8" Maximum="2.0" SmallChange="0.1" LargeChange="0.2"
+                            TickFrequency="0.2" IsSnapToTickEnabled="False"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Char offset (px):" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding FontCharacterOffsetPx, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3"
+                             ToolTip="Vertical pixel offset applied to the log font (-5 to 5)"/>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Label Content="Theme:" Width="160" VerticalAlignment="Center" Padding="0"/>
+                    <RadioButton Content="Dark"  IsChecked="{Binding IsDarkTheme}"  Margin="0,0,16,0" VerticalAlignment="Center"/>
+                    <RadioButton Content="Light" IsChecked="{Binding IsLightTheme}" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- ══ Behaviour ══ -->
+                <TextBlock Text="Behaviour" FontWeight="Bold" Margin="0,0,0,8"/>
+
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Max lines in memory:" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding MaxLinesInMemory, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Tab width (spaces):" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding TabWidth, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Network poll (ms):" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding NetworkPollingIntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3"
+                             ToolTip="Polling interval used when watching files on network shares (500–10000 ms)"/>
+                </Grid>
+
+                <CheckBox Content="Follow tail when opening a new file"
+                          IsChecked="{Binding FollowTailOnOpen}"
+                          Margin="0,0,0,6"/>
+
+                <CheckBox Content="Automatically open last file on startup"
+                          IsChecked="{Binding AutomaticallyOpenLastFileOnStartup}"
+                          Margin="0,0,0,16"/>
+
+                <!-- ══ Preferences Storage ══ -->
+                <TextBlock Text="Preferences Storage" FontWeight="Bold" Margin="0,0,0,8"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <RadioButton Content="Save to file"
+                                 IsChecked="{Binding PrefStorageFile}"
+                                 Margin="0,0,16,0" VerticalAlignment="Center"/>
+                    <RadioButton Content="Save to registry"
+                                 IsChecked="{Binding PrefStorageRegistry}"
+                                 Margin="0,0,16,0" VerticalAlignment="Center"/>
+                    <RadioButton Content="Don't save on exit"
+                                 IsChecked="{Binding PrefStorageNone}"
+                                 VerticalAlignment="Center"/>
+                </StackPanel>
+
             </StackPanel>
-
-            <!-- Behaviour -->
-            <TextBlock Text="Behaviour" FontWeight="Bold" Margin="0,0,0,8"/>
-
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="120"/>
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Max lines in memory:" VerticalAlignment="Center" Padding="0"/>
-                <TextBox Grid.Column="1"
-                         Text="{Binding MaxLinesInMemory, UpdateSourceTrigger=PropertyChanged}"
-                         Padding="4,3"/>
-            </Grid>
-
-            <CheckBox Content="Follow tail when opening a new file"
-                      IsChecked="{Binding FollowTailOnOpen}"
-                      Margin="0,0,0,6"/>
-
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="80"/>
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Tab width (spaces):" VerticalAlignment="Center" Padding="0"/>
-                <TextBox Grid.Column="1"
-                         Text="{Binding TabWidth, UpdateSourceTrigger=PropertyChanged}"
-                         Padding="4,3"/>
-            </Grid>
-        </StackPanel>
+        </ScrollViewer>
 
         <!-- ══ OK / Cancel ══ -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK"     Width="80" Margin="0,0,8,0" IsDefault="True"  Click="OK_Click"/>
             <Button Content="Cancel" Width="80"                   IsCancel="True"   Click="Cancel_Click"/>
         </StackPanel>

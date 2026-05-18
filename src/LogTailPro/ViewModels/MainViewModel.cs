@@ -7,6 +7,7 @@ using LogTailPro.Models;
 using LogTailPro.Services;
 using LogTailPro.Views;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 
 namespace LogTailPro.ViewModels;
 
@@ -217,7 +218,92 @@ public sealed partial class MainViewModel : ObservableObject
         _settingsService.Save(Settings);
     }
 
+    // ── Workspace ─────────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private async Task SaveWorkspaceAsync()
+    {
+        SaveFileDialog dlg = new()
+        {
+            Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
+            FileName = "workspace.ltpw",
+            Title = "Save Workspace"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        Workspace ws = new()
+        {
+            ActiveTabIndex = SelectedTab != null ? Tabs.IndexOf(SelectedTab) : 0,
+            Tabs = Tabs.Where(t => File.Exists(t.FilePath)).Select(t => new WorkspaceTab
+            {
+                FilePath = t.FilePath,
+                SearchText = t.SearchText,
+                IsRegex = t.IsRegexMode,
+                IsCaseSensitive = t.IsCaseSensitive,
+                FilterMode = t.FilterMode,
+                BookmarkedLines = t.Bookmarks.Select(b => b.LineNumber).ToList()
+            }).ToList()
+        };
+
+        await File.WriteAllTextAsync(dlg.FileName,
+            JsonConvert.SerializeObject(ws, Formatting.Indented));
+        StatusMessage = $"Workspace saved to {Path.GetFileName(dlg.FileName)}";
+    }
+
+    [RelayCommand]
+    private async Task LoadWorkspaceAsync()
+    {
+        OpenFileDialog dlg = new()
+        {
+            Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
+            Title = "Load Workspace"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        Workspace? ws = JsonConvert.DeserializeObject<Workspace>(
+            await File.ReadAllTextAsync(dlg.FileName));
+        if (ws == null) return;
+
+        // Close all current tabs
+        foreach (LogTabViewModel tab in Tabs.ToList()) tab.Dispose();
+        Tabs.Clear();
+        SelectedTab = null;
+
+        foreach (WorkspaceTab wt in ws.Tabs)
+        {
+            if (!File.Exists(wt.FilePath)) continue;
+            await OpenFileTabAsync(wt.FilePath);
+            if (SelectedTab == null) continue;
+            SelectedTab.SearchText = wt.SearchText;
+            SelectedTab.IsRegexMode = wt.IsRegex;
+            SelectedTab.IsCaseSensitive = wt.IsCaseSensitive;
+            SelectedTab.FilterMode = wt.FilterMode;
+        }
+
+        if (ws.ActiveTabIndex >= 0 && ws.ActiveTabIndex < Tabs.Count)
+            SelectedTab = Tabs[ws.ActiveTabIndex];
+
+        StatusMessage = $"Workspace loaded: {Path.GetFileName(dlg.FileName)}";
+    }
+
     // ── Tools ─────────────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void OpenLogParser()
+    {
+        LogParserDialog dlg = new(Settings.LogParserPreset)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        Settings.LogParserPreset = dlg.ClearParser ? string.Empty
+            : (dlg.ViewModel.SelectedPreset?.Name ?? string.Empty);
+        _settingsService.Save(Settings);
+        StatusMessage = dlg.ClearParser
+            ? "Log parser disabled."
+            : $"Log parser set to: {Settings.LogParserPreset}";
+    }
 
     [RelayCommand]
     private void OpenHighlightRules()

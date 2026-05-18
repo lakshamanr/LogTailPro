@@ -13,6 +13,7 @@
         <conv:HighlightColorConverter x:Key="HighlightColorConverter"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter"/>
+        <conv:BoolToWrapConverter x:Key="BoolToWrapConverter"/>
         <SolidColorBrush x:Key="SearchMatchBrush"    Color="#2A4A2A"/>
         <SolidColorBrush x:Key="ElapsedWarningBrush" Color="#FF8800"/>
         <SolidColorBrush x:Key="ElapsedCriticalBrush" Color="#CC2222"/>
@@ -37,6 +38,41 @@
             <views:SearchPanel DockPanel.Dock="Top"
                                Visibility="{Binding IsSearchPanelVisible,
                                             Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <!-- Pretty-print / detail panel (Ctrl+P) -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="{StaticResource TabBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    MaxHeight="220"
+                    Visibility="{Binding IsDetailPanelVisible,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="6,4">
+                        <TextBlock DockPanel.Dock="Left" Text="Detail View"
+                                   FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{StaticResource ForegroundBrush}"/>
+                        <Button DockPanel.Dock="Right" Content="✕"
+                                Command="{Binding CloseDetailPanelCommand}"
+                                Padding="6,1" Margin="4,0,0,0"
+                                ToolTip="Close detail panel"/>
+                    </DockPanel>
+                    <TextBox Grid.Row="1"
+                             Text="{Binding DetailText, Mode=OneWay}"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             FontFamily="Consolas" FontSize="11"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Margin="6,0,6,6"/>
+                </Grid>
+            </Border>
 
             <!-- Follow-tail toggle + match count -->
             <Border DockPanel.Dock="Bottom"

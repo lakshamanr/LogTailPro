@@ -14,14 +14,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         FollowTailOnOpen = settings.FollowTailOnOpen;
         IsDarkTheme = settings.Theme == "Dark";
         TabWidth = settings.TabWidth;
+        AutomaticallyOpenLastFileOnStartup = settings.AutomaticallyOpenLastFileOnStartup;
+        NetworkPollingIntervalMs = settings.NetworkPollingIntervalMs;
+        LineSpacingMultiplier = settings.LineSpacingMultiplier;
+        FontCharacterOffsetPx = settings.FontCharacterOffsetPx;
+        PreferenceStorage = settings.PreferenceStorage;
     }
 
+    // ── Appearance ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _fontFamily = "Consolas";
     [ObservableProperty] private double _fontSize = 13.0;
-    [ObservableProperty] private int _maxLinesInMemory = 100_000;
-    [ObservableProperty] private bool _followTailOnOpen = true;
     [ObservableProperty] private bool _isDarkTheme = true;
-    [ObservableProperty] private int _tabWidth = 8;
+    [ObservableProperty] private double _lineSpacingMultiplier = 1.0;
+    [ObservableProperty] private int _fontCharacterOffsetPx = 0;
 
     partial void OnIsDarkThemeChanged(bool value) => OnPropertyChanged(nameof(IsLightTheme));
 
@@ -29,6 +34,27 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         get => !IsDarkTheme;
         set => IsDarkTheme = !value;
+    }
+
+    // ── Behaviour ─────────────────────────────────────────────────────────────
+    [ObservableProperty] private int _maxLinesInMemory = 100_000;
+    [ObservableProperty] private bool _followTailOnOpen = true;
+    [ObservableProperty] private int _tabWidth = 8;
+    [ObservableProperty] private bool _automaticallyOpenLastFileOnStartup = true;
+    [ObservableProperty] private int _networkPollingIntervalMs = 2000;
+
+    // ── Preferences storage ───────────────────────────────────────────────────
+    [ObservableProperty] private PreferenceStorage _preferenceStorage = PreferenceStorage.File;
+
+    public bool PrefStorageFile     { get => PreferenceStorage == PreferenceStorage.File;     set { if (value) PreferenceStorage = PreferenceStorage.File; } }
+    public bool PrefStorageRegistry { get => PreferenceStorage == PreferenceStorage.Registry; set { if (value) PreferenceStorage = PreferenceStorage.Registry; } }
+    public bool PrefStorageNone     { get => PreferenceStorage == PreferenceStorage.None;     set { if (value) PreferenceStorage = PreferenceStorage.None; } }
+
+    partial void OnPreferenceStorageChanged(PreferenceStorage value)
+    {
+        OnPropertyChanged(nameof(PrefStorageFile));
+        OnPropertyChanged(nameof(PrefStorageRegistry));
+        OnPropertyChanged(nameof(PrefStorageNone));
     }
 
     /// <summary>Applies edited values back to the live settings object.</summary>
@@ -40,5 +66,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.FollowTailOnOpen = FollowTailOnOpen;
         settings.Theme = IsDarkTheme ? "Dark" : "Light";
         settings.TabWidth = TabWidth;
+        settings.AutomaticallyOpenLastFileOnStartup = AutomaticallyOpenLastFileOnStartup;
+        settings.NetworkPollingIntervalMs = NetworkPollingIntervalMs;
+        settings.LineSpacingMultiplier = LineSpacingMultiplier;
+        settings.FontCharacterOffsetPx = FontCharacterOffsetPx;
+        settings.PreferenceStorage = PreferenceStorage;
     }
 }

@@ -52,4 +52,24 @@ public sealed class AppSettings
 
     /// <summary>Where the tab strip is placed relative to the content area.</summary>
     public System.Windows.Controls.Dock TabStripPlacement { get; set; } = System.Windows.Controls.Dock.Top;
+
+    // ── Phase 5 additions ─────────────────────────────────────────────────────
+
+    /// <summary>Re-open the most-recently-used file on startup.</summary>
+    public bool AutomaticallyOpenLastFileOnStartup { get; set; } = true;
+
+    /// <summary>Polling interval (ms) used when watching files over a network share.</summary>
+    public int NetworkPollingIntervalMs { get; set; } = 2000;
+
+    /// <summary>Line spacing multiplier applied to the log viewer (0.8–2.0).</summary>
+    public double LineSpacingMultiplier { get; set; } = 1.0;
+
+    /// <summary>Vertical pixel offset applied to characters in the log viewer font (-5..5).</summary>
+    public int FontCharacterOffsetPx { get; set; } = 0;
+
+    /// <summary>Where preferences are persisted.</summary>
+    public PreferenceStorage PreferenceStorage { get; set; } = PreferenceStorage.File;
+
+    /// <summary>Active log parser preset name (empty = none).</summary>
+    public string LogParserPreset { get; set; } = string.Empty;
 }

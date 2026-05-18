@@ -103,11 +103,11 @@
                               Style="{StaticResource ToggleButtonStyle}"
                               ToolTip="Match case (Alt+C)"/>
 
-                <!-- Filter mode selector -->
+                <!-- Filter mode selector — two-way bound to FilterModeIndex (0=None,1=Include,2=Exclude) -->
                 <ComboBox Grid.Column="4"
                           Margin="4,0"
                           VerticalAlignment="Center"
-                          SelectedIndex="0">
+                          SelectedIndex="{Binding FilterModeIndex, Mode=TwoWay}">
                     <ComboBox.Style>
                         <Style TargetType="ComboBox">
                             <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
@@ -116,12 +116,9 @@
                             <Setter Property="Padding"     Value="4,2"/>
                         </Style>
                     </ComboBox.Style>
-                    <ComboBoxItem Content="Highlight only" Tag="None"
-                                  Selected="FilterModeItem_Selected"/>
-                    <ComboBoxItem Content="Show only matching" Tag="IncludeMatching"
-                                  Selected="FilterModeItem_Selected"/>
-                    <ComboBoxItem Content="Hide matching" Tag="ExcludeMatching"
-                                  Selected="FilterModeItem_Selected"/>
+                    <ComboBoxItem Content="Highlight only"/>
+                    <ComboBoxItem Content="Show only matching"/>
+                    <ComboBoxItem Content="Hide matching"/>
                 </ComboBox>
 
                 <!-- Match count -->
@@ -185,8 +182,7 @@
                 <Label Grid.Column="0" Content="Saved:" VerticalAlignment="Center"
                        Foreground="{StaticResource ForegroundBrush}" Padding="0,0,4,0"/>
                 <ComboBox Grid.Column="1"
-                          ItemsSource="{Binding Settings.SavedPatterns,
-                                        RelativeSource={RelativeSource AncestorType=Window}}"
+                          ItemsSource="{Binding SavedPatterns}"
                           SelectedItem="{Binding SelectedSavedPattern, Mode=TwoWay}"
                           DisplayMemberPath="Name"
                           VerticalAlignment="Center">
