@@ -13,33 +13,23 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter"/>
 
-        <Style x:Key="ToggleButtonStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="Padding"    Value="6,2"/>
-            <Setter Property="Margin"     Value="2,0"/>
-            <Setter Property="MinWidth"   Value="28"/>
-            <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-                    <Setter Property="Foreground" Value="White"/>
-                </Trigger>
-            </Style.Triggers>
+        <Style x:Key="ToggleButtonStyle" TargetType="ToggleButton"
+               BasedOn="{StaticResource ToolbarToggle}">
+            <Setter Property="Margin"   Value="2,0"/>
+            <Setter Property="Padding"  Value="6,2"/>
+            <Setter Property="MinWidth" Value="28"/>
         </Style>
 
-        <Style x:Key="SearchButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="Padding"    Value="6,2"/>
-            <Setter Property="Margin"     Value="2,0"/>
-            <Setter Property="MinWidth"   Value="28"/>
+        <Style x:Key="SearchButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Margin"   Value="2,0"/>
+            <Setter Property="Padding"  Value="6,2"/>
+            <Setter Property="MinWidth" Value="28"/>
         </Style>
     </UserControl.Resources>
 
-    <Border Background="{StaticResource SearchBarBrush}"
-            BorderBrush="{StaticResource BorderBrush}"
+    <Border Background="{StaticResource BgElevated}"
+            BorderBrush="{StaticResource BorderSubtle}"
             BorderThickness="0,0,0,1">
         <StackPanel>
 
@@ -79,9 +69,9 @@
                     </Border.Style>
                     <TextBox x:Name="SearchBox"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             Background="{StaticResource SearchBarBrush}"
-                             Foreground="{StaticResource ForegroundBrush}"
-                             CaretBrush="{StaticResource ForegroundBrush}"
+                             Background="{StaticResource BgInput}"
+                             Foreground="{StaticResource TextPrimary}"
+                             CaretBrush="{StaticResource TextPrimary}"
                              BorderThickness="0"
                              Padding="4,3"
                              VerticalAlignment="Center"

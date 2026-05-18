@@ -1,167 +1,231 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Core palette -->
-    <Color x:Key="BackgroundColor">#FFFFFF</Color>
-    <Color x:Key="ForegroundColor">#1E1E1E</Color>
-    <Color x:Key="AccentColor">#0078D4</Color>
-    <Color x:Key="TabBackground">#F3F3F3</Color>
-    <Color x:Key="SearchBarBackground">#F5F5F5</Color>
-    <Color x:Key="BorderColor">#CCCCCC</Color>
-    <Color x:Key="SelectionColor">#ADD6FF</Color>
-    <Color x:Key="StatusBarBackground">#0078D4</Color>
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!--  DESIGN TOKENS — LIGHT THEME                                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Brushes -->
-    <SolidColorBrush x:Key="BackgroundBrush"      Color="{StaticResource BackgroundColor}"/>
-    <SolidColorBrush x:Key="ForegroundBrush"      Color="{StaticResource ForegroundColor}"/>
-    <SolidColorBrush x:Key="AccentBrush"          Color="{StaticResource AccentColor}"/>
-    <SolidColorBrush x:Key="TabBackgroundBrush"   Color="{StaticResource TabBackground}"/>
-    <SolidColorBrush x:Key="SearchBarBrush"       Color="{StaticResource SearchBarBackground}"/>
-    <SolidColorBrush x:Key="BorderBrush"          Color="{StaticResource BorderColor}"/>
-    <SolidColorBrush x:Key="SelectionBrush"       Color="{StaticResource SelectionColor}"/>
-    <SolidColorBrush x:Key="StatusBarBrush"       Color="{StaticResource StatusBarBackground}"/>
+    <!-- Background layers -->
+    <SolidColorBrush x:Key="BgBase"     Color="#F5F5F5"/>
+    <SolidColorBrush x:Key="BgElevated" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BgSurface"  Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="BgOverlay"  Color="#D8D8D8"/>
+    <SolidColorBrush x:Key="BgInput"    Color="#FFFFFF"/>
 
-    <!-- Window -->
+    <!-- Borders -->
+    <SolidColorBrush x:Key="BorderSubtle" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="BorderNormal" Color="#C8C8C8"/>
+    <SolidColorBrush x:Key="BorderFocus"  Color="#0078D4"/>
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextPrimary"   Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#6A6A6A"/>
+    <SolidColorBrush x:Key="TextDisabled"  Color="#AAAAAA"/>
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"      Color="#0078D4"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#0066B3"/>
+    <SolidColorBrush x:Key="AccentMuted" Color="#200078D4"/>
+
+    <!-- Semantic status -->
+    <SolidColorBrush x:Key="StatusGreen"  Color="#2E7D32"/>
+    <SolidColorBrush x:Key="StatusRed"    Color="#C62828"/>
+    <SolidColorBrush x:Key="StatusYellow" Color="#F57F17"/>
+    <SolidColorBrush x:Key="StatusError"  Color="#CC3333"/>
+    <SolidColorBrush x:Key="StatusWarn"   Color="#CC7A00"/>
+
+    <!-- Search / highlight -->
+    <SolidColorBrush x:Key="SearchMatchBg"   Color="#FFF3B0"/>
+    <SolidColorBrush x:Key="SearchMatchFg"   Color="#5D4037"/>
+    <SolidColorBrush x:Key="SearchCurrentBg" Color="#FFD54F"/>
+
+    <!-- Typography -->
+    <FontFamily x:Key="MonoFont">Consolas, Courier New</FontFamily>
+    <FontFamily x:Key="UiFont">Segoe UI</FontFamily>
+    <system:Double x:Key="MonoSize">13</system:Double>
+    <system:Double x:Key="UiSize">12</system:Double>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!--  BACKWARD-COMPAT ALIASES                                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+    <SolidColorBrush x:Key="BackgroundBrush"    Color="#F5F5F5"/>
+    <SolidColorBrush x:Key="ForegroundBrush"    Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="TabBackgroundBrush" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="SearchBarBrush"     Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BorderBrush"        Color="#C8C8C8"/>
+    <SolidColorBrush x:Key="SelectionBrush"     Color="#D8D8D8"/>
+    <SolidColorBrush x:Key="AccentBrush"        Color="#0078D4"/>
+    <SolidColorBrush x:Key="StatusBarBrush"     Color="#0078D4"/>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!--  GLOBAL CONTROL STYLES                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+
     <Style TargetType="Window">
-        <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+        <Setter Property="Background"  Value="{StaticResource BgBase}"/>
+        <Setter Property="Foreground"  Value="{StaticResource TextPrimary}"/>
+        <Setter Property="FontFamily"  Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize"    Value="{StaticResource UiSize}"/>
     </Style>
 
-    <!-- Menu -->
     <Style TargetType="Menu">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+        <Setter Property="Background"      Value="{StaticResource BgSurface}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
     <Style TargetType="MenuItem">
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="Padding"    Value="10,5"/>
     </Style>
 
-    <!-- TabControl -->
-    <Style TargetType="TabControl">
-        <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    <Style TargetType="ToolBar">
+        <Setter Property="Background"      Value="{StaticResource BgElevated}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Height"          Value="34"/>
+        <Setter Property="Padding"         Value="4,0"/>
     </Style>
-    <Style TargetType="TabItem">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
+
+    <Style TargetType="Button">
+        <Setter Property="Background"      Value="{StaticResource BgSurface}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderNormal}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding"         Value="8,4"/>
+        <Setter Property="Cursor"          Value="Hand"/>
+    </Style>
+
+    <Style TargetType="ToggleButton">
+        <Setter Property="Background"      Value="{StaticResource BgSurface}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderNormal}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding"         Value="8,4"/>
+        <Setter Property="Cursor"          Value="Hand"/>
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{StaticResource AccentMuted}"/>
+                <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Background"      Value="{StaticResource BgInput}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderNormal}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding"         Value="6,4"/>
+        <Style.Triggers>
+            <Trigger Property="IsFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource BorderFocus}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="Background"  Value="{StaticResource BgInput}"/>
+        <Setter Property="Foreground"  Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
+    </Style>
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         <Setter Property="Padding"    Value="8,4"/>
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
-    <!-- ListView / log viewer -->
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width"      Value="8"/>
+        <Setter Property="MinWidth"   Value="8"/>
+    </Style>
+
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="Margin"     Value="4,4"/>
+    </Style>
+
+    <Style TargetType="ProgressBar">
+        <Setter Property="Background"      Value="{StaticResource BgOverlay}"/>
+        <Setter Property="Foreground"      Value="{StaticResource Accent}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
     <Style TargetType="ListView">
-        <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="Background"      Value="{StaticResource BgBase}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style TargetType="ListViewItem">
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="Padding"    Value="4,1"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+        <Setter Property="Padding"         Value="4,1"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource SelectionBrush}"/>
+                <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- GridViewColumnHeader -->
     <Style TargetType="GridViewColumnHeader">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="Padding"    Value="4,3"/>
+        <Setter Property="Background"               Value="{StaticResource BgSurface}"/>
+        <Setter Property="Foreground"               Value="{StaticResource TextSecondary}"/>
+        <Setter Property="BorderBrush"              Value="{StaticResource BorderNormal}"/>
+        <Setter Property="BorderThickness"          Value="0,0,1,1"/>
+        <Setter Property="Padding"                  Value="8,4"/>
+        <Setter Property="FontSize"                 Value="11"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
     </Style>
 
-    <!-- StatusBar -->
     <Style TargetType="StatusBar">
-        <Setter Property="Background" Value="{StaticResource StatusBarBrush}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background"      Value="{StaticResource BgElevated}"/>
+        <Setter Property="Foreground"      Value="{StaticResource TextSecondary}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+        <Setter Property="Height"          Value="26"/>
+    </Style>
+    <Style TargetType="StatusBarItem">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+        <Setter Property="FontSize"   Value="11"/>
     </Style>
 
-    <!-- TextBox -->
-    <Style TargetType="TextBox">
-        <Setter Property="Background" Value="{StaticResource SearchBarBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    <Style TargetType="TabControl">
+        <Setter Property="Background"      Value="{StaticResource BgBase}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"         Value="0"/>
     </Style>
 
-    <!-- Button -->
-    <Style TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-        <Setter Property="Padding"    Value="6,2"/>
+    <!-- Named styles — same keys as Dark.xaml so theme switching works -->
+    <Style x:Key="ToolbarButton"    TargetType="Button"       BasedOn="{StaticResource {x:Type Button}}"/>
+    <Style x:Key="ToolbarToggle"    TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"/>
+    <Style x:Key="PrimaryButton"    TargetType="Button">
+        <Setter Property="Background"  Value="{StaticResource Accent}"/>
+        <Setter Property="Foreground"  Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"     Value="16,7"/>
     </Style>
-
-    <!-- CheckBox -->
-    <Style TargetType="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-    </Style>
-
-    <!-- ScrollBar -->
-    <Style TargetType="ScrollBar">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-    </Style>
-
-    <!-- ToggleButton -->
-    <Style TargetType="ToggleButton">
-        <Setter Property="Background"  Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground"  Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-        <Setter Property="Padding"     Value="6,2"/>
-        <Style.Triggers>
-            <Trigger Property="IsChecked" Value="True">
-                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-                <Setter Property="Foreground" Value="White"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
-    <!-- RadioButton -->
-    <Style TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-    </Style>
-
-    <!-- Label -->
-    <Style TargetType="Label">
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-    </Style>
-
-    <!-- ComboBox -->
-    <Style TargetType="ComboBox">
-        <Setter Property="Background"  Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground"  Value="{StaticResource ForegroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-    </Style>
-    <Style TargetType="ComboBoxItem">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-        <Style.Triggers>
-            <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-                <Setter Property="Foreground" Value="White"/>
-            </Trigger>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource SelectionBrush}"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
-    <!-- ProgressBar -->
-    <Style TargetType="ProgressBar">
-        <Setter Property="Background"  Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground"  Value="{StaticResource AccentBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-    </Style>
-
-    <!-- ToolBar -->
-    <Style TargetType="ToolBar">
-        <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-    </Style>
-
-    <!-- Separator -->
-    <Style TargetType="Separator">
-        <Setter Property="Background" Value="{StaticResource BorderBrush}"/>
-    </Style>
+    <Style x:Key="SecondaryButton"  TargetType="Button"       BasedOn="{StaticResource {x:Type Button}}"/>
+    <Style x:Key="StatusBarToggle"  TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"/>
+    <Style x:Key="DarkTextBox"      TargetType="TextBox"      BasedOn="{StaticResource {x:Type TextBox}}"/>
 
 </ResourceDictionary>

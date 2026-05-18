@@ -59,6 +59,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     partial void OnFileStatusChanged(FileStatus value)
     {
         OnPropertyChanged(nameof(FileStatusIcon));
+        OnPropertyChanged(nameof(FileStatusText));
+    }
+
+    partial void OnFileSizeBytesChanged(long value)
+    {
+        OnPropertyChanged(nameof(FileSizeText));
     }
 
     /// <summary>Unicode icon reflecting <see cref="FileStatus"/> shown in the tab header.</summary>
@@ -70,6 +76,29 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         FileStatus.Deleted  => "✕",
         _                   => "●"
     };
+
+    /// <summary>Human-readable status label shown in the status bar.</summary>
+    public string FileStatusText => FileStatus switch
+    {
+        FileStatus.Watching => "Watching",
+        FileStatus.Paused   => "Paused",
+        FileStatus.Error    => "Error",
+        FileStatus.Deleted  => "Deleted",
+        _                   => "Unknown"
+    };
+
+    /// <summary>Human-readable file size for the status bar.</summary>
+    public string FileSizeText => FileSizeBytes switch
+    {
+        0                  => string.Empty,
+        < 1024             => $"{FileSizeBytes} B",
+        < 1024 * 1024      => $"{FileSizeBytes / 1024.0:F1} KB",
+        < 1024L * 1024 * 1024 => $"{FileSizeBytes / (1024.0 * 1024):F1} MB",
+        _                  => $"{FileSizeBytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+
+    /// <summary>Encoding name for the status bar (e.g. "UTF-8").</summary>
+    public string EncodingName => LogFile.Encoding.WebName.ToUpperInvariant();
 
     private long _totalLineCount;
     public long TotalLineCount

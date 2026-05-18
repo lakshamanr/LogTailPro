@@ -100,6 +100,17 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Toolbar ───────────────────────────────────────────────────────────────
+
+    private void ToolBar_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToolBar toolbar) return;
+        if (toolbar.Template.FindName("OverflowGrid", toolbar) is FrameworkElement overflow)
+            overflow.Visibility = Visibility.Collapsed;
+        if (toolbar.Template.FindName("MainPanelBorder", toolbar) is FrameworkElement mainPanel)
+            mainPanel.Margin = new Thickness(0);
+    }
+
     // ── Window lifecycle ──────────────────────────────────────────────────────
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)

@@ -14,7 +14,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter"/>
         <conv:BoolToWrapConverter x:Key="BoolToWrapConverter"/>
-        <SolidColorBrush x:Key="SearchMatchBrush"    Color="#2A4A2A"/>
+        <SolidColorBrush x:Key="SearchMatchBrush"    Color="#3D2B00"/>
         <SolidColorBrush x:Key="ElapsedWarningBrush" Color="#FF8800"/>
         <SolidColorBrush x:Key="ElapsedCriticalBrush" Color="#CC2222"/>
     </UserControl.Resources>
@@ -41,8 +41,8 @@
 
             <!-- Pretty-print / detail panel (Ctrl+P) -->
             <Border DockPanel.Dock="Bottom"
-                    Background="{StaticResource TabBackgroundBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
+                    Background="{StaticResource BgElevated}"
+                    BorderBrush="{StaticResource BorderSubtle}"
                     BorderThickness="0,1,0,0"
                     MaxHeight="220"
                     Visibility="{Binding IsDetailPanelVisible,
@@ -76,8 +76,8 @@
 
             <!-- Follow-tail toggle + match count -->
             <Border DockPanel.Dock="Bottom"
-                    Background="{StaticResource SearchBarBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
+                    Background="{StaticResource BgElevated}"
+                    BorderBrush="{StaticResource BorderSubtle}"
                     BorderThickness="0,1,0,0"
                     Padding="8,4">
                 <StackPanel Orientation="Horizontal">
@@ -126,6 +126,7 @@
 
                 <!-- Virtualized log line list -->
                 <ListView x:Name="LogListView"
+                          Background="{StaticResource BgBase}"
                           Grid.Row="0"
                           Grid.Column="0"
                           ItemsSource="{Binding VisibleLines}"
@@ -140,6 +141,19 @@
                           SelectionMode="Extended"
                           BorderThickness="0"
                           SelectionChanged="LogListView_SelectionChanged">
+
+                    <ListView.Resources>
+                        <!-- Hide column headers on the log viewer — they're visible in search results -->
+                        <Style TargetType="GridViewColumnHeader">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </Style>
+                        <!-- Thin dark scrollbar -->
+                        <Style TargetType="ScrollBar">
+                            <Setter Property="Width"      Value="8"/>
+                            <Setter Property="MinWidth"   Value="8"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </ListView.Resources>
 
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -283,8 +297,8 @@
                 <!-- Stats panel -->
                 <Border Grid.Row="0"
                         Grid.Column="2"
-                        Background="{StaticResource TabBackgroundBrush}"
-                        BorderBrush="{StaticResource BorderBrush}"
+                        Background="{StaticResource BgElevated}"
+                        BorderBrush="{StaticResource BorderSubtle}"
                         BorderThickness="1,0,0,0"
                         Width="160"
                         Padding="8"
@@ -324,8 +338,8 @@
                           Grid.ColumnSpan="3"
                           ItemsSource="{Binding SearchResults}"
                           BorderThickness="0,1,0,0"
-                          BorderBrush="{StaticResource BorderBrush}"
-                          Background="{StaticResource TabBackgroundBrush}"
+                          BorderBrush="{StaticResource BorderNormal}"
+                          Background="{StaticResource BgElevated}"
                           Visibility="{Binding IsSearchResultsVisible,
                                        Converter={StaticResource BoolToVisibilityConverter}}"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -398,7 +412,7 @@
         </DockPanel>
 
         <!-- Loading overlay — sits on top of the DockPanel -->
-        <Grid Background="#CC000000"
+        <Grid Background="#CC0D0D0D"
               Visibility="{Binding IsLoading,
                            Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
