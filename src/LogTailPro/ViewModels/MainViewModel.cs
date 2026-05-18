@@ -32,6 +32,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = "Ready";
 
+    /// <summary>Whether highlight rules are applied to log lines (toolbar checkbox).</summary>
+    [ObservableProperty]
+    private bool _isHighlightingEnabled = true;
+
     public MainViewModel(SettingsService settingsService)
     {
         _settingsService = settingsService;

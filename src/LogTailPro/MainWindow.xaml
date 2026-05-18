@@ -44,7 +44,6 @@
         <KeyBinding Key="B"    Modifiers="Ctrl"        Command="{Binding SelectedTab.ToggleBookmarkCommand}"/>
         <KeyBinding Key="F2"                           Command="{Binding SelectedTab.NextBookmarkCommand}"/>
         <KeyBinding Key="F2"   Modifiers="Shift"       Command="{Binding SelectedTab.PreviousBookmarkCommand}"/>
-        <KeyBinding Key="S"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.ToggleStatsPanelCommand}"/>
         <KeyBinding Key="V"    Modifiers="Ctrl+Shift"  Command="{Binding OpenFromClipboardCommand}"/>
         <KeyBinding Key="P"    Modifiers="Ctrl"        Command="{Binding SelectedTab.PrettyPrintCommand}"/>
         <KeyBinding Key="D1"   Modifiers="Ctrl"        Command="{Binding SelectTabCommand}" CommandParameter="0"/>
@@ -60,8 +59,12 @@
 
     <DockPanel LastChildFill="True">
 
-        <!-- ═══ Menu Bar ═══════════════════════════════════════════════════════ -->
-        <Menu DockPanel.Dock="Top">
+        <!-- ═══ 1. Menu Bar ════════════════════════════════════════════════════ -->
+        <Menu DockPanel.Dock="Top"
+              Background="#252535"
+              Foreground="#D4D4D4"
+              BorderBrush="#444455"
+              BorderThickness="0,0,0,1">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open…"
                           Command="{Binding OpenFileCommand}"
@@ -111,13 +114,8 @@
                 <MenuItem Header="Go To Line…"
                           Command="{Binding SelectedTab.GoToLineCommand}"
                           InputGestureText="Ctrl+G"/>
-                <MenuItem Header="Toggle Elapsed Column"
-                          Command="{Binding SelectedTab.ToggleElapsedColumnCommand}"/>
                 <MenuItem Header="Toggle Line Wrap"
                           Command="{Binding SelectedTab.ToggleLineWrapCommand}"/>
-                <MenuItem Header="Toggle Stats Panel"
-                          Command="{Binding SelectedTab.ToggleStatsPanelCommand}"
-                          InputGestureText="Ctrl+Shift+S"/>
                 <Separator/>
                 <MenuItem Header="Tab Position">
                     <MenuItem Header="Top"    Command="{Binding SetTabPlacementCommand}" CommandParameter="Top"/>
@@ -171,181 +169,142 @@
             </MenuItem>
         </Menu>
 
-        <!-- ═══ Toolbar ════════════════════════════════════════════════════════ -->
+        <!-- ═══ 2. Toolbar ═════════════════════════════════════════════════════ -->
         <ToolBar DockPanel.Dock="Top"
+                 Background="#1A1A2A"
+                 BorderBrush="#333344"
+                 BorderThickness="0,0,0,1"
+                 Height="28"
                  Loaded="ToolBar_Loaded">
 
-            <Button Command="{Binding OpenFileCommand}"
-                    ToolTip="Open file (Ctrl+O)"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">📂</Button>
+            <Button Content="Open"
+                    Command="{Binding OpenFileCommand}"
+                    Style="{StaticResource FlatToolbarButton}"
+                    ToolTip="Open file (Ctrl+O)"/>
+
             <Separator/>
-            <ToggleButton IsChecked="{Binding SelectedTab.IsFollowTail}"
-                          ToolTip="Follow tail (F)"
-                          Style="{StaticResource ToolbarToggle}"
-                          Padding="6,4">⬇</ToggleButton>
-            <Button Command="{Binding SelectedTab.ShowSearchCommand}"
-                    ToolTip="Search (Ctrl+F)"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">🔍</Button>
-            <Button Command="{Binding SelectedTab.GoToLineCommand}"
-                    ToolTip="Go to line (Ctrl+G)"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">#</Button>
-            <Separator/>
-            <ToggleButton IsChecked="{Binding SelectedTab.IsLineWrapEnabled}"
-                          ToolTip="Toggle line wrap"
-                          Style="{StaticResource ToolbarToggle}"
-                          Padding="6,4">↵</ToggleButton>
-            <ToggleButton IsChecked="{Binding SelectedTab.IsStatsPanelVisible}"
-                          ToolTip="Stats panel (Ctrl+Shift+S)"
-                          Style="{StaticResource ToolbarToggle}"
-                          Padding="6,4">📊</ToggleButton>
-            <Separator/>
-            <Button Command="{Binding SelectedTab.ExportFilteredLinesCommand}"
-                    ToolTip="Export filtered lines"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">💾</Button>
-            <Button Command="{Binding SelectedTab.CopySelectedLinesCommand}"
-                    ToolTip="Copy selected lines"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">📋</Button>
-            <Separator/>
-            <Button Command="{Binding OpenHighlightRulesCommand}"
-                    ToolTip="Highlight rules"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">🎨</Button>
-            <Button Command="{Binding OpenSettingsCommand}"
-                    ToolTip="Settings"
-                    Style="{StaticResource ToolbarButton}"
-                    Padding="6,4">⚙</Button>
+
+            <CheckBox Content="Highlighting"
+                      IsChecked="{Binding IsHighlightingEnabled}"
+                      Foreground="#D4D4D4"
+                      VerticalAlignment="Center"
+                      FontFamily="Segoe UI"
+                      FontSize="11"/>
+
+            <CheckBox Content="Follow_Tail"
+                      IsChecked="{Binding SelectedTab.IsFollowTail}"
+                      Foreground="#D4D4D4"
+                      Margin="8,0,0,0"
+                      VerticalAlignment="Center"
+                      FontFamily="Segoe UI"
+                      FontSize="11"
+                      ToolTip="Auto-scroll to new log lines (F)"/>
+
+            <ComboBox Width="58"
+                      Style="{StaticResource DarkComboBox}"
+                      VerticalAlignment="Center"
+                      Margin="8,0,0,0"
+                      SelectedIndex="1"
+                      ToolTip="Text encoding">
+                <ComboBoxItem Content="ANSI"/>
+                <ComboBoxItem Content="UTF-8"/>
+                <ComboBoxItem Content="UTF-16"/>
+                <ComboBoxItem Content="ASCII"/>
+            </ComboBox>
+
+            <TextBox IsReadOnly="True"
+                     Text="{Binding SelectedTab.FilePathWithSize, FallbackValue=''}"
+                     Background="#111118"
+                     Foreground="#666677"
+                     BorderBrush="#333344"
+                     BorderThickness="1"
+                     Padding="4,2"
+                     FontFamily="Segoe UI"
+                     FontSize="11"
+                     Width="340"
+                     Margin="6,0,0,0"
+                     VerticalContentAlignment="Center"/>
         </ToolBar>
 
-        <!-- ═══ Status Bar ══════════════════════════════════════════════════════ -->
-        <StatusBar DockPanel.Dock="Bottom">
-            <!-- File status indicator dot -->
-            <StatusBarItem>
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="8" Height="8" Margin="2,0,5,0"
-                             Fill="{Binding SelectedTab.FileStatus,
-                                    Converter={StaticResource StatusColorConverter},
-                                    FallbackValue=Gray}"/>
-                    <TextBlock Text="{Binding SelectedTab.FileStatusText, FallbackValue='Ready'}"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="11" VerticalAlignment="Center"/>
-                </StackPanel>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="{Binding SelectedTab.FileName, FallbackValue=''}"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontSize="11"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="{Binding SelectedTab.TotalLineCount,
-                                  StringFormat='Lines: {0:N0}', FallbackValue=''}"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontSize="11"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="{Binding SelectedTab.FileSizeText, FallbackValue=''}"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontSize="11"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="{Binding SelectedTab.EncodingName, FallbackValue=''}"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontSize="11"/>
-            </StatusBarItem>
-            <!-- Right-aligned TAIL toggle -->
-            <StatusBarItem HorizontalAlignment="Right" Margin="0,0,6,0">
-                <ToggleButton Content="TAIL"
-                              IsChecked="{Binding SelectedTab.IsFollowTail}"
-                              Style="{StaticResource StatusBarToggle}"
-                              ToolTip="Toggle follow tail (F)"/>
-            </StatusBarItem>
-        </StatusBar>
-
-        <!-- ═══ Tab Control ═════════════════════════════════════════════════════ -->
-        <TabControl x:Name="MainTabControl"
+        <!-- ═══ 3. Tab Strip (headers only — content shown by ContentControl) ═ -->
+        <TabControl DockPanel.Dock="Top"
                     ItemsSource="{Binding Tabs}"
                     SelectedItem="{Binding SelectedTab}"
                     TabStripPlacement="{Binding Settings.TabStripPlacement}"
-                    Background="{StaticResource BgBase}"
-                    BorderBrush="{StaticResource BorderNormal}"
+                    Background="#0D0D1A"
+                    BorderBrush="#444455"
                     BorderThickness="0,0,0,1"
                     Padding="0">
 
-            <!-- Custom tab header with status dot, filename, close-on-hover -->
+            <!-- Custom template: renders only the tab header panel, no content area -->
+            <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <TabPanel IsItemsHost="True"
+                                  Background="{TemplateBinding Background}"/>
+                    </Border>
+                </ControlTemplate>
+            </TabControl.Template>
+
             <TabControl.ItemContainerStyle>
                 <Style TargetType="TabItem">
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="TabItem">
-                                <Grid x:Name="root" MinWidth="100" MaxWidth="220"
+                                <Grid x:Name="root"
+                                      MinWidth="80" MaxWidth="210"
                                       MouseMove="TabItem_MouseMove"
                                       MouseLeftButtonDown="TabItem_MouseLeftButtonDown"
                                       Drop="TabItem_Drop"
                                       AllowDrop="True">
                                     <Border x:Name="border"
-                                            Background="{StaticResource BgSurface}"
-                                            BorderBrush="{StaticResource BorderNormal}"
+                                            Background="#1E1E2E"
+                                            BorderBrush="#444455"
                                             BorderThickness="1,1,1,0"
-                                            Padding="10,0,6,0">
+                                            Padding="8,0,4,0">
                                         <StackPanel Orientation="Horizontal"
-                                                    VerticalAlignment="Center"
-                                                    Height="32">
+                                                    Height="22"
+                                                    VerticalAlignment="Center">
                                             <!-- Status dot -->
-                                            <Ellipse x:Name="statusDot"
-                                                     Width="8" Height="8"
-                                                     Margin="0,0,6,0"
+                                            <Ellipse Width="6" Height="6"
+                                                     Margin="0,0,5,0"
                                                      Fill="{Binding FileStatus,
                                                             Converter={StaticResource StatusColorConverter}}"/>
                                             <!-- File name -->
                                             <TextBlock x:Name="label"
                                                        Text="{Binding FileName}"
-                                                       Foreground="{StaticResource TextSecondary}"
+                                                       Foreground="#888899"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="160"/>
-                                            <!-- Close button — visible only on hover -->
-                                            <Button x:Name="closeBtn"
-                                                    Content="✕"
-                                                    Visibility="Hidden"
-                                                    Width="16" Height="16"
-                                                    Margin="6,0,0,0"
-                                                    Padding="1"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="11"
+                                                       MaxWidth="140"/>
+                                            <!-- Close button — always visible per spec -->
+                                            <Button Content="x"
+                                                    Margin="5,0,0,0"
+                                                    Width="14" Height="14"
                                                     FontSize="9"
-                                                    Foreground="{StaticResource TextSecondary}"
+                                                    Foreground="#666677"
                                                     Background="Transparent"
                                                     BorderThickness="0"
+                                                    VerticalAlignment="Center"
                                                     Command="{Binding DataContext.CloseTabCommand,
                                                              RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
                                                     ToolTip="Close tab (Ctrl+W)"/>
                                         </StackPanel>
                                     </Border>
-                                    <!-- 2px accent indicator bar at bottom of active tab -->
-                                    <Border x:Name="activeBar"
-                                            Height="2"
-                                            Background="{StaticResource Accent}"
-                                            VerticalAlignment="Bottom"
-                                            Visibility="Collapsed"/>
                                 </Grid>
                                 <ControlTemplate.Triggers>
-                                    <!-- Hover: BgOverlay bg, show close button -->
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="border"    Property="Background" Value="{StaticResource BgOverlay}"/>
-                                        <Setter TargetName="closeBtn"  Property="Visibility" Value="Visible"/>
-                                    </Trigger>
-                                    <!-- Selected: BgBase bg (overrides hover), accent indicator, primary text -->
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="border"    Property="Background" Value="{StaticResource BgBase}"/>
-                                        <Setter TargetName="label"     Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                                        <Setter TargetName="activeBar" Property="Visibility" Value="Visible"/>
+                                        <Setter TargetName="border" Property="Background"  Value="#0D0D1A"/>
+                                        <Setter TargetName="border" Property="BorderBrush" Value="#0078D4"/>
+                                        <Setter TargetName="label"  Property="Foreground"  Value="#D4D4D4"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#252535"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -354,14 +313,208 @@
                 </Style>
             </TabControl.ItemContainerStyle>
 
-            <!-- Content template: LogTabView for each tab -->
-            <TabControl.ContentTemplate>
+        </TabControl>
+
+        <!-- ═══ 4. Search Results — BOTTOM (declared first so it sits below search bar) -->
+        <ListView DockPanel.Dock="Bottom"
+                  ItemsSource="{Binding SelectedTab.SearchResults}"
+                  Background="#0D0D18"
+                  Foreground="#6AAFFF"
+                  BorderBrush="#444455"
+                  BorderThickness="0,1,0,0"
+                  FontFamily="Consolas"
+                  FontSize="12"
+                  MaxHeight="150"
+                  Visibility="{Binding SelectedTab.IsSearchResultsVisible,
+                               Converter={StaticResource BoolToVisibility}}">
+
+            <ListView.Resources>
+                <Style TargetType="GridViewColumnHeader">
+                    <Setter Property="Background"               Value="#1A1A2E"/>
+                    <Setter Property="Foreground"               Value="#888899"/>
+                    <Setter Property="BorderBrush"              Value="#444455"/>
+                    <Setter Property="BorderThickness"          Value="0,0,1,1"/>
+                    <Setter Property="Padding"                  Value="6,2"/>
+                    <Setter Property="FontFamily"               Value="Segoe UI"/>
+                    <Setter Property="FontSize"                 Value="11"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                </Style>
+            </ListView.Resources>
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding"         Value="0"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Background"      Value="Transparent"/>
+                    <Setter Property="Foreground"      Value="#6AAFFF"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#1A2A4A"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#0F1525"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Line" Width="60">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding LineNumber}"
+                                           TextAlignment="Right"
+                                           Foreground="#888899"
+                                           FontFamily="Consolas"
+                                           FontSize="12"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="Text" Width="2000">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Text}"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <!-- ═══ 5. Search Bar — BOTTOM (above results) ═════════════════════════ -->
+        <Border DockPanel.Dock="Bottom"
+                Background="#1A1A2A"
+                BorderBrush="#555566"
+                BorderThickness="0,1,0,0"
+                Height="30"
+                Visibility="{Binding SelectedTab.IsSearchPanelVisible,
+                             Converter={StaticResource BoolToVisibility}}">
+
+            <DockPanel Margin="4,0" LastChildFill="False">
+
+                <!-- Left side -->
+                <ComboBox DockPanel.Dock="Left"
+                          Width="52"
+                          SelectedIndex="{Binding SelectedTab.IsRegexModeIndex, Mode=TwoWay}"
+                          Style="{StaticResource DarkComboBox}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,3,0">
+                    <ComboBoxItem Content="Text"/>
+                    <ComboBoxItem Content="Regex"/>
+                </ComboBox>
+
+                <TextBox DockPanel.Dock="Left"
+                         Width="160"
+                         Text="{Binding SelectedTab.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#111118"
+                         Foreground="#D4D4D4"
+                         CaretBrush="#D4D4D4"
+                         BorderBrush="#444455"
+                         BorderThickness="1"
+                         Padding="4,2"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         VerticalContentAlignment="Center"
+                         VerticalAlignment="Center"
+                         Margin="0,0,3,0"/>
+
+                <Button DockPanel.Dock="Left"
+                        Content="Search"
+                        Command="{Binding SelectedTab.ExecuteSearchCommand}"
+                        Style="{StaticResource FlatSearchButton}"
+                        Margin="0,0,3,0"/>
+
+                <Button DockPanel.Dock="Left"
+                        Content="Stop"
+                        Command="{Binding SelectedTab.StopSearchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        Margin="0,0,3,0"/>
+
+                <Button DockPanel.Dock="Left"
+                        Content="Pause"
+                        Command="{Binding SelectedTab.PauseSearchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        Margin="0,0,3,0"/>
+
+                <Button DockPanel.Dock="Left"
+                        Content="Clear"
+                        Command="{Binding SelectedTab.ClearSearchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        Margin="0,0,8,0"/>
+
+                <CheckBox DockPanel.Dock="Left"
+                          Content="Filter Tail"
+                          IsChecked="{Binding SelectedTab.IsFilterTailMode}"
+                          Foreground="#D4D4D4"
+                          FontFamily="Segoe UI"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0"/>
+
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding SelectedTab.MatchCount, StringFormat='Found {0} matching lines.'}"
+                           Foreground="#AAAAAA"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           VerticalAlignment="Center"/>
+
+                <!-- Right side (order is right-to-left for DockPanel.Dock="Right") -->
+                <Button DockPanel.Dock="Right"
+                        Content="Add"
+                        Command="{Binding SelectedTab.AddSavedPatternCommand}"
+                        Background="#0078D4"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Padding="8,3"
+                        FontFamily="Segoe UI"
+                        FontSize="11"
+                        Cursor="Hand"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,0"/>
+
+                <CheckBox DockPanel.Dock="Right"
+                          Content="Invert Mat."
+                          IsChecked="{Binding SelectedTab.IsInvertMatch}"
+                          Foreground="#D4D4D4"
+                          FontFamily="Segoe UI"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,0,6,0"/>
+
+                <CheckBox DockPanel.Dock="Right"
+                          Content="Ignore Case"
+                          IsChecked="{Binding SelectedTab.IsIgnoreCase}"
+                          Foreground="#D4D4D4"
+                          FontFamily="Segoe UI"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,0,6,0"/>
+
+                <CheckBox DockPanel.Dock="Right"
+                          Content="Regex Syntax"
+                          IsChecked="{Binding SelectedTab.IsRegexMode}"
+                          Foreground="#D4D4D4"
+                          FontFamily="Segoe UI"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,0,6,0"/>
+
+            </DockPanel>
+        </Border>
+
+        <!-- ═══ 6. Log Content — fills remaining space (LastChild) ═════════════ -->
+        <ContentControl Content="{Binding SelectedTab}">
+            <ContentControl.ContentTemplate>
                 <DataTemplate DataType="{x:Type vm:LogTabViewModel}">
                     <views:LogTabView/>
                 </DataTemplate>
-            </TabControl.ContentTemplate>
-
-        </TabControl>
+            </ContentControl.ContentTemplate>
+        </ContentControl>
 
     </DockPanel>
 </Window>

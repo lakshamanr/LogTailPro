@@ -65,6 +65,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     partial void OnFileSizeBytesChanged(long value)
     {
         OnPropertyChanged(nameof(FileSizeText));
+        OnPropertyChanged(nameof(FilePathWithSize));
     }
 
     /// <summary>Unicode icon reflecting <see cref="FileStatus"/> shown in the tab header.</summary>
@@ -97,8 +98,13 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         _                  => $"{FileSizeBytes / (1024.0 * 1024 * 1024):F2} GB"
     };
 
-    /// <summary>Encoding name for the status bar (e.g. "UTF-8").</summary>
+    /// <summary>Encoding name for the toolbar (e.g. "UTF-8").</summary>
     public string EncodingName => LogFile.Encoding.WebName.ToUpperInvariant();
+
+    /// <summary>File path with size shown in the toolbar read-only TextBox.</summary>
+    public string FilePathWithSize => FileSizeBytes > 0
+        ? $"{LogFile.FilePath}  ({FileSizeText})"
+        : LogFile.FilePath;
 
     private long _totalLineCount;
     public long TotalLineCount
@@ -136,6 +142,11 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int _currentMatchIndex = -1;
     [ObservableProperty] private LogLine? _selectedLogLine;
 
+    // ── Search bar UI state (new spec) ────────────────────────────────────────
+    [ObservableProperty] private bool _isFilterTailMode;
+    [ObservableProperty] private bool _isIgnoreCase;
+    [ObservableProperty] private bool _isInvertMatch;
+
     // ── Search results table ──────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<SearchResultRow> _searchResults = new();
     [ObservableProperty] private bool _isSearchResultsVisible;
@@ -164,8 +175,16 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     }
 
     partial void OnSearchTextChanged(string value) { _ = ApplySearchAsync(); }
-    partial void OnIsRegexModeChanged(bool value) { _ = ApplySearchAsync(); }
+    partial void OnIsRegexModeChanged(bool value) { OnPropertyChanged(nameof(IsRegexModeIndex)); _ = ApplySearchAsync(); }
     partial void OnIsCaseSensitiveChanged(bool value) { _ = ApplySearchAsync(); }
+    partial void OnIsIgnoreCaseChanged(bool value) { IsCaseSensitive = !value; }
+
+    /// <summary>0=Text, 1=Regex — for binding the mode ComboBox SelectedIndex.</summary>
+    public int IsRegexModeIndex
+    {
+        get => IsRegexMode ? 1 : 0;
+        set => IsRegexMode = value == 1;
+    }
     partial void OnFilterModeChanged(FilterMode value)
     {
         OnPropertyChanged(nameof(FilterModeIndex));
@@ -475,6 +494,13 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     [RelayCommand] private void ToggleFollowTail() => IsFollowTail = !IsFollowTail;
     [RelayCommand] private void ShowSearch() => IsSearchPanelVisible = true;
+
+    // Search bar button commands (new spec)
+    [RelayCommand] private void ExecuteSearch() => _ = ApplySearchAsync();
+    [RelayCommand] private void StopSearch() => _searchCts?.Cancel();
+    [RelayCommand] private void PauseSearch() { } // placeholder — watcher pause TBD
+    [RelayCommand] private void ClearSearch() { SearchText = string.Empty; SearchResults.Clear(); IsSearchResultsVisible = false; MatchCount = 0; }
+    [RelayCommand] private void AddSavedPattern() => SavePatternCommand.Execute(null);
 
     [RelayCommand]
     private void CloseSearch()

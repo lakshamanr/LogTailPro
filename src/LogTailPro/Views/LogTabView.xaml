@@ -4,22 +4,17 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:LogTailPro.Converters"
-             xmlns:views="clr-namespace:LogTailPro.Views"
              xmlns:vm="clr-namespace:LogTailPro.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type={x:Type vm:LogTabViewModel}}">
 
     <UserControl.Resources>
-        <conv:HighlightColorConverter x:Key="HighlightColorConverter"/>
-        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:HighlightColorConverter          x:Key="HighlightColorConverter"/>
+        <conv:BoolToVisibilityConverter        x:Key="BoolToVisibilityConverter"/>
         <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter"/>
-        <conv:BoolToWrapConverter x:Key="BoolToWrapConverter"/>
-        <SolidColorBrush x:Key="SearchMatchBrush"    Color="#3D2B00"/>
-        <SolidColorBrush x:Key="ElapsedWarningBrush" Color="#FF8800"/>
-        <SolidColorBrush x:Key="ElapsedCriticalBrush" Color="#CC2222"/>
     </UserControl.Resources>
 
-    <!-- Outer Grid allows the loading overlay to sit on top of everything -->
+    <!-- Outer Grid lets the loading overlay float on top -->
     <Grid>
 
         <DockPanel LastChildFill="True">
@@ -31,13 +26,9 @@
                     Visibility="{Binding WarningMessage,
                                  Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
                 <TextBlock Text="{Binding WarningMessage}"
-                           Foreground="White" FontWeight="Bold"/>
+                           Foreground="White"
+                           FontWeight="Bold"/>
             </Border>
-
-            <!-- Search / filter panel -->
-            <views:SearchPanel DockPanel.Dock="Top"
-                               Visibility="{Binding IsSearchPanelVisible,
-                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!-- Pretty-print / detail panel (Ctrl+P) -->
             <Border DockPanel.Dock="Bottom"
@@ -53,19 +44,24 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="6,4">
-                        <TextBlock DockPanel.Dock="Left" Text="Detail View"
-                                   FontWeight="SemiBold" VerticalAlignment="Center"
-                                   Foreground="{StaticResource ForegroundBrush}"/>
-                        <Button DockPanel.Dock="Right" Content="✕"
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="Detail View"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextPrimary}"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
                                 Command="{Binding CloseDetailPanelCommand}"
-                                Padding="6,1" Margin="4,0,0,0"
+                                Padding="6,1"
+                                Margin="4,0,0,0"
                                 ToolTip="Close detail panel"/>
                     </DockPanel>
                     <TextBox Grid.Row="1"
                              Text="{Binding DetailText, Mode=OneWay}"
                              IsReadOnly="True"
                              TextWrapping="Wrap"
-                             FontFamily="Consolas" FontSize="11"
+                             FontFamily="Consolas"
+                             FontSize="11"
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"
                              Background="Transparent"
@@ -74,357 +70,144 @@
                 </Grid>
             </Border>
 
-            <!-- Follow-tail toggle + match count -->
-            <Border DockPanel.Dock="Bottom"
-                    Background="{StaticResource BgElevated}"
-                    BorderBrush="{StaticResource BorderSubtle}"
-                    BorderThickness="0,1,0,0"
-                    Padding="8,4">
-                <StackPanel Orientation="Horizontal">
-                    <CheckBox Content="Follow Tail"
-                              IsChecked="{Binding IsFollowTail, Mode=TwoWay}"
-                              VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding FileName}"
-                               Foreground="{StaticResource ForegroundBrush}"
-                               Opacity="0.6" VerticalAlignment="Center"
-                               Margin="12,0,0,0"/>
-                    <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
-                               Foreground="#FF8800" FontWeight="SemiBold"
-                               Visibility="{Binding SearchText,
-                                            Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
-                        <Run Text="{Binding MatchCount, StringFormat='{}{0} matches', Mode=OneWay}"/>
-                    </TextBlock>
-                </StackPanel>
-            </Border>
+            <!-- ── Log ListView — pure black bg, single full-width content column ── -->
+            <ListView x:Name="LogListView"
+                      Background="#000000"
+                      Foreground="#5A9A5A"
+                      BorderThickness="0"
+                      FontFamily="Consolas"
+                      FontSize="13"
+                      ItemsSource="{Binding VisibleLines}"
+                      SelectedItem="{Binding SelectedLogLine, Mode=TwoWay}"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.CacheLengthUnit="Item"
+                      VirtualizingPanel.CacheLength="200,200"
+                      ScrollViewer.CanContentScroll="True"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      SelectionMode="Extended"
+                      SelectionChanged="LogListView_SelectionChanged">
 
-            <!-- Main content: log list + navigation bar + stats panel -->
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <!-- Search results panel (collapsed when IsSearchResultsVisible=false) -->
-                    <RowDefinition>
-                        <RowDefinition.Style>
-                            <Style TargetType="RowDefinition">
-                                <Setter Property="Height" Value="0"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsSearchResultsVisible}" Value="True">
-                                        <Setter Property="Height" Value="180"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </RowDefinition.Style>
-                    </RowDefinition>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <!-- Navigation bar -->
-                    <ColumnDefinition x:Name="NavBarColumn" Width="28"/>
-                    <!-- Stats panel -->
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <ListView.Resources>
+                    <!-- Completely hide column headers -->
+                    <Style TargetType="GridViewColumnHeader">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Setter Property="Height"     Value="0"/>
+                    </Style>
+                    <!-- Thin dark scrollbar -->
+                    <Style TargetType="ScrollBar">
+                        <Setter Property="Width"    Value="6"/>
+                        <Setter Property="MinWidth" Value="6"/>
+                        <Setter Property="Background" Value="#1A1A2A"/>
+                    </Style>
+                </ListView.Resources>
 
-                <!-- Virtualized log line list -->
-                <ListView x:Name="LogListView"
-                          Background="{StaticResource BgBase}"
-                          Grid.Row="0"
-                          Grid.Column="0"
-                          ItemsSource="{Binding VisibleLines}"
-                          SelectedItem="{Binding SelectedLogLine, Mode=TwoWay}"
-                          VirtualizingPanel.IsVirtualizing="True"
-                          VirtualizingPanel.VirtualizationMode="Recycling"
-                          VirtualizingPanel.CacheLengthUnit="Item"
-                          VirtualizingPanel.CacheLength="200,200"
-                          ScrollViewer.CanContentScroll="True"
-                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          SelectionMode="Extended"
-                          BorderThickness="0"
-                          SelectionChanged="LogListView_SelectionChanged">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="FontFamily"
+                                Value="{Binding DataContext.Settings.FontFamily,
+                                        RelativeSource={RelativeSource AncestorType=Window},
+                                        FallbackValue='Consolas'}"/>
+                        <Setter Property="FontSize"
+                                Value="{Binding DataContext.Settings.FontSize,
+                                        RelativeSource={RelativeSource AncestorType=Window},
+                                        FallbackValue='13'}"/>
+                        <Setter Property="Padding"         Value="4,1"/>
+                        <Setter Property="Margin"          Value="0"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <!-- Highlight rule colors -->
+                        <Setter Property="Background"
+                                Value="{Binding MatchedRule,
+                                        Converter={StaticResource HighlightColorConverter},
+                                        ConverterParameter=Background}"/>
+                        <Setter Property="Foreground"
+                                Value="{Binding MatchedRule,
+                                        Converter={StaticResource HighlightColorConverter},
+                                        ConverterParameter=Foreground}"/>
+                        <Style.Triggers>
+                            <!-- No rule → default green on black -->
+                            <DataTrigger Binding="{Binding MatchedRule}" Value="{x:Null}">
+                                <Setter Property="Foreground" Value="#5A9A5A"/>
+                            </DataTrigger>
+                            <!-- Search match highlight -->
+                            <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                <Setter Property="Background" Value="#3D2B00"/>
+                                <Setter Property="Foreground" Value="#FFD080"/>
+                            </DataTrigger>
+                            <!-- Selected row -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1A2A4A"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#0F0F20"/>
+                                <Setter Property="Cursor"     Value="IBeam"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
 
-                    <ListView.Resources>
-                        <!-- Hide column headers on the log viewer — they're visible in search results -->
-                        <Style TargetType="GridViewColumnHeader">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </Style>
-                        <!-- Thin dark scrollbar -->
-                        <Style TargetType="ScrollBar">
-                            <Setter Property="Width"      Value="8"/>
-                            <Setter Property="MinWidth"   Value="8"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                        </Style>
-                    </ListView.Resources>
+                <ListView.InputBindings>
+                    <KeyBinding Key="C" Modifiers="Ctrl"
+                                Command="{Binding CopySelectedLinesCommand}"/>
+                </ListView.InputBindings>
 
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="FontFamily"
-                                    Value="{Binding DataContext.Settings.FontFamily,
-                                            RelativeSource={RelativeSource AncestorType=Window},
-                                            FallbackValue='Consolas'}"/>
-                            <Setter Property="FontSize"
-                                    Value="{Binding DataContext.Settings.FontSize,
-                                            RelativeSource={RelativeSource AncestorType=Window},
-                                            FallbackValue='13'}"/>
-                            <Setter Property="Padding"         Value="4,1"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Background"
-                                    Value="{Binding MatchedRule,
-                                            Converter={StaticResource HighlightColorConverter},
-                                            ConverterParameter=Background}"/>
-                            <Setter Property="Foreground"
-                                    Value="{Binding MatchedRule,
-                                            Converter={StaticResource HighlightColorConverter},
-                                            ConverterParameter=Foreground}"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource SearchMatchBrush}"/>
-                                </DataTrigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource SelectionBrush}"/>
-                                </Trigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Cursor" Value="IBeam"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ListView.ItemContainerStyle>
+                <!-- Single full-width content column — no line numbers, no bookmark gutter -->
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Width="4000">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Text}"
+                                               FontFamily="Consolas"
+                                               FontSize="13">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextWrapping" Value="NoWrap"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsLineWrapEnabled,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                 Value="True">
+                                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
 
-                    <ListView.InputBindings>
-                        <KeyBinding Key="C" Modifiers="Ctrl"
-                                    Command="{Binding CopySelectedLinesCommand}"/>
-                    </ListView.InputBindings>
-
-                    <ListView.View>
-                        <GridView>
-
-                            <!-- Bookmark gutter -->
-                            <GridViewColumn x:Name="BookmarkColumn" Header="" Width="18">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="★"
-                                                   Foreground="#FFD700"
-                                                   FontSize="10"
-                                                   HorizontalAlignment="Center"
-                                                   Visibility="{Binding IsBookmarked,
-                                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-
-                            <!-- Line number -->
-                            <GridViewColumn Header="Line" Width="70">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding LineNumber}"
-                                                   Foreground="Gray"
-                                                   TextAlignment="Right"
-                                                   FontFamily="Consolas"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-
-                            <!-- Elapsed time (shown when ShowElapsedColumn = true) -->
-                            <GridViewColumn x:Name="ElapsedColumn" Header="Elapsed" Width="90">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock FontFamily="Consolas" TextAlignment="Right">
-                                            <TextBlock.Text>
-                                                <Binding Path="ElapsedDisplay"/>
-                                            </TextBlock.Text>
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsElapsedWarning}" Value="True">
-                                                            <Setter Property="Foreground" Value="{StaticResource ElapsedWarningBrush}"/>
-                                                            <Setter Property="FontWeight" Value="Bold"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsElapsedCritical}" Value="True">
-                                                            <Setter Property="Foreground" Value="{StaticResource ElapsedCriticalBrush}"/>
-                                                            <Setter Property="FontWeight" Value="Bold"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-
-                            <!-- Log content -->
-                            <GridViewColumn Header="Content" Width="3000">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Text}"
-                                                   FontFamily="Consolas">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="TextWrapping" Value="NoWrap"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding DataContext.IsLineWrapEnabled,
-                                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                     Value="True">
-                                                            <Setter Property="TextWrapping" Value="Wrap"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-
-                        </GridView>
-                    </ListView.View>
-
-                </ListView>
-
-                <!-- Navigation bar (minimap) -->
-                <Canvas x:Name="NavCanvas"
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Background="#1A1A1A"
-                        Cursor="Hand"
-                        MouseLeftButtonUp="NavCanvas_MouseLeftButtonUp"
-                        SizeChanged="NavCanvas_SizeChanged"
-                        ToolTip="Click to jump to line">
-                    <Canvas.Effect>
-                        <DropShadowEffect ShadowDepth="0" BlurRadius="0" Color="Transparent"/>
-                    </Canvas.Effect>
-                </Canvas>
-
-                <!-- Stats panel -->
-                <Border Grid.Row="0"
-                        Grid.Column="2"
-                        Background="{StaticResource BgElevated}"
-                        BorderBrush="{StaticResource BorderSubtle}"
-                        BorderThickness="1,0,0,0"
-                        Width="160"
-                        Padding="8"
-                        Visibility="{Binding IsStatsPanelVisible,
-                                     Converter={StaticResource BoolToVisibilityConverter}}">
-                    <StackPanel>
-                        <TextBlock Text="Log Stats" FontWeight="Bold" Margin="0,0,0,8"
-                                   Foreground="{StaticResource ForegroundBrush}"/>
-                        <Separator Margin="0,0,0,8"/>
-                        <TextBlock Foreground="{StaticResource ForegroundBrush}" Margin="0,0,0,4"
-                                   Text="{Binding TotalLineCount, StringFormat='Total: {0:N0}'}"/>
-                        <TextBlock Foreground="#FF4444" Margin="0,0,0,4"
-                                   Text="{Binding StatsErrorCount, StringFormat='Errors: {0:N0}'}"/>
-                        <TextBlock Foreground="#FFA500" Margin="0,0,0,4"
-                                   Text="{Binding StatsWarnCount, StringFormat='Warnings: {0:N0}'}"/>
-                        <TextBlock Foreground="#A8D8A8" Margin="0,0,0,4"
-                                   Text="{Binding StatsInfoCount, StringFormat='Info: {0:N0}'}"/>
-                        <Separator Margin="0,8"/>
-                        <TextBlock Foreground="{StaticResource ForegroundBrush}"
-                                   Text="{Binding StatsLinesPerSecond, StringFormat='Rate: {0} lines/s'}"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- GridSplitter between log list and search results -->
-                <GridSplitter Grid.Row="1"
-                              Grid.ColumnSpan="3"
-                              Height="4"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Center"
-                              Background="{StaticResource BorderBrush}"
-                              Visibility="{Binding IsSearchResultsVisible,
-                                           Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                <!-- Search results table -->
-                <ListView x:Name="SearchResultsListView"
-                          Grid.Row="2"
-                          Grid.ColumnSpan="3"
-                          ItemsSource="{Binding SearchResults}"
-                          BorderThickness="0,1,0,0"
-                          BorderBrush="{StaticResource BorderNormal}"
-                          Background="{StaticResource BgElevated}"
-                          Visibility="{Binding IsSearchResultsVisible,
-                                       Converter={StaticResource BoolToVisibilityConverter}}"
-                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          GridViewColumnHeader.Click="SearchResults_ColumnHeaderClick">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Header="Line" Width="60">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding LineNumber}"
-                                                   Foreground="Gray"
-                                                   FontFamily="Consolas"
-                                                   TextAlignment="Right"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Timestamp" Width="140">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}"
-                                                   Foreground="{StaticResource ForegroundBrush}"
-                                                   FontFamily="Consolas"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Match text" Width="400">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Text}"
-                                                   Foreground="{StaticResource ForegroundBrush}"
-                                                   FontFamily="Consolas"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Group 1" Width="120">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Group1}"
-                                                   Foreground="{StaticResource ForegroundBrush}"
-                                                   FontFamily="Consolas"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Group 2" Width="120">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Group2}"
-                                                   Foreground="{StaticResource ForegroundBrush}"
-                                                   FontFamily="Consolas"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Group 3" Width="120">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Group3}"
-                                                   Foreground="{StaticResource ForegroundBrush}"
-                                                   FontFamily="Consolas"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                        </GridView>
-                    </ListView.View>
-                </ListView>
-
-            </Grid>
+            </ListView>
 
         </DockPanel>
 
-        <!-- Loading overlay — sits on top of the DockPanel -->
-        <Grid Background="#CC0D0D0D"
+        <!-- Loading overlay — floats above everything -->
+        <Grid Background="#CC000000"
               Visibility="{Binding IsLoading,
                            Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="Loading file…"
-                           Foreground="White" FontSize="16"
+                <TextBlock Text="Loading file..."
+                           Foreground="#AAAAAA"
+                           FontSize="14"
+                           FontFamily="Segoe UI"
                            HorizontalAlignment="Center"/>
                 <ProgressBar Value="{Binding LoadProgress}"
                              Maximum="100"
-                             Width="320" Height="22"
-                             Margin="0,14,0,0"/>
+                             Width="280" Height="4"
+                             Margin="0,16,0,0"
+                             Background="#2A2A3A"
+                             Foreground="#0078D4"
+                             BorderThickness="0"/>
                 <TextBlock Text="{Binding LoadProgress, StringFormat='{}{0}%'}"
-                           Foreground="White"
+                           Foreground="#888899"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
                            HorizontalAlignment="Center"
                            Margin="0,8,0,0"/>
             </StackPanel>
