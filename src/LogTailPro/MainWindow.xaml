@@ -27,89 +27,8 @@
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <conv:FileStatusColorConverter  x:Key="StatusColorConverter"/>
-
-        <!-- These keyed styles are defined here so they work regardless of which theme is loaded -->
-        <Style x:Key="FlatToolbarButton" TargetType="Button">
-            <Setter Property="Background"        Value="Transparent"/>
-            <Setter Property="Foreground"        Value="#D4D4D4"/>
-            <Setter Property="BorderBrush"       Value="#444455"/>
-            <Setter Property="BorderThickness"   Value="1"/>
-            <Setter Property="Padding"           Value="7,3"/>
-            <Setter Property="FontFamily"        Value="Segoe UI"/>
-            <Setter Property="FontSize"          Value="11"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Cursor"            Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}"
-                                CornerRadius="2">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#2A2A3A"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#1A1A2A"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="bd" Property="Opacity"    Value="0.4"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="FlatSearchButton" TargetType="Button">
-            <Setter Property="Background"        Value="#1A3A1A"/>
-            <Setter Property="Foreground"        Value="#88CC88"/>
-            <Setter Property="BorderBrush"       Value="#3A6A3A"/>
-            <Setter Property="BorderThickness"   Value="1"/>
-            <Setter Property="Padding"           Value="7,3"/>
-            <Setter Property="FontFamily"        Value="Segoe UI"/>
-            <Setter Property="FontSize"          Value="11"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Cursor"            Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}"
-                                CornerRadius="2">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#1E4A1E"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#123012"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="bd" Property="Opacity"    Value="0.4"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="DarkComboBox" TargetType="ComboBox">
-            <Setter Property="Background"      Value="#111118"/>
-            <Setter Property="Foreground"      Value="#D4D4D4"/>
-            <Setter Property="BorderBrush"     Value="#444455"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding"         Value="4,2"/>
-        </Style>
+        <!-- Keyed button/combobox styles live in Themes/Dark.xaml and Themes/Light.xaml
+             so theme-switching works. Window.Resources only holds converters. -->
     </Window.Resources>
 
     <Window.InputBindings>
@@ -143,11 +62,7 @@
     <DockPanel LastChildFill="True">
 
         <!-- ═══ 1. Menu Bar ════════════════════════════════════════════════════ -->
-        <Menu DockPanel.Dock="Top"
-              Background="#252535"
-              Foreground="#D4D4D4"
-              BorderBrush="#444455"
-              BorderThickness="0,0,0,1">
+        <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open…"
                           Command="{Binding OpenFileCommand}"
@@ -254,8 +169,8 @@
 
         <!-- ═══ 2. Toolbar ═════════════════════════════════════════════════════ -->
         <ToolBar DockPanel.Dock="Top"
-                 Background="#1A1A2A"
-                 BorderBrush="#333344"
+                 Background="{StaticResource BgElevated}"
+                 BorderBrush="{StaticResource BorderSubtle}"
                  BorderThickness="0,0,0,1"
                  Height="28"
                  Loaded="ToolBar_Loaded">
@@ -269,14 +184,14 @@
 
             <CheckBox Content="Highlighting"
                       IsChecked="{Binding IsHighlightingEnabled}"
-                      Foreground="#D4D4D4"
+                      Foreground="{StaticResource TextPrimary}"
                       VerticalAlignment="Center"
                       FontFamily="Segoe UI"
                       FontSize="11"/>
 
             <CheckBox Content="Follow_Tail"
                       IsChecked="{Binding SelectedTab.IsFollowTail}"
-                      Foreground="#D4D4D4"
+                      Foreground="{StaticResource TextPrimary}"
                       Margin="8,0,0,0"
                       VerticalAlignment="Center"
                       FontFamily="Segoe UI"
@@ -297,9 +212,9 @@
 
             <TextBox IsReadOnly="True"
                      Text="{Binding SelectedTab.FilePathWithSize, Mode=OneWay, FallbackValue=''}"
-                     Background="#111118"
-                     Foreground="#666677"
-                     BorderBrush="#333344"
+                     Background="{StaticResource BgInput}"
+                     Foreground="{StaticResource TextSecondary}"
+                     BorderBrush="{StaticResource BorderSubtle}"
                      BorderThickness="1"
                      Padding="4,2"
                      FontFamily="Segoe UI"
@@ -314,8 +229,8 @@
                     ItemsSource="{Binding Tabs}"
                     SelectedItem="{Binding SelectedTab}"
                     TabStripPlacement="{Binding Settings.TabStripPlacement}"
-                    Background="#0D0D1A"
-                    BorderBrush="#444455"
+                    Background="{StaticResource BgTabActive}"
+                    BorderBrush="{StaticResource BorderNormal}"
                     BorderThickness="0,0,0,1"
                     Padding="0">
 
@@ -343,8 +258,8 @@
                                       Drop="TabItem_Drop"
                                       AllowDrop="True">
                                     <Border x:Name="border"
-                                            Background="#1E1E2E"
-                                            BorderBrush="#444455"
+                                            Background="{StaticResource BgTabInactive}"
+                                            BorderBrush="{StaticResource BorderNormal}"
                                             BorderThickness="1,1,1,0"
                                             Padding="8,0,4,0">
                                         <StackPanel Orientation="Horizontal"
@@ -358,7 +273,7 @@
                                             <!-- File name -->
                                             <TextBlock x:Name="label"
                                                        Text="{Binding FileName}"
-                                                       Foreground="#888899"
+                                                       Foreground="{StaticResource TextSecondary}"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
                                                        FontFamily="Segoe UI"
@@ -369,7 +284,7 @@
                                                     Margin="5,0,0,0"
                                                     Width="14" Height="14"
                                                     FontSize="9"
-                                                    Foreground="#666677"
+                                                    Foreground="{StaticResource TextSecondary}"
                                                     Background="Transparent"
                                                     BorderThickness="0"
                                                     VerticalAlignment="Center"
@@ -382,12 +297,12 @@
                                 </Grid>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="border" Property="Background"  Value="#0D0D1A"/>
-                                        <Setter TargetName="border" Property="BorderBrush" Value="#0078D4"/>
-                                        <Setter TargetName="label"  Property="Foreground"  Value="#D4D4D4"/>
+                                        <Setter TargetName="border" Property="Background"  Value="{StaticResource BgTabActive}"/>
+                                        <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                        <Setter TargetName="label"  Property="Foreground"  Value="{StaticResource TextPrimary}"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#252535"/>
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource BgTabHover}"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -401,9 +316,9 @@
         <!-- ═══ 4. Search Results — BOTTOM (declared first so it sits below search bar) -->
         <ListView DockPanel.Dock="Bottom"
                   ItemsSource="{Binding SelectedTab.SearchResults}"
-                  Background="#0D0D18"
-                  Foreground="#6AAFFF"
-                  BorderBrush="#444455"
+                  Background="{StaticResource BgBase}"
+                  Foreground="{StaticResource TextResults}"
+                  BorderBrush="{StaticResource BorderNormal}"
                   BorderThickness="0,1,0,0"
                   FontFamily="Consolas"
                   FontSize="12"
@@ -412,10 +327,11 @@
                                Converter={StaticResource BoolToVisibility}}">
 
             <ListView.Resources>
+                <!-- Compact header style (6,2 padding to fit the 150px MaxHeight budget) -->
                 <Style TargetType="GridViewColumnHeader">
-                    <Setter Property="Background"               Value="#1A1A2E"/>
-                    <Setter Property="Foreground"               Value="#888899"/>
-                    <Setter Property="BorderBrush"              Value="#444455"/>
+                    <Setter Property="Background"               Value="{StaticResource BgSurface}"/>
+                    <Setter Property="Foreground"               Value="{StaticResource TextSecondary}"/>
+                    <Setter Property="BorderBrush"              Value="{StaticResource BorderNormal}"/>
                     <Setter Property="BorderThickness"          Value="0,0,1,1"/>
                     <Setter Property="Padding"                  Value="6,2"/>
                     <Setter Property="FontFamily"               Value="Segoe UI"/>
@@ -429,14 +345,14 @@
                     <Setter Property="Padding"         Value="0"/>
                     <Setter Property="BorderThickness" Value="0"/>
                     <Setter Property="Background"      Value="Transparent"/>
-                    <Setter Property="Foreground"      Value="#6AAFFF"/>
+                    <Setter Property="Foreground"      Value="{StaticResource TextResults}"/>
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#1A2A4A"/>
-                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                            <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#0F1525"/>
+                            <Setter Property="Background" Value="{StaticResource BgElevated}"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -471,8 +387,8 @@
 
         <!-- ═══ 5. Search Bar — BOTTOM (above results) ═════════════════════════ -->
         <Border DockPanel.Dock="Bottom"
-                Background="#1A1A2A"
-                BorderBrush="#555566"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}"
                 BorderThickness="0,1,0,0"
                 Height="30"
                 Visibility="{Binding SelectedTab.IsSearchPanelVisible,
@@ -494,10 +410,10 @@
                 <TextBox DockPanel.Dock="Left"
                          Width="160"
                          Text="{Binding SelectedTab.SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         Background="#111118"
-                         Foreground="#D4D4D4"
-                         CaretBrush="#D4D4D4"
-                         BorderBrush="#444455"
+                         Background="{StaticResource BgInput}"
+                         Foreground="{StaticResource TextPrimary}"
+                         CaretBrush="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource BorderNormal}"
                          BorderThickness="1"
                          Padding="4,2"
                          FontFamily="Consolas"
@@ -533,7 +449,7 @@
                 <CheckBox DockPanel.Dock="Left"
                           Content="Filter Tail"
                           IsChecked="{Binding SelectedTab.IsFilterTailMode}"
-                          Foreground="#D4D4D4"
+                          Foreground="{StaticResource TextPrimary}"
                           FontFamily="Segoe UI"
                           FontSize="11"
                           VerticalAlignment="Center"
@@ -541,7 +457,7 @@
 
                 <TextBlock DockPanel.Dock="Left"
                            Text="{Binding SelectedTab.MatchCount, StringFormat='Found {0} matching lines.'}"
-                           Foreground="#AAAAAA"
+                           Foreground="{StaticResource TextSecondary}"
                            FontFamily="Segoe UI"
                            FontSize="11"
                            VerticalAlignment="Center"/>
@@ -563,7 +479,7 @@
                 <CheckBox DockPanel.Dock="Right"
                           Content="Invert Mat."
                           IsChecked="{Binding SelectedTab.IsInvertMatch}"
-                          Foreground="#D4D4D4"
+                          Foreground="{StaticResource TextPrimary}"
                           FontFamily="Segoe UI"
                           FontSize="11"
                           VerticalAlignment="Center"
@@ -572,7 +488,7 @@
                 <CheckBox DockPanel.Dock="Right"
                           Content="Ignore Case"
                           IsChecked="{Binding SelectedTab.IsIgnoreCase}"
-                          Foreground="#D4D4D4"
+                          Foreground="{StaticResource TextPrimary}"
                           FontFamily="Segoe UI"
                           FontSize="11"
                           VerticalAlignment="Center"
@@ -581,7 +497,7 @@
                 <CheckBox DockPanel.Dock="Right"
                           Content="Regex Syntax"
                           IsChecked="{Binding SelectedTab.IsRegexMode}"
-                          Foreground="#D4D4D4"
+                          Foreground="{StaticResource TextPrimary}"
                           FontFamily="Segoe UI"
                           FontSize="11"
                           VerticalAlignment="Center"

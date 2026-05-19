@@ -40,6 +40,19 @@
     <SolidColorBrush x:Key="SearchMatchFg"   Color="#5D4037"/>
     <SolidColorBrush x:Key="SearchCurrentBg" Color="#FFD54F"/>
 
+    <!-- Text (additional) -->
+    <SolidColorBrush x:Key="TextMuted" Color="#888899"/>
+
+    <!-- Tab-specific tokens -->
+    <SolidColorBrush x:Key="BgTabActive"   Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BgTabInactive" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="BgTabHover"    Color="#EBEBEB"/>
+
+    <!-- Log view specific -->
+    <SolidColorBrush x:Key="BgLog"       Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextLog"     Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="TextResults" Color="#0055AA"/>
+
     <!-- Typography -->
     <FontFamily x:Key="MonoFont">Consolas, Courier New</FontFamily>
     <FontFamily x:Key="UiFont">Segoe UI</FontFamily>
@@ -80,6 +93,40 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         <Setter Property="Padding"    Value="10,5"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <ContentPresenter ContentSource="Header"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                            <Popup x:Name="popup" IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                   Placement="Bottom" AllowsTransparency="True">
+                                <Border Background="{StaticResource BgSurface}"
+                                        BorderBrush="{StaticResource BorderNormal}"
+                                        BorderThickness="1"
+                                        Padding="0,4">
+                                    <ItemsPresenter/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="border" Property="Background"
+                                    Value="{StaticResource BgOverlay}"/>
+                        </Trigger>
+                        <Trigger Property="IsSubmenuOpen" Value="True">
+                            <Setter TargetName="border" Property="Background"
+                                    Value="{StaticResource BgOverlay}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ToolBar">
@@ -227,5 +274,108 @@
     <Style x:Key="SecondaryButton"  TargetType="Button"       BasedOn="{StaticResource {x:Type Button}}"/>
     <Style x:Key="StatusBarToggle"  TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"/>
     <Style x:Key="DarkTextBox"      TargetType="TextBox"      BasedOn="{StaticResource {x:Type TextBox}}"/>
+    <Style x:Key="DarkComboBox"     TargetType="ComboBox"     BasedOn="{StaticResource {x:Type ComboBox}}"/>
+
+    <!-- FlatToolbarButton — light version: subtle border, dark text -->
+    <Style x:Key="FlatToolbarButton" TargetType="Button">
+        <Setter Property="Background"        Value="Transparent"/>
+        <Setter Property="Foreground"        Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush"       Value="{StaticResource BorderNormal}"/>
+        <Setter Property="BorderThickness"   Value="1"/>
+        <Setter Property="Padding"           Value="7,3"/>
+        <Setter Property="FontFamily"        Value="Segoe UI"/>
+        <Setter Property="FontSize"          Value="11"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Cursor"            Value="Hand"/>
+        <Setter Property="FocusVisualStyle">
+            <Setter.Value>
+                <Style>
+                    <Setter Property="Control.Template">
+                        <Setter.Value>
+                            <ControlTemplate>
+                                <Border BorderBrush="{StaticResource BorderFocus}" BorderThickness="2" CornerRadius="2" Margin="-2"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource BgTabHover}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource BgOverlay}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- FlatSearchButton — light version: green-tinted -->
+    <Style x:Key="FlatSearchButton" TargetType="Button">
+        <Setter Property="Background"        Value="#E8F5E9"/>
+        <Setter Property="Foreground"        Value="#2E7D32"/>
+        <Setter Property="BorderBrush"       Value="#A5D6A7"/>
+        <Setter Property="BorderThickness"   Value="1"/>
+        <Setter Property="Padding"           Value="7,3"/>
+        <Setter Property="FontFamily"        Value="Segoe UI"/>
+        <Setter Property="FontSize"          Value="11"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Cursor"            Value="Hand"/>
+        <Setter Property="FocusVisualStyle">
+            <Setter.Value>
+                <Style>
+                    <Setter Property="Control.Template">
+                        <Setter.Value>
+                            <ControlTemplate>
+                                <Border BorderBrush="{StaticResource BorderFocus}" BorderThickness="2" CornerRadius="2" Margin="-2"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#C8E6C9"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#A5D6A7"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
 </ResourceDictionary>
