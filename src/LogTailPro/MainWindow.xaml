@@ -57,6 +57,10 @@
         <KeyBinding Key="D7"   Modifiers="Ctrl"        Command="{Binding SelectTabCommand}" CommandParameter="6"/>
         <KeyBinding Key="D8"   Modifiers="Ctrl"        Command="{Binding SelectTabCommand}" CommandParameter="7"/>
         <KeyBinding Key="D9"   Modifiers="Ctrl"        Command="{Binding SelectTabCommand}" CommandParameter="8"/>
+        <KeyBinding Key="A"    Modifiers="Ctrl"        Command="{Binding SelectedTab.SelectAllVisibleLinesCommand}"/>
+        <KeyBinding Key="C"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.CopyWithLineNumbersCommand}"/>
+        <KeyBinding Key="S"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.ToggleStatsPanelCommand}"/>
+        <KeyBinding Key="E"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.ToggleElapsedColumnCommand}"/>
     </Window.InputBindings>
 
     <DockPanel LastChildFill="True">
@@ -100,6 +104,12 @@
                 <MenuItem Header="_Copy Selected Lines"
                           Command="{Binding SelectedTab.CopySelectedLinesCommand}"
                           InputGestureText="Ctrl+C"/>
+                <MenuItem Header="Copy with Line Numbers"
+                          Command="{Binding SelectedTab.CopyWithLineNumbersCommand}"
+                          InputGestureText="Ctrl+Shift+C"/>
+                <MenuItem Header="Select _All"
+                          Command="{Binding SelectedTab.SelectAllVisibleLinesCommand}"
+                          InputGestureText="Ctrl+A"/>
                 <Separator/>
                 <MenuItem Header="_Merge All Tabs…"
                           Command="{Binding MergeTabsCommand}"/>
@@ -124,10 +134,18 @@
                 <Separator/>
                 <MenuItem Header="Dark Theme"
                           Command="{Binding SwitchThemeCommand}"
-                          CommandParameter="Dark"/>
+                          CommandParameter="Dark"
+                          IsCheckable="True"
+                          IsChecked="{Binding IsThemeDark, Mode=OneWay}"/>
                 <MenuItem Header="Light Theme"
                           Command="{Binding SwitchThemeCommand}"
-                          CommandParameter="Light"/>
+                          CommandParameter="Light"
+                          IsCheckable="True"
+                          IsChecked="{Binding IsThemeLight, Mode=OneWay}"/>
+                <Separator/>
+                <MenuItem Header="Stats Panel"
+                          Command="{Binding SelectedTab.ToggleStatsPanelCommand}"
+                          InputGestureText="Ctrl+Shift+S"/>
             </MenuItem>
 
             <MenuItem Header="_Search">
@@ -316,6 +334,7 @@
         <!-- ═══ 4. Search Results — BOTTOM (declared first so it sits below search bar) -->
         <ListView DockPanel.Dock="Bottom"
                   ItemsSource="{Binding SelectedTab.SearchResults}"
+                  SelectedItem="{Binding SelectedTab.SelectedSearchResult}"
                   Background="{StaticResource BgBase}"
                   Foreground="{StaticResource TextResults}"
                   BorderBrush="{StaticResource BorderNormal}"
@@ -435,7 +454,7 @@
                         Margin="0,0,3,0"/>
 
                 <Button DockPanel.Dock="Left"
-                        Content="Pause"
+                        Content="{Binding SelectedTab.PauseResumeLabel, FallbackValue='Pause'}"
                         Command="{Binding SelectedTab.PauseSearchCommand}"
                         Style="{StaticResource FlatToolbarButton}"
                         Margin="0,0,3,0"/>
@@ -455,6 +474,29 @@
                           VerticalAlignment="Center"
                           Margin="0,0,8,0"/>
 
+                <!-- ◄ ► prev/next match navigation -->
+                <Button DockPanel.Dock="Left"
+                        Content="◄"
+                        Command="{Binding SelectedTab.PreviousMatchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        ToolTip="Previous match (Shift+F3)"
+                        Margin="0,0,1,0"/>
+                <Button DockPanel.Dock="Left"
+                        Content="►"
+                        Command="{Binding SelectedTab.NextMatchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        ToolTip="Next match (F3)"
+                        Margin="0,0,6,0"/>
+
+                <!-- Match count / regex error (mutually exclusive) -->
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding SelectedTab.SearchError}"
+                           Foreground="{StaticResource StatusError}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding SelectedTab.HasSearchError,
+                                        Converter={StaticResource BoolToVisibility}}"/>
                 <TextBlock DockPanel.Dock="Left"
                            Text="{Binding SelectedTab.MatchCount, StringFormat='Found {0} matching lines.'}"
                            Foreground="{StaticResource TextSecondary}"

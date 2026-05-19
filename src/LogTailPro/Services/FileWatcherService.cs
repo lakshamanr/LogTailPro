@@ -98,6 +98,9 @@ public sealed class FileWatcherService : IDisposable
         FileDeleted?.Invoke(this, EventArgs.Empty);
     }
 
+    public void Pause()  { if (_watcher != null) _watcher.EnableRaisingEvents = false; }
+    public void Resume() { if (_watcher != null) _watcher.EnableRaisingEvents = true;  }
+
     /// <inheritdoc/>
     public void Dispose()
     {

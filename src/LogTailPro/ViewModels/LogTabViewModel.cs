@@ -142,6 +142,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int _currentMatchIndex = -1;
     [ObservableProperty] private LogLine? _selectedLogLine;
 
+    // ── Highlighting enabled (toggled from toolbar) ───────────────────────────
+    [ObservableProperty] private bool _isHighlightingEnabled = true;
+    partial void OnIsHighlightingEnabledChanged(bool value) => RefreshHighlighting();
+
+    // ── Watcher pause ─────────────────────────────────────────────────────────
+    [ObservableProperty] private bool _isWatchPaused;
+    partial void OnIsWatchPausedChanged(bool value) => OnPropertyChanged(nameof(PauseResumeLabel));
+    public string PauseResumeLabel => IsWatchPaused ? "Resume" : "Pause";
+
     // ── Search bar UI state (new spec) ────────────────────────────────────────
     [ObservableProperty] private bool _isFilterTailMode;
     [ObservableProperty] private bool _isIgnoreCase;
@@ -150,6 +159,13 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     // ── Search results table ──────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<SearchResultRow> _searchResults = new();
     [ObservableProperty] private bool _isSearchResultsVisible;
+    [ObservableProperty] private SearchResultRow? _selectedSearchResult;
+    partial void OnSelectedSearchResultChanged(SearchResultRow? value)
+    {
+        if (value?.Source == null) return;
+        SelectedLogLine = value.Source;
+        ScrollToLineRequested?.Invoke(this, value.Source);
+    }
 
     // ── Saved patterns ────────────────────────────────────────────────────────
     [ObservableProperty] private SavedSearchPattern? _selectedSavedPattern;
@@ -164,9 +180,21 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isDetailPanelVisible;
     [ObservableProperty] private string _detailText = string.Empty;
 
+    // ── Elapsed column width (0 = hidden, 90 = visible) ──────────────────────
+    public double ElapsedColumnWidth => ShowElapsedColumn ? 90.0 : 0.0;
+    partial void OnShowElapsedColumnChanged(bool value) => OnPropertyChanged(nameof(ElapsedColumnWidth));
+
+    // ── Computed props for search error visibility ────────────────────────────
+    public bool HasSearchError => !string.IsNullOrEmpty(SearchError);
+    partial void OnSearchErrorChanged(string value) => OnPropertyChanged(nameof(HasSearchError));
+
+    // ── Temp file tracking (clipboard pastes) ─────────────────────────────────
+    public string? TempFilePath { get; set; }
+
     // ── Events ────────────────────────────────────────────────────────────────
     public event EventHandler<LogLine>? ScrollToLineRequested;
     public event EventHandler? NavigationBarInvalidated;
+    public event EventHandler? SelectAllRequested;
 
     // ── Property change hooks ─────────────────────────────────────────────────
     partial void OnSelectedSavedPatternChanged(SavedSearchPattern? value)
@@ -310,7 +338,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 Text = text,
                 Timestamp = ts,
                 ElapsedSincePrevious = elapsed,
-                MatchedRule = _highlightService.GetMatchingRule(text, _compiledHighlightRules),
+                MatchedRule = IsHighlightingEnabled
+                    ? _highlightService.GetMatchingRule(text, _compiledHighlightRules)
+                    : null,
                 ArrivedAt = isFromWatcher ? DateTime.Now : DateTime.MinValue
             };
             result.Add(line);
@@ -498,9 +528,32 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     // Search bar button commands (new spec)
     [RelayCommand] private void ExecuteSearch() => _ = ApplySearchAsync();
     [RelayCommand] private void StopSearch() => _searchCts?.Cancel();
-    [RelayCommand] private void PauseSearch() { } // placeholder — watcher pause TBD
+
+    [RelayCommand]
+    private void PauseSearch()
+    {
+        if (_isReadOnly) return;
+        if (IsWatchPaused) { _watcher.Resume(); IsWatchPaused = false; }
+        else               { _watcher.Pause();  IsWatchPaused = true;  }
+    }
+
     [RelayCommand] private void ClearSearch() { SearchText = string.Empty; SearchResults.Clear(); IsSearchResultsVisible = false; MatchCount = 0; }
     [RelayCommand] private void AddSavedPattern() => SavePatternCommand.Execute(null);
+
+    [RelayCommand]
+    private void CopyWithLineNumbers()
+    {
+        IList<LogLine> toCopy = SelectedLogLines.Count > 0
+            ? SelectedLogLines
+            : SelectedLogLine != null ? [SelectedLogLine] : (IList<LogLine>)Array.Empty<LogLine>();
+        if (toCopy.Count == 0) return;
+        string text = string.Join(Environment.NewLine,
+            toCopy.Select(l => $"{l.LineNumber,6}: {l.Text}"));
+        System.Windows.Clipboard.SetText(text);
+    }
+
+    [RelayCommand]
+    private void SelectAllVisibleLines() => SelectAllRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
     private void CloseSearch()
@@ -811,19 +864,27 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         }
     }
 
+    private static bool IsErrorLine(string text) =>
+        text.Contains("ERROR",     StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("EXCEPTION", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("FATAL",     StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("CRITICAL",  StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsWarnLine(string text) =>
+        text.Contains("WARN", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsInfoLine(string text) =>
+        text.Contains("INFO", StringComparison.OrdinalIgnoreCase);
+
     private void UpdateStats(IReadOnlyList<LogLine> newLines)
     {
         foreach (LogLine line in newLines)
         {
-            if (line.MatchedRule?.BackgroundColor is "#CC2222" || line.Text.Contains("ERROR") || line.Text.Contains("EXCEPTION"))
-                StatsErrorCount++;
-            else if (line.MatchedRule?.BackgroundColor is "#FFA500" || line.Text.Contains("WARN"))
-                StatsWarnCount++;
-            else if (line.Text.Contains("INFO"))
-                StatsInfoCount++;
+            if      (IsErrorLine(line.Text)) StatsErrorCount++;
+            else if (IsWarnLine(line.Text))  StatsWarnCount++;
+            else if (IsInfoLine(line.Text))  StatsInfoCount++;
         }
 
-        // Lines-per-second rate
         _recentLineCount += newLines.Count;
         TimeSpan elapsed = DateTime.UtcNow - _rateWindow;
         if (elapsed.TotalSeconds >= 1.0)
@@ -836,27 +897,27 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private void UpdateStatsAll()
     {
-        StatsErrorCount = 0;
-        StatsWarnCount = 0;
-        StatsInfoCount = 0;
+        StatsErrorCount = 0; StatsWarnCount = 0; StatsInfoCount = 0;
         foreach (LogLine line in _allLines)
         {
-            string bg = line.MatchedRule?.BackgroundColor ?? string.Empty;
-            if (bg == "#CC2222") StatsErrorCount++;
-            else if (bg == "#FFA500") StatsWarnCount++;
-            else if (line.Text.Contains("INFO")) StatsInfoCount++;
+            if      (IsErrorLine(line.Text)) StatsErrorCount++;
+            else if (IsWarnLine(line.Text))  StatsWarnCount++;
+            else if (IsInfoLine(line.Text))  StatsInfoCount++;
         }
     }
 
     private void UpdateStatus()
     {
         string state = IsLoaded ? (FileStatus == FileStatus.Watching ? "Watching" : FileStatus.ToString()) : "Loading";
+        if (IsWatchPaused) state = "Paused";
         string size = FileSizeBytes >= 1_048_576
             ? $"{FileSizeBytes / 1_048_576.0:F1} MB"
             : $"{FileSizeBytes / 1024.0:F1} KB";
         string filter = FilterMode != FilterMode.None || !string.IsNullOrEmpty(SearchText)
             ? " | Filter active" : string.Empty;
-        StatusText = $"{state} | Lines: {TotalLineCount:N0} | {size}{filter}";
+        string trim = _allLines.Count >= _settings.MaxLinesInMemory
+            ? " | trimming old lines" : string.Empty;
+        StatusText = $"{state} | Lines: {TotalLineCount:N0} | {size}{filter}{trim}";
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
@@ -873,5 +934,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             _watcher.FileTruncated -= OnFileTruncated;
             _watcher.Dispose();
         }
+        if (TempFilePath != null)
+            try { File.Delete(TempFilePath); } catch { }
     }
 }

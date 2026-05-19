@@ -45,6 +45,12 @@ public sealed partial class MainViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() => OpenFileTabAsync(path));
     }
 
+    partial void OnIsHighlightingEnabledChanged(bool value)
+    {
+        foreach (LogTabViewModel tab in Tabs)
+            tab.IsHighlightingEnabled = value;
+    }
+
     partial void OnSelectedTabChanged(LogTabViewModel? value)
     {
         if (Application.Current.MainWindow != null)
@@ -82,7 +88,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (existing != null) { SelectedTab = existing; return; }
 
-        LogTabViewModel tabVm = new(filePath, Settings);
+        LogTabViewModel tabVm = new(filePath, Settings) { IsHighlightingEnabled = IsHighlightingEnabled };
         Tabs.Add(tabVm);
         SelectedTab = tabVm;
 
@@ -121,7 +127,10 @@ public sealed partial class MainViewModel : ObservableObject
         await OpenFileTabAsync(tempPath);
 
         if (SelectedTab != null)
+        {
             SelectedTab.DisplayName = "Clipboard";
+            SelectedTab.TempFilePath = tempPath;
+        }
     }
 
     [RelayCommand]
@@ -209,6 +218,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ── Theme ─────────────────────────────────────────────────────────────────
 
+    public bool IsThemeDark  => Settings.Theme == "Dark";
+    public bool IsThemeLight => Settings.Theme == "Light";
+
     [RelayCommand]
     private void SwitchTheme(string themeName)
     {
@@ -220,6 +232,8 @@ public sealed partial class MainViewModel : ObservableObject
         Application.Current.Resources.MergedDictionaries.Add(dict);
         Settings.Theme = themeName;
         _settingsService.Save(Settings);
+        OnPropertyChanged(nameof(IsThemeDark));
+        OnPropertyChanged(nameof(IsThemeLight));
     }
 
     // ── Workspace ─────────────────────────────────────────────────────────────

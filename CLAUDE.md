@@ -5,6 +5,8 @@ A full-featured real-time log file viewer for Windows, built in **C# + WPF + .NE
 The end product must be a functional clone of **BareTailPro** — and then extend beyond it.
 This is a commercial-quality desktop application. Do not cut corners.
 
+---
+
 ## Golden Rules (Never Break These)
 1. **Read CHANGELOG.md first, every session.** It tells you what changed in the plan.
 2. **Read SKILL.md before writing any code.** It is at `./SKILL.md`.
@@ -17,12 +19,36 @@ This is a commercial-quality desktop application. Do not cut corners.
 
 ---
 
+## Special Commands
+
+| You say | Claude does |
+|---|---|
+| `start` | Read CHANGELOG + SKILL + PHASE_1, build all phases sequentially |
+| `fix the UI` | Read UI_AGENT.md + prompts/UI_FIX.md, overhaul all XAML files |
+| `continue` | Resume from last completed phase (check git log to find it) |
+| `status` | Report which phases are complete based on git log |
+| `the plan has changed` | Read CHANGELOG.md, re-read affected phase files, continue |
+
+---
+
+## How Plan Changes Work
+
+Before every session, read CHANGELOG.md.
+If the version is newer than what you last built, re-read the affected phase files listed in that changelog entry.
+You do not need to redo completed phases unless the changelog explicitly says so.
+
+---
+
 ## Git Workflow (After Every Phase)
 
 Initialise git once at the very start:
 ```bash
 git init
-echo "bin/\nobj/\npublish/\n*.user\n.vs/" > .gitignore
+echo "bin/" > .gitignore
+echo "obj/" >> .gitignore
+echo "publish/" >> .gitignore
+echo "*.user" >> .gitignore
+echo ".vs/" >> .gitignore
 git add -A
 git commit -m "Initial scaffold: solution, project structure"
 ```
@@ -40,16 +66,9 @@ Commit messages to use:
 - Phase 4: `Phase 4 complete: multi-tab, drag reorder, tab positioning, CLI args`
 - Phase 5: `Phase 5 complete: highlight rules, TAB expansion, settings dialog`
 - Phase 6: `Phase 6 complete: notifications, configurable export, stats panel, EXE publish`
+- UI fix: `UI overhaul: full dark theme, design system, professional developer tool aesthetic`
 
 Never commit broken code. Never commit bin/, obj/, or publish/.
-
----
-
-## How Plan Changes Work
-
-Before every session, read CHANGELOG.md.
-If the version is newer than what you last built, re-read the affected phase files listed in that changelog entry.
-You do not need to redo completed phases unless the changelog explicitly says so.
 
 ---
 
@@ -58,7 +77,7 @@ You do not need to redo completed phases unless the changelog explicitly says so
 - **Framework:** .NET 10 (Windows)
 - **UI:** WPF (Windows Presentation Foundation)
 - **Architecture:** MVVM (Model-View-ViewModel)
-- **Settings storage:** JSON (System.Text.Json)
+- **Settings storage:** JSON (Newtonsoft.Json)
 - **Packaging:** Single-file self-contained EXE via `dotnet publish`
 - **NuGet packages allowed:**
   - `CommunityToolkit.Mvvm` — MVVM helpers
@@ -83,11 +102,15 @@ LogTailPro/
         │   ├── LogLine.cs
         │   ├── HighlightRule.cs
         │   ├── FilterProfile.cs
+        │   ├── SavedSearchPattern.cs
+        │   ├── SearchResultRow.cs
         │   └── AppSettings.cs
         ├── ViewModels/
         │   ├── MainViewModel.cs
         │   ├── LogTabViewModel.cs
         │   ├── SearchViewModel.cs
+        │   ├── SavedPatternsViewModel.cs
+        │   ├── HighlightRulesViewModel.cs
         │   └── SettingsViewModel.cs
         ├── Views/
         │   ├── LogTabView.xaml
@@ -107,7 +130,11 @@ LogTailPro/
         │   └── SettingsService.cs
         ├── Converters/
         │   ├── BoolToVisibilityConverter.cs
-        │   ├── LineNumberConverter.cs
+        │   ├── BoolToWrapConverter.cs
+        │   ├── FileStatusColorConverter.cs
+        │   ├── RuleToBackgroundConverter.cs
+        │   ├── RuleToForegroundConverter.cs
+        │   ├── NotEmptyConverter.cs
         │   └── HighlightColorConverter.cs
         ├── Controls/
         │   └── VirtualLogViewer.cs
@@ -124,17 +151,17 @@ LogTailPro/
 
 ```
 VIEW (XAML)
-  ↕ Data Binding only
+  Data Binding only
 VIEWMODEL (CommunityToolkit.Mvvm)
-  ↕ Interface calls only
+  Interface calls only
 SERVICES (business logic, file I/O)
-  ↕
+
 MODELS (plain data classes)
 ```
 
-- Views: XAML only, zero business logic in .xaml.cs (only wiring)
+- Views: XAML only, zero business logic in .xaml.cs (only UI wiring)
 - ViewModels: commands, properties, state — no direct file I/O
-- Services: all heavy lifting (file watching, search, filter)
+- Services: all heavy lifting (file watching, search, filter, settings)
 - Models: pure data, no behavior
 
 ---
@@ -163,19 +190,34 @@ dotnet publish src/LogTailPro/LogTailPro.csproj \
 
 ---
 
-## Start Command — Read This First
+## Start Command Sequence
 
 When the user says **"start"** or **"build"**, do this in order:
 
-1. Read `./SKILL.md` (full technical reference)
-2. Read `./prompts/PHASE_1.md`
-3. Scaffold the solution and project file
-4. Implement Phase 1 fully
-5. Build — fix all errors
-6. Confirm Phase 1 complete, then read `./prompts/PHASE_2.md`
-7. Continue through all phases sequentially
+1. Read `./CHANGELOG.md` (check for plan changes)
+2. Read `./SKILL.md` (full technical reference)
+3. Read `./prompts/PHASE_1.md`
+4. Scaffold the solution and project file
+5. Implement Phase 1 fully
+6. Build — fix all errors
+7. Git commit Phase 1
+8. Read `./prompts/PHASE_2.md` — implement, build, commit
+9. Continue through all 6 phases sequentially
 
-**Never jump phases. Never skip the build step.**
+**Never jump phases. Never skip the build step. Never skip the git commit.**
+
+---
+
+## UI Fix Command Sequence
+
+When the user says **"fix the UI"**, do this in order:
+
+1. Read `./UI_AGENT.md` completely (design system authority)
+2. Read `./prompts/UI_FIX.md` (execution steps)
+3. Follow the fix order: Themes -> App.xaml -> MainWindow -> LogTabView -> Dialogs
+4. Build — fix all XAML errors
+5. Run through every item in the Visual QA Checklist (bottom of UI_AGENT.md)
+6. Git commit with message: `UI overhaul: full dark theme, design system, professional developer tool aesthetic`
 
 ---
 
@@ -185,6 +227,7 @@ When the user says **"start"** or **"build"**, do this in order:
 - Async/await for all file I/O — never block the UI thread
 - Dispose all FileStream, StreamReader, FileSystemWatcher properly
 - Handle file-locked, file-deleted, file-truncated scenarios gracefully
+- Never hardcode colour values in XAML — always use named theme resources
 - Target: zero compiler warnings
 
 ---
@@ -195,9 +238,16 @@ The app is complete when:
 - [ ] Log lines stream in real-time as file grows
 - [ ] Follow-tail toggle works (auto-scroll to bottom)
 - [ ] Regex and plain-text search works with live highlight
+- [ ] Search results shown in sortable table (Timestamp | Line# | Text | Groups)
+- [ ] Saved/named search patterns work
 - [ ] Filter mode (show only / exclude lines) works
 - [ ] Color highlight rules are configurable and persist
 - [ ] Multiple files open in tabs simultaneously
 - [ ] Files > 2GB open without crash or freeze
+- [ ] TAB expansion works (configurable width)
+- [ ] IIS log format supported (null-terminated lines)
+- [ ] Network / UNC path files supported
+- [ ] Command line arguments work (-wp, -ws, -tc, -ti)
 - [ ] App launches in < 2 seconds
 - [ ] Single EXE ships with no installer required
+- [ ] UI matches the design system in UI_AGENT.md

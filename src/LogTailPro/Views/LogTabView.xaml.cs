@@ -26,6 +26,7 @@ public partial class LogTabView : UserControl
             _viewModel.VisibleLines.CollectionChanged -= OnVisibleLinesChanged;
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested -= OnScrollToLineRequested;
+            _viewModel.SelectAllRequested -= OnSelectAllRequested;
         }
 
         _viewModel = e.NewValue as LogTabViewModel;
@@ -35,6 +36,7 @@ public partial class LogTabView : UserControl
             _viewModel.VisibleLines.CollectionChanged += OnVisibleLinesChanged;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested += OnScrollToLineRequested;
+            _viewModel.SelectAllRequested += OnSelectAllRequested;
         }
     }
 
@@ -71,5 +73,10 @@ public partial class LogTabView : UserControl
     {
         if (_viewModel != null)
             _viewModel.SelectedLogLines = LogListView.SelectedItems.Cast<LogLine>().ToList();
+    }
+
+    private void OnSelectAllRequested(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(() => LogListView.SelectAll(), DispatcherPriority.Input);
     }
 }

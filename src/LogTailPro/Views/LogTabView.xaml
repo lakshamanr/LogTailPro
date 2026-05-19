@@ -30,6 +30,26 @@
                            FontWeight="Bold"/>
             </Border>
 
+            <!-- Stats panel (Ctrl+Shift+S) -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="{StaticResource BgElevated}"
+                    BorderBrush="{StaticResource BorderSubtle}"
+                    BorderThickness="0,1,0,0"
+                    Height="24"
+                    Visibility="{Binding IsStatsPanelVisible,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" Margin="10,0" VerticalAlignment="Center">
+                    <TextBlock Text="ERR" Foreground="{StaticResource StatusError}"  FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsErrorCount}" Foreground="{StaticResource StatusError}"  FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="WARN" Foreground="{StaticResource StatusWarn}"  FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsWarnCount}" Foreground="{StaticResource StatusWarn}"  FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="INFO" Foreground="{StaticResource TextSecondary}" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsInfoCount}" Foreground="{StaticResource TextSecondary}" FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="lines/s" Foreground="{StaticResource TextMuted}" FontFamily="Segoe UI" FontSize="11"/>
+                    <TextBlock Text="{Binding StatsLinesPerSecond}" Foreground="{StaticResource TextPrimary}" FontFamily="Segoe UI" FontSize="11" Margin="3,0,0,0"/>
+                </StackPanel>
+            </Border>
+
             <!-- Pretty-print / detail panel (Ctrl+P) -->
             <Border DockPanel.Dock="Bottom"
                     Background="{StaticResource BgElevated}"
@@ -155,9 +175,49 @@
                                 Command="{Binding CopySelectedLinesCommand}"/>
                 </ListView.InputBindings>
 
-                <!-- Single full-width content column — no line numbers, no bookmark gutter -->
+                <!-- Gutter columns + content column -->
                 <ListView.View>
                     <GridView>
+                        <!-- Bookmark dot gutter (8px) -->
+                        <GridViewColumn Width="14">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Ellipse Width="6" Height="6"
+                                             Fill="{StaticResource Accent}"
+                                             VerticalAlignment="Center"
+                                             HorizontalAlignment="Center"
+                                             Visibility="{Binding IsBookmarked,
+                                                          Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <!-- Line number gutter (52px) -->
+                        <GridViewColumn Width="52">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding LineNumber}"
+                                               TextAlignment="Right"
+                                               Foreground="{StaticResource TextMuted}"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               Padding="0,0,6,0"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <!-- Elapsed/timestamp column (hidden when ShowElapsedColumn=false) -->
+                        <GridViewColumn Width="{Binding DataContext.ElapsedColumnWidth,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ElapsedSincePrevious, StringFormat='+{0:hh\\:mm\\:ss\\.fff}'}"
+                                               Foreground="{StaticResource TextMuted}"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               ToolTip="{Binding Timestamp}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <!-- Content column -->
                         <GridViewColumn Width="4000">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
