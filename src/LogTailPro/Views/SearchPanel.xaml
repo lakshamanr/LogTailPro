@@ -50,14 +50,14 @@
                 </Grid.ColumnDefinitions>
 
                 <Label Grid.Column="0" Content="Find:" VerticalAlignment="Center"
-                       Foreground="{StaticResource ForegroundBrush}" Padding="0,0,4,0"/>
+                       Foreground="{StaticResource TextPrimary}" Padding="0,0,4,0"/>
 
                 <!-- Search TextBox — red border on error -->
                 <Border Grid.Column="1" VerticalAlignment="Center">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="BorderThickness" Value="1"/>
-                            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+                            <Setter Property="BorderBrush"     Value="{StaticResource BorderNormal}"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding SearchError,
                                              Converter={StaticResource StringNotEmptyToVisibilityConverter}}"
@@ -95,14 +95,14 @@
 
                 <!-- Filter mode selector — two-way bound to FilterModeIndex (0=None,1=Include,2=Exclude) -->
                 <ComboBox Grid.Column="4"
-                          Margin="4,0"
+                          Margin="8,0"
                           VerticalAlignment="Center"
                           SelectedIndex="{Binding FilterModeIndex, Mode=TwoWay}">
                     <ComboBox.Style>
                         <Style TargetType="ComboBox">
-                            <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                            <Setter Property="Background"  Value="{StaticResource BgInput}"/>
+                            <Setter Property="Foreground"  Value="{StaticResource TextPrimary}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
                             <Setter Property="Padding"     Value="4,2"/>
                         </Style>
                     </ComboBox.Style>
@@ -115,8 +115,7 @@
                 <TextBlock Grid.Column="5"
                            VerticalAlignment="Center"
                            Margin="8,0"
-                           Foreground="{StaticResource ForegroundBrush}"
-                           Opacity="0.7">
+                           Foreground="{StaticResource TextSecondary}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Text"
@@ -170,7 +169,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Label Grid.Column="0" Content="Saved:" VerticalAlignment="Center"
-                       Foreground="{StaticResource ForegroundBrush}" Padding="0,0,4,0"/>
+                       Foreground="{StaticResource TextPrimary}" Padding="0,0,4,0"/>
                 <ComboBox Grid.Column="1"
                           ItemsSource="{Binding SavedPatterns}"
                           SelectedItem="{Binding SelectedSavedPattern, Mode=TwoWay}"
@@ -178,10 +177,10 @@
                           VerticalAlignment="Center">
                     <ComboBox.Style>
                         <Style TargetType="ComboBox">
-                            <Setter Property="Background" Value="{StaticResource TabBackgroundBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}"/>
-                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="Background"  Value="{StaticResource BgInput}"/>
+                            <Setter Property="Foreground"  Value="{StaticResource TextPrimary}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
+                            <Setter Property="Padding"     Value="4,2"/>
                         </Style>
                     </ComboBox.Style>
                 </ComboBox>
@@ -217,7 +216,7 @@
                                        Converter={StaticResource BoolToVisibilityConverter}}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:FilterRuleViewModel}">
-                        <Border BorderBrush="{StaticResource BorderBrush}"
+                        <Border BorderBrush="{StaticResource BorderNormal}"
                                 BorderThickness="0,1,0,0"
                                 Padding="6,3">
                             <Grid>
@@ -245,9 +244,9 @@
 
                                 <TextBox Grid.Column="2"
                                          Text="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="{StaticResource SearchBarBrush}"
-                                         Foreground="{StaticResource ForegroundBrush}"
-                                         BorderBrush="{StaticResource BorderBrush}"
+                                         Background="{StaticResource BgInput}"
+                                         Foreground="{StaticResource TextPrimary}"
+                                         BorderBrush="{StaticResource BorderNormal}"
                                          Padding="4,2"
                                          Margin="4,0"/>
 

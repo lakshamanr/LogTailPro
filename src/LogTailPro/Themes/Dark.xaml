@@ -59,6 +59,18 @@
     <system:Double x:Key="MonoSize">13</system:Double>
     <system:Double x:Key="UiSize">12</system:Double>
 
+    <!-- Typography sizing hierarchy -->
+    <system:Double x:Key="FontSizeSmall">11</system:Double>
+    <system:Double x:Key="FontSizeBody">12</system:Double>
+    <system:Double x:Key="FontSizeSubtitle">13</system:Double>
+    <system:Double x:Key="FontSizeHeading">14</system:Double>
+    <system:Double x:Key="FontSizeLarge">16</system:Double>
+
+    <!-- Monospace hierarchy -->
+    <system:Double x:Key="FontSizeMonoSmall">12</system:Double>
+    <system:Double x:Key="FontSizeMonoBody">13</system:Double>
+    <system:Double x:Key="FontSizeMonoHeading">14</system:Double>
+
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!--  BACKWARD-COMPAT ALIASES  (existing XAML keeps working unchanged)       -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -86,7 +98,7 @@
 
     <!-- Menu bar -->
     <Style TargetType="Menu">
-        <Setter Property="Background"       Value="{StaticResource BgSurface}"/>
+        <Setter Property="Background"       Value="#1A1A2A"/>
         <Setter Property="Foreground"       Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush"      Value="{StaticResource BorderSubtle}"/>
         <Setter Property="BorderThickness"  Value="0,0,0,1"/>
@@ -430,13 +442,15 @@
 
     <!-- Accent-filled primary button (OK / Save) -->
     <Style x:Key="PrimaryButton" TargetType="Button">
-        <Setter Property="Background"      Value="{StaticResource Accent}"/>
-        <Setter Property="Foreground"      Value="White"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding"         Value="16,7"/>
-        <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="FontFamily"      Value="{StaticResource UiFont}"/>
-        <Setter Property="FontSize"        Value="{StaticResource UiSize}"/>
+        <Setter Property="Background"        Value="{StaticResource Accent}"/>
+        <Setter Property="Foreground"        Value="White"/>
+        <Setter Property="BorderThickness"   Value="0"/>
+        <Setter Property="Padding"           Value="12,6"/>
+        <Setter Property="Cursor"            Value="Hand"/>
+        <Setter Property="FontWeight"        Value="SemiBold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="FontFamily"        Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize"          Value="{StaticResource UiSize}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -454,6 +468,9 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="border" Property="Opacity" Value="0.85"/>
                         </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -462,14 +479,15 @@
 
     <!-- Secondary (Cancel) button -->
     <Style x:Key="SecondaryButton" TargetType="Button">
-        <Setter Property="Background"      Value="{StaticResource BgOverlay}"/>
-        <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource BorderNormal}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding"         Value="16,7"/>
-        <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="FontFamily"      Value="{StaticResource UiFont}"/>
-        <Setter Property="FontSize"        Value="{StaticResource UiSize}"/>
+        <Setter Property="Background"        Value="Transparent"/>
+        <Setter Property="Foreground"        Value="{StaticResource Accent}"/>
+        <Setter Property="BorderBrush"       Value="{StaticResource Accent}"/>
+        <Setter Property="BorderThickness"   Value="1"/>
+        <Setter Property="Padding"           Value="12,6"/>
+        <Setter Property="Cursor"            Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="FontFamily"        Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize"          Value="{StaticResource UiSize}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -479,12 +497,19 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="3"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background"
-                                    Value="{StaticResource BgSurface}"/>
+                                    Value="{StaticResource BgOverlay}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

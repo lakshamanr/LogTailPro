@@ -186,61 +186,77 @@
         </Menu>
 
         <!-- ═══ 2. Toolbar ═════════════════════════════════════════════════════ -->
-        <ToolBar DockPanel.Dock="Top"
-                 Background="{StaticResource BgElevated}"
-                 BorderBrush="{StaticResource BorderSubtle}"
-                 BorderThickness="0,0,0,1"
-                 Height="28"
-                 Loaded="ToolBar_Loaded">
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderSubtle}"
+                BorderThickness="0,0,0,1"
+                Height="40">
+            <Grid Margin="8,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <Button Content="Open"
-                    Command="{Binding OpenFileCommand}"
-                    Style="{StaticResource FlatToolbarButton}"
-                    ToolTip="Open file (Ctrl+O)"/>
+                <Button Grid.Column="0"
+                        Content="Open File"
+                        Command="{Binding OpenFileCommand}"
+                        Style="{StaticResource PrimaryButton}"
+                        ToolTip="Open file (Ctrl+O)"/>
 
-            <Separator/>
+                <Rectangle Grid.Column="1"
+                            Width="1" Height="20"
+                            Fill="{StaticResource BorderNormal}"
+                            VerticalAlignment="Center"
+                            Margin="8,0"/>
 
-            <CheckBox Content="Highlighting"
-                      IsChecked="{Binding IsHighlightingEnabled}"
-                      Foreground="{StaticResource TextPrimary}"
-                      VerticalAlignment="Center"
-                      FontFamily="Segoe UI"
-                      FontSize="11"/>
+                <CheckBox Grid.Column="2"
+                          Content="Highlighting"
+                          IsChecked="{Binding IsHighlightingEnabled}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"/>
 
-            <CheckBox Content="Follow_Tail"
-                      IsChecked="{Binding SelectedTab.IsFollowTail}"
-                      Foreground="{StaticResource TextPrimary}"
-                      Margin="8,0,0,0"
-                      VerticalAlignment="Center"
-                      FontFamily="Segoe UI"
-                      FontSize="11"
-                      ToolTip="Auto-scroll to new log lines (F)"/>
+                <CheckBox Grid.Column="3"
+                          Content="Follow Tail"
+                          IsChecked="{Binding SelectedTab.IsFollowTail}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          ToolTip="Auto-scroll to new log lines (F)"/>
 
-            <ComboBox Width="58"
-                      Style="{StaticResource DarkComboBox}"
-                      VerticalAlignment="Center"
-                      Margin="8,0,0,0"
-                      SelectedIndex="1"
-                      ToolTip="Text encoding">
-                <ComboBoxItem Content="ANSI"/>
-                <ComboBoxItem Content="UTF-8"/>
-                <ComboBoxItem Content="UTF-16"/>
-                <ComboBoxItem Content="ASCII"/>
-            </ComboBox>
+                <TextBlock Grid.Column="4"
+                           Text="Encoding:"
+                           Foreground="{StaticResource TextSecondary}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
 
-            <TextBox IsReadOnly="True"
-                     Text="{Binding SelectedTab.FilePathWithSize, Mode=OneWay, FallbackValue=''}"
-                     Background="{StaticResource BgInput}"
-                     Foreground="{StaticResource TextSecondary}"
-                     BorderBrush="{StaticResource BorderSubtle}"
-                     BorderThickness="1"
-                     Padding="4,2"
-                     FontFamily="Segoe UI"
-                     FontSize="11"
-                     Width="340"
-                     Margin="6,0,0,0"
-                     VerticalContentAlignment="Center"/>
-        </ToolBar>
+                <ComboBox Grid.Column="5"
+                          Width="60"
+                          Style="{StaticResource DarkComboBox}"
+                          VerticalAlignment="Center"
+                          SelectedIndex="1"
+                          ToolTip="Text encoding">
+                    <ComboBoxItem Content="ANSI"/>
+                    <ComboBoxItem Content="UTF-8"/>
+                    <ComboBoxItem Content="UTF-16"/>
+                    <ComboBoxItem Content="ASCII"/>
+                </ComboBox>
+
+                <TextBlock Grid.Column="7"
+                           Text="{Binding SelectedTab.FilePathWithSize, Mode=OneWay, FallbackValue=''}"
+                           Foreground="{StaticResource TextSecondary}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="340"
+                           ToolTip="{Binding SelectedTab.FilePathWithSize, Mode=OneWay}"/>
+            </Grid>
+        </Border>
 
         <!-- ═══ 3. Tab Strip (headers only — content shown by ContentControl) ═ -->
         <TabControl DockPanel.Dock="Top"
@@ -281,7 +297,7 @@
                                             BorderThickness="1,1,1,0"
                                             Padding="8,0,4,0">
                                         <StackPanel Orientation="Horizontal"
-                                                    Height="22"
+                                                    Height="26"
                                                     VerticalAlignment="Center">
                                             <!-- Status dot -->
                                             <Ellipse Width="6" Height="6"
@@ -297,11 +313,11 @@
                                                        FontFamily="Segoe UI"
                                                        FontSize="11"
                                                        MaxWidth="140"/>
-                                            <!-- Close button — always visible per spec -->
-                                            <Button Content="x"
-                                                    Margin="5,0,0,0"
-                                                    Width="14" Height="14"
-                                                    FontSize="9"
+                                            <!-- Close button — 20×20 with ✕ -->
+                                            <Button Content="✕"
+                                                    Margin="6,0,0,0"
+                                                    Width="20" Height="20"
+                                                    FontSize="10"
                                                     Foreground="{StaticResource TextSecondary}"
                                                     Background="Transparent"
                                                     BorderThickness="0"
@@ -312,12 +328,19 @@
                                                     ToolTip="Close tab (Ctrl+W)"/>
                                         </StackPanel>
                                     </Border>
+                                    <!-- Blue bottom indicator for active tab -->
+                                    <Rectangle x:Name="activeIndicator"
+                                               Height="2"
+                                               Fill="{StaticResource Accent}"
+                                               VerticalAlignment="Bottom"
+                                               Visibility="Collapsed"/>
                                 </Grid>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="border" Property="Background"  Value="{StaticResource BgTabActive}"/>
-                                        <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource BgTabActive}"/>
+                                        <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
                                         <Setter TargetName="label"  Property="Foreground"  Value="{StaticResource TextPrimary}"/>
+                                        <Setter TargetName="activeIndicator" Property="Visibility" Value="Visible"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="border" Property="Background" Value="{StaticResource BgTabHover}"/>
@@ -409,143 +432,127 @@
                 Background="{StaticResource BgElevated}"
                 BorderBrush="{StaticResource BorderNormal}"
                 BorderThickness="0,1,0,0"
-                Height="30"
+                Padding="12,8"
                 Visibility="{Binding SelectedTab.IsSearchPanelVisible,
                              Converter={StaticResource BoolToVisibility}}">
 
-            <DockPanel Margin="4,0" LastChildFill="False">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- Left side -->
-                <ComboBox DockPanel.Dock="Left"
-                          Width="52"
-                          SelectedIndex="{Binding SelectedTab.IsRegexModeIndex, Mode=TwoWay}"
-                          Style="{StaticResource DarkComboBox}"
-                          VerticalAlignment="Center"
-                          Margin="0,0,3,0">
-                    <ComboBoxItem Content="Text"/>
-                    <ComboBoxItem Content="Regex"/>
-                </ComboBox>
+                <!-- Top row: Mode selector → Search input → Action buttons → Match count -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <TextBox DockPanel.Dock="Left"
-                         Width="160"
-                         Text="{Binding SelectedTab.SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         Background="{StaticResource BgInput}"
-                         Foreground="{StaticResource TextPrimary}"
-                         CaretBrush="{StaticResource TextPrimary}"
-                         BorderBrush="{StaticResource BorderNormal}"
-                         BorderThickness="1"
-                         Padding="4,2"
-                         FontFamily="Consolas"
-                         FontSize="12"
-                         VerticalContentAlignment="Center"
-                         VerticalAlignment="Center"
-                         Margin="0,0,3,0"/>
+                    <ComboBox Grid.Column="0"
+                              Width="60"
+                              SelectedIndex="{Binding SelectedTab.IsRegexModeIndex, Mode=TwoWay}"
+                              Style="{StaticResource DarkComboBox}"
+                              VerticalAlignment="Center">
+                        <ComboBoxItem Content="Text"/>
+                        <ComboBoxItem Content="Regex"/>
+                    </ComboBox>
 
-                <Button DockPanel.Dock="Left"
-                        Content="Search"
-                        Command="{Binding SelectedTab.ExecuteSearchCommand}"
-                        Style="{StaticResource FlatSearchButton}"
-                        Margin="0,0,3,0"/>
+                    <TextBox Grid.Column="2"
+                             Text="{Binding SelectedTab.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Background="{StaticResource BgInput}"
+                             Foreground="{StaticResource TextPrimary}"
+                             CaretBrush="{StaticResource TextPrimary}"
+                             BorderBrush="{StaticResource BorderNormal}"
+                             BorderThickness="1"
+                             Padding="6,4"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             VerticalContentAlignment="Center"
+                             VerticalAlignment="Center"/>
 
-                <Button DockPanel.Dock="Left"
-                        Content="Stop"
-                        Command="{Binding SelectedTab.StopSearchCommand}"
-                        Style="{StaticResource FlatToolbarButton}"
-                        Margin="0,0,3,0"/>
+                    <Button Grid.Column="4"
+                            Content="Search"
+                            Command="{Binding SelectedTab.ExecuteSearchCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Padding="12,4"/>
 
-                <Button DockPanel.Dock="Left"
-                        Content="{Binding SelectedTab.PauseResumeLabel, FallbackValue='Pause'}"
-                        Command="{Binding SelectedTab.PauseSearchCommand}"
-                        Style="{StaticResource FlatToolbarButton}"
-                        Margin="0,0,3,0"/>
+                    <Button Grid.Column="6"
+                            Content="Stop"
+                            Command="{Binding SelectedTab.StopSearchCommand}"
+                            Style="{StaticResource FlatToolbarButton}"
+                            Padding="12,4"/>
 
-                <Button DockPanel.Dock="Left"
-                        Content="Clear"
-                        Command="{Binding SelectedTab.ClearSearchCommand}"
-                        Style="{StaticResource FlatToolbarButton}"
-                        Margin="0,0,8,0"/>
+                    <!-- Prev/Next match navigation -->
+                    <StackPanel Grid.Column="8" Orientation="Horizontal">
+                        <Button Content="◄"
+                                Command="{Binding SelectedTab.PreviousMatchCommand}"
+                                Style="{StaticResource FlatToolbarButton}"
+                                ToolTip="Previous match (Shift+F3)"
+                                Margin="0,0,4,0"
+                                Padding="8,4"/>
+                        <Button Content="►"
+                                Command="{Binding SelectedTab.NextMatchCommand}"
+                                Style="{StaticResource FlatToolbarButton}"
+                                ToolTip="Next match (F3)"
+                                Padding="8,4"/>
+                    </StackPanel>
 
-                <CheckBox DockPanel.Dock="Left"
-                          Content="Filter Tail"
-                          IsChecked="{Binding SelectedTab.IsFilterTailMode}"
-                          Foreground="{StaticResource TextPrimary}"
-                          FontFamily="Segoe UI"
-                          FontSize="11"
-                          VerticalAlignment="Center"
-                          Margin="0,0,8,0"/>
+                    <!-- Match count / regex error (right-aligned) -->
+                    <StackPanel Grid.Column="10" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding SelectedTab.SearchError}"
+                                   Foreground="{StaticResource StatusError}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding SelectedTab.HasSearchError,
+                                                Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Text="{Binding SelectedTab.MatchCount, StringFormat='Found {0} matching lines'}"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
 
-                <!-- ◄ ► prev/next match navigation -->
-                <Button DockPanel.Dock="Left"
-                        Content="◄"
-                        Command="{Binding SelectedTab.PreviousMatchCommand}"
-                        Style="{StaticResource FlatToolbarButton}"
-                        ToolTip="Previous match (Shift+F3)"
-                        Margin="0,0,1,0"/>
-                <Button DockPanel.Dock="Left"
-                        Content="►"
-                        Command="{Binding SelectedTab.NextMatchCommand}"
-                        Style="{StaticResource FlatToolbarButton}"
-                        ToolTip="Next match (F3)"
-                        Margin="0,0,6,0"/>
+                <!-- Bottom row: Checkboxes + Add Pattern button -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal">
+                    <CheckBox Content="Ignore Case"
+                              IsChecked="{Binding SelectedTab.IsIgnoreCase}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"/>
 
-                <!-- Match count / regex error (mutually exclusive) -->
-                <TextBlock DockPanel.Dock="Left"
-                           Text="{Binding SelectedTab.SearchError}"
-                           Foreground="{StaticResource StatusError}"
-                           FontFamily="Segoe UI"
-                           FontSize="11"
-                           VerticalAlignment="Center"
-                           Visibility="{Binding SelectedTab.HasSearchError,
-                                        Converter={StaticResource BoolToVisibility}}"/>
-                <TextBlock DockPanel.Dock="Left"
-                           Text="{Binding SelectedTab.MatchCount, StringFormat='Found {0} matching lines.'}"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontFamily="Segoe UI"
-                           FontSize="11"
-                           VerticalAlignment="Center"/>
+                    <CheckBox Content="Regex Syntax"
+                              IsChecked="{Binding SelectedTab.IsRegexMode}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"/>
 
-                <!-- Right side (order is right-to-left for DockPanel.Dock="Right") -->
-                <Button DockPanel.Dock="Right"
-                        Content="Add"
-                        Command="{Binding SelectedTab.AddSavedPatternCommand}"
-                        Background="#0078D4"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Padding="8,3"
-                        FontFamily="Segoe UI"
-                        FontSize="11"
-                        Cursor="Hand"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,0"/>
+                    <CheckBox Content="Invert Match"
+                              IsChecked="{Binding SelectedTab.IsInvertMatch}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"/>
 
-                <CheckBox DockPanel.Dock="Right"
-                          Content="Invert Mat."
-                          IsChecked="{Binding SelectedTab.IsInvertMatch}"
-                          Foreground="{StaticResource TextPrimary}"
-                          FontFamily="Segoe UI"
-                          FontSize="11"
-                          VerticalAlignment="Center"
-                          Margin="0,0,6,0"/>
+                    <CheckBox Content="Filter Tail"
+                              IsChecked="{Binding SelectedTab.IsFilterTailMode}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"/>
 
-                <CheckBox DockPanel.Dock="Right"
-                          Content="Ignore Case"
-                          IsChecked="{Binding SelectedTab.IsIgnoreCase}"
-                          Foreground="{StaticResource TextPrimary}"
-                          FontFamily="Segoe UI"
-                          FontSize="11"
-                          VerticalAlignment="Center"
-                          Margin="0,0,6,0"/>
-
-                <CheckBox DockPanel.Dock="Right"
-                          Content="Regex Syntax"
-                          IsChecked="{Binding SelectedTab.IsRegexMode}"
-                          Foreground="{StaticResource TextPrimary}"
-                          FontFamily="Segoe UI"
-                          FontSize="11"
-                          VerticalAlignment="Center"
-                          Margin="0,0,6,0"/>
-
-            </DockPanel>
+                    <Button Content="+ Add Pattern"
+                            Command="{Binding SelectedTab.AddSavedPatternCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Padding="12,4"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- ═══ 6. Log Content — fills remaining space (LastChild) ═════════════ -->
