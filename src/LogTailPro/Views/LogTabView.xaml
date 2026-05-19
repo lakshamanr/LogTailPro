@@ -70,10 +70,10 @@
                 </Grid>
             </Border>
 
-            <!-- ── Log ListView — pure black bg, single full-width content column ── -->
+            <!-- ── Log ListView — colors driven by theme tokens ── -->
             <ListView x:Name="LogListView"
-                      Background="#000000"
-                      Foreground="#5A9A5A"
+                      Background="{StaticResource BgLog}"
+                      Foreground="{StaticResource TextLog}"
                       BorderThickness="0"
                       FontFamily="Consolas"
                       FontSize="13"
@@ -95,11 +95,11 @@
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Setter Property="Height"     Value="0"/>
                     </Style>
-                    <!-- Thin dark scrollbar -->
+                    <!-- Thin scrollbar — theme-aware -->
                     <Style TargetType="ScrollBar">
                         <Setter Property="Width"    Value="6"/>
                         <Setter Property="MinWidth" Value="6"/>
-                        <Setter Property="Background" Value="#1A1A2A"/>
+                        <Setter Property="Background" Value="{StaticResource BgElevated}"/>
                     </Style>
                 </ListView.Resources>
 
@@ -127,23 +127,23 @@
                                         Converter={StaticResource HighlightColorConverter},
                                         ConverterParameter=Foreground}"/>
                         <Style.Triggers>
-                            <!-- No rule → default green on black -->
+                            <!-- No rule → default log text color -->
                             <DataTrigger Binding="{Binding MatchedRule}" Value="{x:Null}">
-                                <Setter Property="Foreground" Value="#5A9A5A"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextLog}"/>
                             </DataTrigger>
                             <!-- Search match highlight -->
                             <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                                <Setter Property="Background" Value="#3D2B00"/>
-                                <Setter Property="Foreground" Value="#FFD080"/>
+                                <Setter Property="Background" Value="{StaticResource SearchMatchBg}"/>
+                                <Setter Property="Foreground" Value="{StaticResource SearchMatchFg}"/>
                             </DataTrigger>
                             <!-- Selected row -->
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#1A2A4A"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter Property="Background" Value="{StaticResource BgLogSelected}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
                             </Trigger>
                             <!-- Hover -->
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#0F0F20"/>
+                                <Setter Property="Background" Value="{StaticResource BgLogHover}"/>
                                 <Setter Property="Cursor"     Value="IBeam"/>
                             </Trigger>
                         </Style.Triggers>
@@ -193,7 +193,7 @@
                            Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="Loading file..."
-                           Foreground="#AAAAAA"
+                           Foreground="{StaticResource TextSecondary}"
                            FontSize="14"
                            FontFamily="Segoe UI"
                            HorizontalAlignment="Center"/>
@@ -201,11 +201,11 @@
                              Maximum="100"
                              Width="280" Height="4"
                              Margin="0,16,0,0"
-                             Background="#2A2A3A"
-                             Foreground="#0078D4"
+                             Background="{StaticResource BgSurface}"
+                             Foreground="{StaticResource Accent}"
                              BorderThickness="0"/>
                 <TextBlock Text="{Binding LoadProgress, StringFormat='{}{0}%'}"
-                           Foreground="#888899"
+                           Foreground="{StaticResource TextSecondary}"
                            FontFamily="Segoe UI"
                            FontSize="11"
                            HorizontalAlignment="Center"

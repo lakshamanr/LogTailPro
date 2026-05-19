@@ -49,9 +49,11 @@
     <SolidColorBrush x:Key="BgTabHover"    Color="#EBEBEB"/>
 
     <!-- Log view specific -->
-    <SolidColorBrush x:Key="BgLog"       Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="TextLog"     Color="#1A1A1A"/>
-    <SolidColorBrush x:Key="TextResults" Color="#0055AA"/>
+    <SolidColorBrush x:Key="BgLog"         Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextLog"       Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="TextResults"   Color="#0055AA"/>
+    <SolidColorBrush x:Key="BgLogSelected" Color="#CCE4FF"/>
+    <SolidColorBrush x:Key="BgLogHover"    Color="#F0F0F0"/>
 
     <!-- Typography -->
     <FontFamily x:Key="MonoFont">Consolas, Courier New</FontFamily>
