@@ -204,7 +204,7 @@
                 </Grid.ColumnDefinitions>
 
                 <Button Grid.Column="0"
-                        Content="Open File"
+                        Content="📁 Open File"
                         Command="{Binding OpenFileCommand}"
                         Style="{StaticResource PrimaryButton}"
                         ToolTip="Open file (Ctrl+O)"/>
@@ -369,13 +369,12 @@
                                Converter={StaticResource BoolToVisibility}}">
 
             <ListView.Resources>
-                <!-- Compact header style (6,2 padding to fit the 150px MaxHeight budget) -->
                 <Style TargetType="GridViewColumnHeader">
                     <Setter Property="Background"               Value="{StaticResource BgSurface}"/>
                     <Setter Property="Foreground"               Value="{StaticResource TextSecondary}"/>
                     <Setter Property="BorderBrush"              Value="{StaticResource BorderNormal}"/>
                     <Setter Property="BorderThickness"          Value="0,0,1,1"/>
-                    <Setter Property="Padding"                  Value="6,2"/>
+                    <Setter Property="Padding"                  Value="8,4"/>
                     <Setter Property="FontFamily"               Value="Segoe UI"/>
                     <Setter Property="FontSize"                 Value="11"/>
                     <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -490,7 +489,7 @@
                     <Button Grid.Column="6"
                             Content="Stop"
                             Command="{Binding SelectedTab.StopSearchCommand}"
-                            Style="{StaticResource FlatToolbarButton}"
+                            Style="{StaticResource SecondaryButton}"
                             Padding="12,4"/>
 
                     <!-- Prev/Next match navigation -->

@@ -105,11 +105,11 @@
             </ListView>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                <Button Content="Add"     Command="{Binding AddRuleCommand}"    Margin="0,0,0,4" Padding="4"/>
-                <Button Content="Delete"  Command="{Binding DeleteRuleCommand}" Margin="0,0,0,4" Padding="4"/>
+                <Button Content="Add"     Command="{Binding AddRuleCommand}"    Margin="0,0,0,4" Padding="8,4"/>
+                <Button Content="Delete"  Command="{Binding DeleteRuleCommand}" Margin="0,0,0,4" Padding="8,4"/>
                 <Separator Margin="0,4"/>
-                <Button Content="▲ Up"   Command="{Binding MoveUpCommand}"     Margin="0,0,0,4" Padding="4"/>
-                <Button Content="▼ Down" Command="{Binding MoveDownCommand}"   Margin="0,0,0,4" Padding="4"/>
+                <Button Content="▲ Up"   Command="{Binding MoveUpCommand}"     Margin="0,0,0,4" Padding="8,4"/>
+                <Button Content="▼ Down" Command="{Binding MoveDownCommand}"   Margin="0,0,0,4" Padding="8,4"/>
             </StackPanel>
         </Grid>
 

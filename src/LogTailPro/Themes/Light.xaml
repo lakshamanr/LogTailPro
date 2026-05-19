@@ -73,6 +73,12 @@
     <system:Double x:Key="FontSizeMonoBody">13</system:Double>
     <system:Double x:Key="FontSizeMonoHeading">14</system:Double>
 
+    <!-- Font weight tokens -->
+    <FontWeight x:Key="FontWeightRegular">Regular</FontWeight>
+    <FontWeight x:Key="FontWeightMedium">Medium</FontWeight>
+    <FontWeight x:Key="FontWeightSemiBold">SemiBold</FontWeight>
+    <FontWeight x:Key="FontWeightBold">Bold</FontWeight>
+
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!--  BACKWARD-COMPAT ALIASES                                                -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -148,8 +154,8 @@
         <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtle}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        <Setter Property="Height"          Value="34"/>
-        <Setter Property="Padding"         Value="4,0"/>
+        <Setter Property="Height"          Value="40"/>
+        <Setter Property="Padding"         Value="8,6"/>
     </Style>
 
     <Style TargetType="Button">
@@ -362,7 +368,7 @@
         <Setter Property="Foreground"        Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush"       Value="{StaticResource BorderNormal}"/>
         <Setter Property="BorderThickness"   Value="1"/>
-        <Setter Property="Padding"           Value="7,3"/>
+        <Setter Property="Padding"           Value="8,4"/>
         <Setter Property="FontFamily"        Value="Segoe UI"/>
         <Setter Property="FontSize"          Value="11"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
