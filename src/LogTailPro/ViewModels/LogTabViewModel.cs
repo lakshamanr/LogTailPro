@@ -191,6 +191,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     // ── Temp file tracking (clipboard pastes) ─────────────────────────────────
     public string? TempFilePath { get; set; }
 
+    // ── Scroll position memory (persists across tab switches) ─────────────────
+    public double SavedScrollVertical { get; set; }
+    public double SavedScrollHorizontal { get; set; }
+
     // ── Events ────────────────────────────────────────────────────────────────
     public event EventHandler<LogLine>? ScrollToLineRequested;
     public event EventHandler? NavigationBarInvalidated;

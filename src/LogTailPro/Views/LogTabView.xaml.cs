@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using LogTailPro.Models;
 using LogTailPro.ViewModels;
@@ -21,12 +22,22 @@ public partial class LogTabView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (_viewModel != null)
+        // Save scroll position for the outgoing VM.
+        // DataContextChanged fires on the UserControl before child bindings (ItemsSource) rebind,
+        // so the ScrollViewer still holds the old tab's offset here.
+        if (e.OldValue is LogTabViewModel oldVm)
         {
-            _viewModel.VisibleLines.CollectionChanged -= OnVisibleLinesChanged;
-            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _viewModel.ScrollToLineRequested -= OnScrollToLineRequested;
-            _viewModel.SelectAllRequested -= OnSelectAllRequested;
+            ScrollViewer? sv = FindScrollViewer(LogListView);
+            if (sv != null)
+            {
+                oldVm.SavedScrollVertical   = sv.VerticalOffset;
+                oldVm.SavedScrollHorizontal = sv.HorizontalOffset;
+            }
+
+            oldVm.VisibleLines.CollectionChanged -= OnVisibleLinesChanged;
+            oldVm.PropertyChanged -= OnViewModelPropertyChanged;
+            oldVm.ScrollToLineRequested -= OnScrollToLineRequested;
+            oldVm.SelectAllRequested -= OnSelectAllRequested;
         }
 
         _viewModel = e.NewValue as LogTabViewModel;
@@ -37,6 +48,20 @@ public partial class LogTabView : UserControl
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested += OnScrollToLineRequested;
             _viewModel.SelectAllRequested += OnSelectAllRequested;
+
+            // Restore scroll position after the new ItemsSource has bound and the ListView
+            // has completed its first layout pass (Background priority runs after Render).
+            double v = _viewModel.SavedScrollVertical;
+            double h = _viewModel.SavedScrollHorizontal;
+            if (v > 0 || h > 0)
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    ScrollViewer? sv = FindScrollViewer(LogListView);
+                    sv?.ScrollToVerticalOffset(v);
+                    sv?.ScrollToHorizontalOffset(h);
+                }, DispatcherPriority.Background);
+            }
         }
     }
 
@@ -78,5 +103,17 @@ public partial class LogTabView : UserControl
     private void OnSelectAllRequested(object? sender, EventArgs e)
     {
         Dispatcher.InvokeAsync(() => LogListView.SelectAll(), DispatcherPriority.Input);
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollViewer sv) return sv;
+            ScrollViewer? found = FindScrollViewer(child);
+            if (found != null) return found;
+        }
+        return null;
     }
 }

@@ -115,12 +115,6 @@
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Setter Property="Height"     Value="0"/>
                     </Style>
-                    <!-- Thin scrollbar — theme-aware -->
-                    <Style TargetType="ScrollBar">
-                        <Setter Property="Width"    Value="6"/>
-                        <Setter Property="MinWidth" Value="6"/>
-                        <Setter Property="Background" Value="{StaticResource BgElevated}"/>
-                    </Style>
                 </ListView.Resources>
 
                 <ListView.ItemContainerStyle>
