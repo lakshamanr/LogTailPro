@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "QktQuPM2zgo=",
+  "dgSpecHash": "5urG0oP2zr4=",
   "success": true,
-  "projectFilePath": "C:\\Lakshaman\\code\\LogTailPro\\src\\LogTailPro\\LogTailPro.csproj",
+  "projectFilePath": "C:\\Lakshaman\\code\\lakshamanr\\LogTailPro\\src\\LogTailPro\\LogTailPro.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\lakshamanr\\.nuget\\packages\\communitytoolkit.mvvm\\8.3.2\\communitytoolkit.mvvm.8.3.2.nupkg.sha512",
     "C:\\Users\\lakshamanr\\.nuget\\packages\\microsoft.xaml.behaviors.wpf\\1.1.77\\microsoft.xaml.behaviors.wpf.1.1.77.nupkg.sha512",

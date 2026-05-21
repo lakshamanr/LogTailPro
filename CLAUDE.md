@@ -23,7 +23,8 @@ This is a commercial-quality desktop application. Do not cut corners.
 
 | You say | Claude does |
 |---|---|
-| `start` | Read CHANGELOG + SKILL + PHASE_1, build all phases sequentially |
+| `start` | Read CHANGELOG + SKILL + PHASE_1, build all phases sequentially (Phases 1–7) |
+| `add process explorer` | Read CHANGELOG + prompts/PHASE_7_PROCESS_EXPLORER.md, implement Phase 7 only |
 | `fix the UI` | Read UI_AGENT.md + prompts/UI_FIX.md, overhaul all XAML files |
 | `continue` | Resume from last completed phase (check git log to find it) |
 | `status` | Report which phases are complete based on git log |
@@ -66,6 +67,7 @@ Commit messages to use:
 - Phase 4: `Phase 4 complete: multi-tab, drag reorder, tab positioning, CLI args`
 - Phase 5: `Phase 5 complete: highlight rules, TAB expansion, settings dialog`
 - Phase 6: `Phase 6 complete: notifications, configurable export, stats panel, EXE publish`
+- Phase 7: `Phase 7 complete: Process Explorer — dotPeek-style panel, OutputDebugString capture, Launch & Attach, Event Log monitor`
 - UI fix: `UI overhaul: full dark theme, design system, professional developer tool aesthetic`
 
 Never commit broken code. Never commit bin/, obj/, or publish/.
@@ -104,14 +106,18 @@ LogTailPro/
         │   ├── FilterProfile.cs
         │   ├── SavedSearchPattern.cs
         │   ├── SearchResultRow.cs
-        │   └── AppSettings.cs
+        │   ├── AppSettings.cs
+        │   ├── ProcessInfo.cs              ← Phase 7
+        │   └── ProcessAttachmentType.cs   ← Phase 7
         ├── ViewModels/
         │   ├── MainViewModel.cs
         │   ├── LogTabViewModel.cs
         │   ├── SearchViewModel.cs
         │   ├── SavedPatternsViewModel.cs
         │   ├── HighlightRulesViewModel.cs
-        │   └── SettingsViewModel.cs
+        │   ├── SettingsViewModel.cs
+        │   ├── ProcessItemViewModel.cs    ← Phase 7
+        │   └── ProcessExplorerViewModel.cs ← Phase 7
         ├── Views/
         │   ├── LogTabView.xaml
         │   ├── LogTabView.xaml.cs
@@ -120,14 +126,21 @@ LogTailPro/
         │   ├── HighlightRulesDialog.xaml
         │   ├── HighlightRulesDialog.xaml.cs
         │   ├── SettingsDialog.xaml
-        │   └── SettingsDialog.xaml.cs
+        │   ├── SettingsDialog.xaml.cs
+        │   ├── ProcessExplorerPanel.xaml   ← Phase 7
+        │   ├── ProcessExplorerPanel.xaml.cs ← Phase 7
+        │   ├── LaunchProcessDialog.xaml    ← Phase 7
+        │   └── LaunchProcessDialog.xaml.cs ← Phase 7
         ├── Services/
         │   ├── FileWatcherService.cs
         │   ├── LogParserService.cs
         │   ├── SearchService.cs
         │   ├── HighlightService.cs
         │   ├── FilterService.cs
-        │   └── SettingsService.cs
+        │   ├── SettingsService.cs
+        │   ├── ProcessSnapshotService.cs   ← Phase 7
+        │   ├── ProcessOutputCaptureService.cs ← Phase 7
+        │   └── DebugOutputMonitorService.cs   ← Phase 7
         ├── Converters/
         │   ├── BoolToVisibilityConverter.cs
         │   ├── BoolToWrapConverter.cs
@@ -202,9 +215,32 @@ When the user says **"start"** or **"build"**, do this in order:
 6. Build — fix all errors
 7. Git commit Phase 1
 8. Read `./prompts/PHASE_2.md` — implement, build, commit
-9. Continue through all 6 phases sequentially
+9. Continue through all 7 phases sequentially
+10. Phase 7 is `./prompts/PHASE_7_PROCESS_EXPLORER.md` — Process Explorer feature
 
 **Never jump phases. Never skip the build step. Never skip the git commit.**
+
+---
+
+## Add Process Explorer Command Sequence
+
+When the user says **"add process explorer"**, do this in order:
+
+1. Read `./CHANGELOG.md` (confirm v2.0 is the current version)
+2. Read `./prompts/PHASE_7_PROCESS_EXPLORER.md` completely
+3. Output a one-paragraph summary of what you will implement, then wait for the user to confirm
+4. Implement in this exact order:
+   a. Models: `ProcessInfo.cs`, `ProcessAttachmentType.cs`
+   b. Services: `ProcessSnapshotService.cs`, `ProcessOutputCaptureService.cs`, `DebugOutputMonitorService.cs`
+   c. ViewModels: `ProcessItemViewModel.cs`, `ProcessExplorerViewModel.cs`
+   d. Modify `LogTabViewModel.cs` — add process-capture constructor and fields
+   e. Modify `MainViewModel.cs` — wire ProcessExplorer VM and new commands
+   f. Views: `ProcessExplorerPanel.xaml + .xaml.cs`, `LaunchProcessDialog.xaml + .xaml.cs`
+   g. Modify `MainWindow.xaml` — GridSplitter layout, toolbar button, View menu, Ctrl+Shift+P
+   h. Modify `Models/AppSettings.cs` — add 5 new settings
+5. Build: `dotnet build src/LogTailPro/LogTailPro.csproj` — fix ALL errors and warnings
+6. Run through the **Manual Test Checklist** at the bottom of `PHASE_7_PROCESS_EXPLORER.md`
+7. Git commit: `Phase 7 complete: Process Explorer — dotPeek-style panel, OutputDebugString capture, Launch & Attach, Event Log monitor`
 
 ---
 
@@ -251,3 +287,9 @@ The app is complete when:
 - [ ] App launches in < 2 seconds
 - [ ] Single EXE ships with no installer required
 - [ ] UI matches the design system in UI_AGENT.md
+- [ ] Process Explorer panel opens/closes with Ctrl+Shift+P (Phase 7)
+- [ ] All running processes shown in a tree view with CPU% and memory (Phase 7)
+- [ ] OutputDebugString capture streams into a log tab (Phase 7)
+- [ ] Launch & Attach dialog starts any EXE and streams stdout/stderr (Phase 7)
+- [ ] Windows Event Log entries route to a log tab (Phase 7)
+- [ ] Panel width and visibility persist across restarts (Phase 7)

@@ -5,7 +5,56 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v1.5 - 2026-05-18 (CURRENT) — FINAL RELEASE
+## v2.0 - 2026-05-21 (CURRENT) — PROCESS EXPLORER
+
+### Changes
+- **New feature:** Phase 7 — Process Explorer side panel (JetBrains dotPeek-style)
+- **New file:** `prompts/PHASE_7_PROCESS_EXPLORER.md` — full implementation guide
+- **Affects:** All existing phases remain complete. Phase 7 is purely additive.
+
+### What Phase 7 adds
+- Collapsible left panel listing all running Windows processes in a parent-child tree
+- Search/filter by name or PID; .NET-only filter; system process filter; auto-refresh
+- OutputDebugString capture via Win32 shared memory (DebugView technique — all processes)
+- Windows Event Log monitoring per process
+- Launch & Attach dialog: start any EXE and stream its stdout or stderr into a new tab
+- Process details strip (PID, path, user, CPU%, memory, start time)
+- Context menu: Attach, Open in Explorer, Copy PID/Path, Kill Process
+- Panel width and visibility persist in `AppSettings`
+- Ctrl+Shift+P keyboard shortcut to toggle the panel
+- All captured output uses the existing search / highlight / filter / bookmark pipeline
+
+### New files
+| File | Purpose |
+|---|---|
+| `Models/ProcessInfo.cs` | Process snapshot model |
+| `Models/ProcessAttachmentType.cs` | Capture mode enum |
+| `Services/ProcessSnapshotService.cs` | Process enumeration + CPU/memory metrics |
+| `Services/ProcessOutputCaptureService.cs` | stdout/stderr capture for launched processes |
+| `Services/DebugOutputMonitorService.cs` | OutputDebugString via Win32 (DebugView technique) |
+| `ViewModels/ProcessItemViewModel.cs` | Tree node ViewModel |
+| `ViewModels/ProcessExplorerViewModel.cs` | Panel root ViewModel |
+| `Views/ProcessExplorerPanel.xaml` | Side panel UI |
+| `Views/LaunchProcessDialog.xaml` | Launch & Attach dialog |
+
+### Modified files
+| File | Change |
+|---|---|
+| `Models/AppSettings.cs` | 5 new Process Explorer settings |
+| `ViewModels/LogTabViewModel.cs` | 3rd constructor for process-capture mode |
+| `ViewModels/MainViewModel.cs` | ProcessExplorer VM, OpenProcessTabAsync, ToggleProcessExplorerCommand |
+| `MainWindow.xaml` | GridSplitter layout, panel slot, toolbar button, View menu item, Ctrl+Shift+P |
+
+### Build commands used
+```
+dotnet restore src/LogTailPro/LogTailPro.csproj
+dotnet build   src/LogTailPro/LogTailPro.csproj -c Debug
+dotnet build   src/LogTailPro/LogTailPro.csproj -c Release
+```
+
+---
+
+## v1.5 - 2026-05-18 (PREVIOUS FINAL) — FINAL RELEASE
 
 ### Changes
 - **Logo:** New SVG logo (`Assets/logo.svg`) — dark navy background, cyan log-lines, amber tail arrow
