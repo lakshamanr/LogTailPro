@@ -8,9 +8,40 @@ namespace LogTailPro;
 /// <summary>Application entry point — wires up services and creates the main window.</summary>
 public partial class App : Application
 {
+    private SingleInstanceService? _singleInstance;
+
+    /// <summary>Switches that position or tile the window: they ask for a separate window, so they skip single-instance.</summary>
+    private static readonly HashSet<string> WindowPlacementSwitches = new(StringComparer.Ordinal)
+    {
+        "-wp", "--window-position", "-ws", "--window-state",
+        "-tc", "--tile-window-count", "-ti", "--tile-window-index"
+    };
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // One instance at a time: a second launch (e.g. Explorer "Open with") hands its files to the
+        // running window, which adds them as tabs, and exits. Explicit window placement/tiling switches
+        // (-wp, -ws, -tc, -ti) opt out because they exist to run several windows side by side.
+        if (!e.Args.Any(WindowPlacementSwitches.Contains))
+        {
+            _singleInstance = new SingleInstanceService();
+            if (!_singleInstance.TryBecomePrimary())
+            {
+                bool forwarded = _singleInstance.TrySendToPrimary(e.Args);
+                _singleInstance.Dispose();
+                _singleInstance = null;
+
+                if (forwarded)
+                {
+                    Shutdown();
+                    return;
+                }
+                // The running instance could not be reached (hung or still starting): open normally
+                // rather than silently dropping the user's file.
+            }
+        }
 
         SettingsService settingsService = new();
         MainViewModel mainVm = new(settingsService);
@@ -44,6 +75,41 @@ public partial class App : Application
             if (File.Exists(lastFile))
                 _ = mainVm.OpenFileTabAsync(lastFile);
         }
+
+        // From now on, files forwarded by later launches arrive here.
+        _singleInstance?.SetHandler(args =>
+            Dispatcher.InvokeAsync(() => HandleForwardedArgs(args, window, mainVm)));
+    }
+
+    /// <summary>Opens files sent by another launch as new tabs and brings the window to the front.</summary>
+    private static void HandleForwardedArgs(IReadOnlyList<string> args, MainWindow window, MainViewModel mainVm)
+    {
+        BringToFront(window);
+
+        foreach (string path in args)
+        {
+            if (!path.StartsWith('-') && File.Exists(path))
+                _ = mainVm.OpenFileTabAsync(path);
+        }
+    }
+
+    private static void BringToFront(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+            window.WindowState = WindowState.Normal;
+
+        window.Show();
+        window.Activate();
+        // Topmost toggle is the reliable way to raise a window when Activate alone only flashes the taskbar.
+        window.Topmost = true;
+        window.Topmost = false;
+        window.Focus();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstance?.Dispose();
+        base.OnExit(e);
     }
 
     private static void ParseCliArgs(
