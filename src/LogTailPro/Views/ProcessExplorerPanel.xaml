@@ -200,6 +200,17 @@
                            FontFamily="{StaticResource MonoFont}"
                            FontSize="{StaticResource FontSizeSmall}"
                            Text="{Binding SelectedService.Name, Mode=OneWay, FallbackValue=''}"/>
+                <!-- State / start type / hosting PID: too wide for the list row at the default panel width -->
+                <TextBlock Foreground="{StaticResource TextSecondary}"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           Margin="0,2,0,0">
+                    <Run Text="{Binding SelectedService.StateText, Mode=OneWay}"/>
+                    <Run Text=" • "/>
+                    <Run Text="{Binding SelectedService.StartTypeText, Mode=OneWay}"/>
+                    <Run Text=" • PID "/>
+                    <Run Text="{Binding SelectedService.PidText, Mode=OneWay}"/>
+                </TextBlock>
                 <TextBlock Foreground="{StaticResource TextSecondary}"
                            FontFamily="{StaticResource UiFont}"
                            FontSize="{StaticResource FontSizeSmall}"
@@ -413,9 +424,7 @@
                                    Margin="4,1,0,0"
                                    TextTrimming="CharacterEllipsis">
                             <Run Text="{Binding Name, Mode=OneWay}"/>
-                            <Run Text="  •  "/>
-                            <Run Text="{Binding StartTypeText, Mode=OneWay}"/>
-                            <Run Text="  •  PID "/>
+                            <Run Text=" • "/>
                             <Run Text="{Binding PidText, Mode=OneWay}"/>
                         </TextBlock>
                     </Grid>
