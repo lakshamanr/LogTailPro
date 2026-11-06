@@ -37,5 +37,32 @@ public partial class ProcessExplorerPanel : UserControl
             vm.SelectedProcess.KillProcessCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.Key == Key.Enter && vm.SelectedProcess != null)
+        {
+            vm.SelectedProcess.OpenLogsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Double-clicking a process opens its log files. Handled in the preview phase so the tree
+    /// does not also toggle the node's expansion.
+    /// </summary>
+    private void TreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || e.OriginalSource is not DependencyObject source) return;
+
+        TreeViewItem? container = null;
+        for (DependencyObject? cur = source; cur != null && cur != sender; cur = VisualTreeHelper.GetParent(cur))
+        {
+            if (cur is System.Windows.Controls.Primitives.ToggleButton) return; // the expander arrow
+            if (cur is TreeViewItem tvi && container == null) container = tvi;
+        }
+
+        if (container?.DataContext is ProcessItemViewModel item)
+        {
+            item.OpenLogsCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 }

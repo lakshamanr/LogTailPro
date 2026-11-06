@@ -5,7 +5,35 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.0 - 2026-05-21 (CURRENT) — PROCESS EXPLORER
+## v2.1 - 2026-11-06 (CURRENT) — PROCESS EXPLORER: LOG DISCOVERY + PATTERN SEARCH
+
+### Changes
+- **Open Log Files:** right-click a process (or double-click / Enter) to locate its log files and open
+  them in normal tabs. Discovery combines three sources and merges/scores the results:
+  - **Open handles** — files the process currently has open (needs no config; best effort for other users' processes)
+  - **Config files** next to the EXE — NLog, log4net, Serilog, appsettings*.json, *.config, ini/yaml/properties;
+    expands `${basedir}`, `${specialfolder}`, `%ENV%`, `~/`, relative paths and turns dated/rolling names
+    (`${shortdate}`, `%date{…}`, `{Date}`, `app-.txt`, `yyyyMMdd`) into wildcards resolved to real files
+  - **Folder scan** — recent `*.log/*.txt/*.out/*.err` in the EXE folder, `logs\`, ProgramData, LocalAppData, Temp
+- **Picker dialog** lists candidates (size, last written, how found), pre-ticks the best one (★) per process.
+- **Pattern search** in the explorer: plain text, wildcards (`w3wp*, sqlservr*`), or regex (new "Regex" toggle);
+  matches name, PID, path and user. Invalid regex shows the error and keeps the last good list.
+- **"Logs (N)"** button opens the logs of every process matching the current search (max 25) in one picker.
+
+### New files
+`Models/LogCandidate.cs`, `Services/ProcessLogDiscoveryService.cs`, `Services/ProcessSearchMatcher.cs`,
+`ViewModels/LogDiscoveryViewModel.cs`, `Views/LogDiscoveryDialog.xaml(.cs)`
+
+### Modified files
+`ProcessItemViewModel`, `ProcessExplorerViewModel`, `MainViewModel`, `ProcessExplorerPanel.xaml(.cs)`,
+`AppSettings` (+`ProcessExplorerRegexSearch`)
+
+### Not included (follow-ups)
+"Has logs" filter (would run discovery on every refresh) and command-line matching (needs PEB reads).
+
+---
+
+## v2.0 - 2026-05-21 — PROCESS EXPLORER
 
 ### Changes
 - **New feature:** Phase 7 — Process Explorer side panel (JetBrains dotPeek-style)

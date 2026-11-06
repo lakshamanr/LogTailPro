@@ -55,6 +55,61 @@ public sealed partial class MainViewModel : ObservableObject
         ProcessExplorer = new ProcessExplorerViewModel(Settings);
         ProcessExplorer.AttachRequested += (_, e) => OpenProcessTab(e.Info, e.Type);
         ProcessExplorer.LaunchAndAttachRequested += (_, _) => OpenLaunchDialog();
+        ProcessExplorer.OpenLogsRequested += async (_, processes) => await OpenLogsAsync(processes);
+    }
+
+    private readonly ProcessLogDiscoveryService _logDiscovery = new();
+
+    /// <summary>
+    /// Discovers the log files of the given processes (open handles, config files, log folders),
+    /// lets the user pick which to open, and opens each in its own tab.
+    /// </summary>
+    public async Task OpenLogsAsync(IReadOnlyList<ProcessInfo> processes)
+    {
+        if (processes.Count == 0) return;
+        string label = processes.Count == 1 ? processes[0].DisplayName : $"{processes.Count} processes";
+        StatusMessage = $"Looking for log files of {label}…";
+
+        IReadOnlyList<LogCandidate> found;
+        try
+        {
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(30));
+            found = await _logDiscovery.DiscoverManyAsync(processes, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Log search timed out.";
+            return;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Log search failed.";
+            MessageBox.Show($"Could not search for log files:\n{ex.Message}", "Open Log Files",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (found.Count == 0)
+        {
+            StatusMessage = $"No log files found for {label}.";
+            bool noPath = processes.Any(p => string.IsNullOrEmpty(p.ExecutablePath));
+            MessageBox.Show(
+                $"No log files were found for {label}.\n\n" +
+                "Searched: files the process has open, config files next to its executable " +
+                "(NLog, log4net, Serilog, appsettings, ini, yaml …) and its usual log folders.\n\n" +
+                (noPath ? "The executable path of some processes is not accessible — try running LogTailPro as administrator.\n\n" : "") +
+                "If the process logs elsewhere, use File ▸ Open to open the file directly.",
+                "Open Log Files", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        StatusMessage = $"{found.Count} log file(s) found for {label}.";
+        LogDiscoveryViewModel picker = new(found, $"Log files for {label}");
+        LogDiscoveryDialog dialog = new(picker) { Owner = Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true) return;
+
+        foreach (string path in picker.SelectedPaths)
+            await OpenFileTabAsync(path);
     }
 
     partial void OnIsProcessExplorerVisibleChanged(bool value)

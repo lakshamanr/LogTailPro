@@ -10,6 +10,7 @@
     <UserControl.Resources>
         <!-- Converters must be declared here: the window's resources are not visible while this control is parsed. -->
         <conv:NullToVisibilityConverter x:Key="NullToVisibility"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
 
         <!-- Status dot: colour comes from theme brushes, driven by the process status. -->
         <Style x:Key="StatusDotStyle" TargetType="Ellipse">
@@ -50,6 +51,7 @@
                 BorderBrush="{StaticResource BorderNormal}"
                 BorderThickness="0,0,0,1"
                 Padding="6,5">
+            <StackPanel>
             <Grid>
                 <TextBox x:Name="FilterBox"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
@@ -60,9 +62,10 @@
                          BorderThickness="1"
                          Padding="6,3"
                          FontFamily="{StaticResource UiFont}"
-                         FontSize="{StaticResource FontSizeBody}"/>
+                         FontSize="{StaticResource FontSizeBody}"
+                         ToolTip="Text, wildcards (w3wp*, sql*, *inetsrv*), comma-separated alternatives, or a regex when 'Regex' is ticked. Matches name, PID, path and user."/>
                 <!-- Placeholder -->
-                <TextBlock Text="Filter by name or PID…"
+                <TextBlock Text="Filter: name, PID, path, user — * ? or regex…"
                            IsHitTestVisible="False"
                            Foreground="{StaticResource TextMuted}"
                            FontFamily="{StaticResource UiFont}"
@@ -81,6 +84,15 @@
                     </TextBlock.Style>
                 </TextBlock>
             </Grid>
+            <!-- Invalid regex message -->
+            <TextBlock Text="{Binding SearchError}"
+                       Foreground="{StaticResource StatusError}"
+                       FontSize="{StaticResource FontSizeSmall}"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding SearchError}"
+                       Margin="2,3,0,0"
+                       Visibility="{Binding HasSearchError, Converter={StaticResource BoolToVisibility}}"/>
+            </StackPanel>
         </Border>
 
         <!-- ── Toolbar ─────────────────────────────────────────────────── -->
@@ -113,6 +125,18 @@
                           VerticalAlignment="Center"
                           Margin="6,0,0,0"
                           ToolTip="Auto-refresh every 2 seconds"/>
+
+                <CheckBox Content="Regex"
+                          IsChecked="{Binding IsRegexSearch}"
+                          VerticalAlignment="Center"
+                          Margin="6,0,0,0"
+                          ToolTip="Treat the filter text as a regular expression"/>
+
+                <Button Content="{Binding LogsButtonText}"
+                        Command="{Binding OpenLogsForMatchesCommand}"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="8,3" Margin="8,0,2,0"
+                        ToolTip="Find and open the log files of every process matching the filter (max 25)"/>
             </WrapPanel>
         </Border>
 
@@ -177,7 +201,8 @@
                   BorderThickness="0"
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
-                  KeyDown="TreeView_KeyDown">
+                  KeyDown="TreeView_KeyDown"
+                  PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown">
 
             <TreeView.Resources>
                 <HierarchicalDataTemplate DataType="{x:Type vm:ProcessItemViewModel}"
@@ -253,6 +278,10 @@
                     <Setter Property="ContextMenu">
                         <Setter.Value>
                             <ContextMenu>
+                                <MenuItem Header="Open Log Files…"
+                                          Command="{Binding OpenLogsCommand}"
+                                          InputGestureText="Enter"/>
+                                <Separator/>
                                 <MenuItem Header="Capture Debug Output (OutputDebugString)"
                                           Command="{Binding AttachDebugOutputCommand}"/>
                                 <MenuItem Header="Monitor Windows Event Log"

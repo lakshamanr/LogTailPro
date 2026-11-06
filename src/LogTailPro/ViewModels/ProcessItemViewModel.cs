@@ -14,18 +14,21 @@ public sealed partial class ProcessItemViewModel : ObservableObject
     private readonly Action<ProcessInfo, ProcessAttachmentType> _attach;
     private readonly Action _launch;
     private readonly Action<ProcessInfo> _kill;
+    private readonly Action<ProcessInfo> _openLogs;
 
     /// <summary>Creates a node; actions are supplied by the owning <see cref="ProcessExplorerViewModel"/>.</summary>
     public ProcessItemViewModel(
         ProcessInfo info,
         Action<ProcessInfo, ProcessAttachmentType> attach,
         Action launch,
-        Action<ProcessInfo> kill)
+        Action<ProcessInfo> kill,
+        Action<ProcessInfo> openLogs)
     {
         Info = info;
         _attach = attach;
         _launch = launch;
         _kill = kill;
+        _openLogs = openLogs;
         Children = new ObservableCollection<ProcessItemViewModel>();
     }
 
@@ -70,6 +73,10 @@ public sealed partial class ProcessItemViewModel : ObservableObject
 
     /// <summary>Used as the accessible name of the tree node (screen readers, UI automation).</summary>
     public override string ToString() => DisplayName;
+
+    /// <summary>Finds this process' log files (open handles, config files, log folders) and opens them in tabs.</summary>
+    [RelayCommand]
+    private void OpenLogs() => _openLogs(Info);
 
     [RelayCommand]
     private void AttachDebugOutput() => _attach(Info, ProcessAttachmentType.DebugOutput);

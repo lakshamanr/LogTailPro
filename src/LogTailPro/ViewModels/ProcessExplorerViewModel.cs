@@ -27,6 +27,7 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         _settings = settings;
         _showDotNetOnly = settings.ProcessExplorerDotNetOnly;
         _showSystemProcesses = settings.ProcessExplorerShowSystem;
+        _isRegexSearch = settings.ProcessExplorerRegexSearch;
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync();
@@ -41,8 +42,20 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
     /// <summary>Currently selected node.</summary>
     [ObservableProperty] private ProcessItemViewModel? _selectedProcess;
 
-    /// <summary>Name / PID filter text.</summary>
+    /// <summary>
+    /// Search pattern: plain text, wildcards (<c>*</c>, <c>?</c>, comma-separated alternatives) or,
+    /// when <see cref="IsRegexSearch"/> is on, a regular expression. Matches name, PID, path and user.
+    /// </summary>
     [ObservableProperty] private string _searchText = string.Empty;
+
+    /// <summary>Treat <see cref="SearchText"/> as a regular expression.</summary>
+    [ObservableProperty] private bool _isRegexSearch;
+
+    /// <summary>Regex syntax error for the current pattern (empty when valid).</summary>
+    [ObservableProperty] private string _searchError = string.Empty;
+
+    /// <summary>Number of processes currently matching the search (drives the "Logs (N)" button).</summary>
+    [ObservableProperty] private int _matchCount;
 
     /// <summary>Whether the list refreshes every 2 seconds.</summary>
     [ObservableProperty] private bool _isAutoRefresh;
@@ -56,7 +69,32 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
     /// <summary>Status line shown at the bottom of the panel.</summary>
     [ObservableProperty] private string _statusText = "Click Refresh to load processes";
 
-    partial void OnSearchTextChanged(string value) => _ = RefreshAsync();
+    partial void OnSearchTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(LogsButtonText));
+        OpenLogsForMatchesCommand.NotifyCanExecuteChanged();
+        _ = RefreshAsync();
+    }
+
+    partial void OnIsRegexSearchChanged(bool value)
+    {
+        _settings.ProcessExplorerRegexSearch = value;
+        _ = RefreshAsync();
+    }
+
+    partial void OnMatchCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(LogsButtonText));
+        OpenLogsForMatchesCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSearchErrorChanged(string value) => OnPropertyChanged(nameof(HasSearchError));
+
+    /// <summary>True when the regex pattern is invalid.</summary>
+    public bool HasSearchError => SearchError.Length > 0;
+
+    /// <summary>Caption of the "open logs for all matches" button.</summary>
+    public string LogsButtonText => SearchText.Trim().Length > 0 ? $"📄 Logs ({MatchCount})" : "📄 Logs";
 
     partial void OnShowSystemProcessesChanged(bool value)
     {
@@ -82,6 +120,18 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
 
     /// <summary>Raised when the user clicks Launch &amp; Attach. Handled by MainViewModel.</summary>
     public event EventHandler? LaunchAndAttachRequested;
+
+    /// <summary>Raised when the user wants the log files of one or more processes. Handled by MainViewModel.</summary>
+    public event EventHandler<IReadOnlyList<ProcessInfo>>? OpenLogsRequested;
+
+    /// <summary>Maximum number of processes whose logs are discovered in one go.</summary>
+    private const int MaxLogProcesses = 25;
+
+    /// <summary>Processes matching the current filter (flat), for "open logs for all matches".</summary>
+    private IReadOnlyList<ProcessInfo> _matches = Array.Empty<ProcessInfo>();
+
+    /// <summary>Last successfully compiled search; kept while the user is mid-way through typing a regex.</summary>
+    private ProcessSearchMatcher _matcher = ProcessSearchMatcher.MatchAll;
 
     /// <summary>Re-reads the process list. Overlapping calls are coalesced into one follow-up refresh.</summary>
     [RelayCommand]
@@ -115,18 +165,24 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         string search = SearchText.Trim();
         int? selectedPid = SelectedProcess?.Pid;
 
-        (IReadOnlyList<ProcessInfo> roots, int total) = await Task.Run(() =>
+        // Compile the pattern on the UI thread; an invalid regex keeps the previous good matcher.
+        ProcessSearchMatcher? compiled = ProcessSearchMatcher.Create(search, IsRegexSearch, out string? error);
+        if (compiled != null) _matcher = compiled;
+        SearchError = error ?? string.Empty;
+        ProcessSearchMatcher matcher = _matcher;
+
+        (IReadOnlyList<ProcessInfo> roots, IReadOnlyList<ProcessInfo> matches, int total) = await Task.Run(() =>
         {
             IReadOnlyList<ProcessInfo> flat = _snapshot.GetAll();
             IEnumerable<ProcessInfo> filtered = flat;
             if (!showSystem)  filtered = filtered.Where(p => !p.IsSystemProcess);
             if (dotNetOnly)   filtered = filtered.Where(p => p.IsDotNet);
-            if (search.Length > 0)
-                filtered = filtered.Where(p =>
-                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    p.Pid.ToString().Contains(search));
-            return (_snapshot.BuildTree(filtered.ToList()), flat.Count);
+            List<ProcessInfo> kept = filtered.Where(matcher.IsMatch).ToList();
+            return (_snapshot.BuildTree(kept), (IReadOnlyList<ProcessInfo>)kept, flat.Count);
         });
+
+        _matches = matches;
+        MatchCount = matches.Count;
 
         bool expandAll = search.Length > 0;
         ObservableCollection<ProcessItemViewModel> newRoots = new();
@@ -144,7 +200,7 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
     private ProcessItemViewModel BuildItemVm(ProcessInfo info, bool expandAll, int? selectedPid,
                                              ref ProcessItemViewModel? reselect)
     {
-        ProcessItemViewModel vm = new(info, OnAttach, OnLaunch, OnKill)
+        ProcessItemViewModel vm = new(info, OnAttach, OnLaunch, OnKill, OnOpenLogs)
         {
             IsExpanded = expandAll || _expandedPids.Contains(info.Pid)
         };
@@ -178,6 +234,16 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         AttachRequested?.Invoke(this, (info, type));
 
     private void OnLaunch() => LaunchAndAttachRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnOpenLogs(ProcessInfo info) =>
+        OpenLogsRequested?.Invoke(this, new[] { info });
+
+    /// <summary>Finds and opens the logs of every process matching the current search (up to 25).</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenLogsForMatches))]
+    private void OpenLogsForMatches() =>
+        OpenLogsRequested?.Invoke(this, _matches.Take(MaxLogProcesses).ToList());
+
+    private bool CanOpenLogsForMatches() => SearchText.Trim().Length > 0 && MatchCount > 0;
 
     private void OnKill(ProcessInfo info)
     {

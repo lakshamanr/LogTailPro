@@ -89,4 +89,7 @@ public sealed class AppSettings
 
     /// <summary>Whether only .NET processes are shown in the Process Explorer.</summary>
     public bool ProcessExplorerDotNetOnly { get; set; }
+
+    /// <summary>Whether the Process Explorer search box treats its text as a regular expression.</summary>
+    public bool ProcessExplorerRegexSearch { get; set; }
 }
