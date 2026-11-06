@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -808,6 +808,73 @@ public sealed partial class MainViewModel : ObservableObject
             tab.RefreshHighlighting();
     }
 
+
+    // ── Help ──────────────────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    private bool _isHelpPanelVisible;
+
+    public HelpDialogViewModel HelpViewModel { get; } = new();
+
+    [RelayCommand]
+    public void ToggleHelpPanel() => IsHelpPanelVisible = !IsHelpPanelVisible;
+
+    [RelayCommand]
+    public void OpenHelpGuide(string? targetIdOrCategory = null)
+    {
+        IsHelpPanelVisible = true;
+        if (!string.IsNullOrEmpty(targetIdOrCategory))
+        {
+            if (targetIdOrCategory == "shortcuts")
+            {
+                HelpViewModel.SelectCategory("All Categories");
+                HelpTopic? shortcutTopic = HelpViewModel.FilteredTopics.FirstOrDefault(t => t.Id == "shortcuts");
+                if (shortcutTopic != null) HelpViewModel.SelectTopic(shortcutTopic);
+            }
+            else
+            {
+                HelpViewModel.SelectCategory(targetIdOrCategory);
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void OpenHelpCategory(string? category)
+    {
+        OpenHelpGuide(category);
+    }
+
+    [RelayCommand]
+    public void OpenHelpWindow(string? targetIdOrCategory = null)
+    {
+        HelpDialog dialog = new(targetIdOrCategory)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        dialog.Show();
+    }
+
+    [RelayCommand]
+    public void OpenShortcutsHelp()
+    {
+        OpenHelpGuide("shortcuts");
+    }
+
+    [RelayCommand]
+    public void OpenMarkdownGuide()
+    {
+        HelpContentService.OpenMarkdownGuide();
+    }
+
+    [RelayCommand]
+    public void OpenAbout()
+    {
+        AboutDialog dialog = new()
+        {
+            Owner = Application.Current.MainWindow
+        };
+        dialog.ShowDialog();
+    }
     // ── App exit ─────────────────────────────────────────────────────────────
 
     [RelayCommand]

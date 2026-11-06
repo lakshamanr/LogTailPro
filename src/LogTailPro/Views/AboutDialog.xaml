@@ -1,0 +1,50 @@
+<Window x:Class="LogTailPro.Views.AboutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About LogTailPro"
+        Width="500" Height="360"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource BgElevated}"
+        Foreground="{StaticResource TextPrimary}"
+        FontFamily="{StaticResource UiFont}"
+        FontSize="{StaticResource UiSize}">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header: Logo + App Name + Version -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="LogTailPro" FontSize="26" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
+            <TextBlock Text="Version 1.4.0 — Windows x64" Foreground="{StaticResource TextSecondary}"
+                       FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeSmall}" Margin="0,2,0,0"/>
+        </StackPanel>
+
+        <!-- Content details -->
+        <Border Grid.Row="1" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                BorderThickness="1" CornerRadius="6" Padding="14,12">
+            <StackPanel>
+                <TextBlock Text="High-Performance Real-Time Log File Viewer" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6"/>
+                <TextBlock Text="Built with C# 12, .NET, and WPF. Designed as a modern, high-speed BareTailPro alternative with structured JSON inspection, expandable multiline stack traces, cross-log correlation, live error timeline charts, and integrated Windows Process Explorer."
+                           Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,10"/>
+                
+                <TextBlock Text="Key Capabilities:" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                <TextBlock Text="• Multi-GB unbuffered file tailing &amp; network polling&#x0a;• Regex/Text search &amp; filter tail&#x0a;• Serilog CLEF &amp; NDJSON property inspector&#x0a;• Multi-language exception folding (.NET, Java, Python)&#x0a;• Multi-tab timelines &amp; Win32 debug capture"
+                           Foreground="{StaticResource TextMuted}" FontSize="{StaticResource FontSizeSmall}" LineHeight="16"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Footer / Close -->
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <Button DockPanel.Dock="Left" Content="GitHub Releases"
+                    Click="GitHub_Click" Style="{StaticResource SecondaryButton}" Padding="12,5"/>
+            <Button DockPanel.Dock="Right" Content="Close" IsDefault="True" IsCancel="True"
+                    Click="Close_Click" Style="{StaticResource PrimaryButton}" Width="90" Padding="12,5"/>
+        </DockPanel>
+    </Grid>
+</Window>

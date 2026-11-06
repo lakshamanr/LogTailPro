@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using LogTailPro.Models;
@@ -487,6 +487,14 @@ internal static class Program
             mainVm.RestoreLayoutXml?.Invoke("<LayoutRoot><LayoutPanel Orientation=\"Vertical\"><LayoutPanel Orientation=\"Horizontal\"><LayoutAnchorablePane DockWidth=\"300\"><LayoutAnchorable ContentId=\"process\" Title=\"Process\"/></LayoutAnchorablePane><LayoutDocumentPane/></LayoutPanel></LayoutPanel></LayoutRoot>");
             chartTab.IsChartPanelVisible = true;
             chartTab.IsChartPanelVisible = false;
+
+            // Verify Help panel toggle and layout reset inclusion
+            mainVm.IsHelpPanelVisible = true;
+            Check(mainVm.IsHelpPanelVisible, "Help panel visible should be true");
+            mainVm.IsHelpPanelVisible = false;
+            mainVm.RestoreLayoutXml?.Invoke(mainWindow.GetLayoutXml());
+            mainVm.IsHelpPanelVisible = true;
+            mainVm.IsHelpPanelVisible = false;
 
             chartView.Measure(new Size(1000, 300));
             chartView.Arrange(new Rect(0, 0, 1000, 300));

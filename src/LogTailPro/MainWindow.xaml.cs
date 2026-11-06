@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -75,7 +75,7 @@ public partial class MainWindow : Window
         foreach ((string id, object content) in _panelContents)
         {
             if (content is FrameworkElement fe)
-                fe.DataContext = id == "process" ? vm.ProcessExplorer : vm;
+                fe.DataContext = id == "process" ? vm.ProcessExplorer : (id == "help" ? vm.HelpViewModel : vm);
         }
     }
 
@@ -220,13 +220,26 @@ public partial class MainWindow : Window
                     CanHide = true
                 };
 
-                LayoutAnchorablePane newPane = new(missing)
+                LayoutAnchorablePane? targetPane = pair.Key switch
                 {
-                    DockHeight = new GridLength(pair.Key == "chart" ? 160 : 180)
+                    "process" => Dock.Layout.Descendents().OfType<LayoutAnchorablePane>()
+                                     .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "process")),
+                    "help" or "details" or "stats" or "bookmarks" =>
+                                 Dock.Layout.Descendents().OfType<LayoutAnchorablePane>()
+                                     .FirstOrDefault(p => p.Children.Any(c => c.ContentId is "details" or "stats" or "bookmarks" or "help")),
+                    _ => null
                 };
 
-                if (Dock.Layout.RootPanel != null)
+                if (targetPane != null)
                 {
+                    targetPane.Children.Add(missing);
+                }
+                else if (Dock.Layout.RootPanel != null)
+                {
+                    LayoutAnchorablePane newPane = new(missing)
+                    {
+                        DockHeight = new GridLength(pair.Key == "chart" ? 160 : 180)
+                    };
                     Dock.Layout.RootPanel.Children.Add(newPane);
                 }
                 else
@@ -253,6 +266,7 @@ public partial class MainWindow : Window
         "bookmarks" => "Bookmarks",
         "search" => "Search",
         "results" => "Search Results",
+        "help" => "Help Guide",
         _ => id
     };
 
@@ -433,6 +447,7 @@ public partial class MainWindow : Window
             case "chart":   if (tab != null) tab.IsChartPanelVisible = visible; break;
             case "stats":   if (tab != null) tab.IsStatsPanelVisible = visible; break;
             case "details": if (tab != null) tab.IsDetailPanelVisible = visible; break;
+            case "help": ViewModel.IsHelpPanelVisible = visible; break;
         }
     }
 
@@ -500,6 +515,7 @@ public partial class MainWindow : Window
         switch (id)
         {
             case "process": ViewModel.IsProcessExplorerVisible = visible; return;
+            case "help": ViewModel.IsHelpPanelVisible = visible; return;
             case "search"  when tab != null: tab.IsSearchPanelVisible = visible; return;
             case "results" when tab != null: tab.IsSearchResultsVisible = visible; return;
             case "chart"   when tab != null: tab.IsChartPanelVisible = visible; return;

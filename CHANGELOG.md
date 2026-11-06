@@ -1,11 +1,21 @@
-# Plan Changelog
+﻿# Plan Changelog
 
 Claude Code must read this file BEFORE starting any phase.
 If the version here is newer than what you last built, re-read the affected phase files.
 
 ---
 
-## v2.8 - 2026-11-06 (CURRENT) - ERROR TIMELINE CHART PANEL BINDING & LEGACY LAYOUT FIX
+## v2.9 - 2026-11-06 (CURRENT) - DOCKABLE HELP GUIDE & RESET LAYOUT INTEGRATION FIX
+
+- Integrated Dockable Help Guide: Created HelpPanelView.xaml / HelpPanelView.xaml.cs and registered ContentId="help" as an AvalonDock LayoutAnchorable in MainWindow.xaml, allowing the Help Guide to be docked, floated, closed, and reset like all other IDE panels.
+- Fixed Reset Layout panel omission: Updated ResetLayout_Click, RefreshAnchorables, and AssignPanelDataContexts in MainWindow.xaml.cs so that resetting the layout cleanly restores all registered panels (including the newly added Help Guide, Error Timeline Chart, Process Explorer, Line Details, Stats, and Bookmarks) to their default docking positions.
+- Enhanced legacy layout resilience: Updated RefreshAnchorables to intelligently inject missing panels into their natural pane groups (e.g. Help Guide and details in the right pane, Process Explorer on the left, Chart and Search at the bottom).
+- Added Toolbar button ("❓ Help") and View ▸ Panels ▸ Help Guide menu item wired to Ctrl+Shift shortcuts and F1.
+- Added integration test assertions verifying that Reset Layout and legacy layout deserialization retain and restore the Help panel.
+
+---
+
+## v2.8 - 2026-11-06 - ERROR TIMELINE CHART PANEL BINDING & LEGACY LAYOUT FIX
 
 - Fixed ChartCanvas.DataContext disconnection: ErrorTimelineChartView now implements INotifyPropertyChanged, tracks MainViewModel.SelectedTab, and reactively updates ActiveChartViewModel and ChartCanvas.DataContext whenever tabs are opened or switched, ensuring the interactive vector chart canvas and metadata headers display loaded log events.
 - Fixed missing panel in restored layouts: When deserializing a legacy layout.xml from %APPDATA%\LogTailPro (from earlier versions that lacked the chart panel), MainWindow.RefreshAnchorables now detects any missing panels from _panelContents and dynamically injects a LayoutAnchorable into the bottom pane so the toolbar toggle ("📊 Chart"), Ctrl+Shift+T, and View ▸ Panels ▸ Error Timeline Chart reliably open the chart panel.

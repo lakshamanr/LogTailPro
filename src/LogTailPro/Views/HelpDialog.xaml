@@ -1,0 +1,214 @@
+<Window x:Class="LogTailPro.Views.HelpDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:LogTailPro.Converters"
+        xmlns:models="clr-namespace:LogTailPro.Models"
+        xmlns:vm="clr-namespace:LogTailPro.ViewModels"
+        Title="LogTailPro — Help Guide &amp; Feature Manual"
+        Width="1020" Height="680" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBase}"
+        Foreground="{StaticResource TextPrimary}"
+        FontFamily="{StaticResource UiFont}"
+        FontSize="{StaticResource UiSize}">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility"/>
+    </Window.Resources>
+
+    <DockPanel Margin="14">
+        <!-- ══ Top Title Bar ═════════════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}" BorderThickness="1"
+                CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="📄 Open Full Markdown Guide"
+                            Command="{Binding OpenMarkdownGuideCommand}"
+                            Style="{StaticResource SecondaryButton}" Padding="10,5" Margin="0,0,8,0"
+                            ToolTip="Opens HELP_GUIDE.md in your default markdown editor"/>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="LogTailPro Help &amp; In-Depth Feature Manual"
+                               FontWeight="SemiBold" FontSize="{StaticResource FontSizeLarge}"
+                               Foreground="{StaticResource Accent}"/>
+                    <TextBlock Text="Feature-by-feature reference with visual demos, usage instructions, and engine mechanics."
+                               Foreground="{StaticResource TextSecondary}" FontSize="{StaticResource FontSizeSmall}" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ══ Bottom Action Bar ══════════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1"
+                CornerRadius="6" Padding="10,8" Margin="0,10,0,0">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Left" Content="📋 Copy Topic"
+                        Command="{Binding CopyTopicDetailsCommand}"
+                        Style="{StaticResource SecondaryButton}" Padding="12,5"
+                        ToolTip="Copy selected topic details to clipboard"/>
+
+                <Button DockPanel.Dock="Right" Content="Close" Width="90" IsCancel="True"
+                        Click="Close_Click" Style="{StaticResource PrimaryButton}" Padding="12,5"/>
+
+                <TextBlock Text="{Binding SelectedTopic.UiLocation, StringFormat='Location: {0}'}"
+                           Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"
+                           HorizontalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ══ Main Content: Left Nav + Right Reader ═════════════════════════ -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340" MinWidth="260" MaxWidth="480"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ── Left Column: Search & Topic Navigator ── -->
+            <Border Grid.Column="0" Background="{StaticResource BgElevated}"
+                    BorderBrush="{StaticResource BorderNormal}" BorderThickness="1"
+                    CornerRadius="6" Padding="10">
+                <DockPanel LastChildFill="True">
+                    <!-- Filter and Search controls -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="Categories" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSmall}"
+                                   Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                        <ComboBox ItemsSource="{Binding Categories}"
+                                  SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                                  Style="{StaticResource DarkComboBox}" Padding="6,4" Margin="0,0,0,8"/>
+
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"
+                                 CaretBrush="{StaticResource TextPrimary}" BorderBrush="{StaticResource BorderNormal}"
+                                 Padding="8,5" FontFamily="{StaticResource UiFont}"
+                                 ToolTip="Type to filter topics by name, shortcut, or content…">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"/>
+                            </TextBox.Style>
+                        </TextBox>
+                    </StackPanel>
+
+                    <!-- Topic List -->
+                    <ListBox ItemsSource="{Binding FilteredTopics}"
+                             SelectedItem="{Binding SelectedTopic, Mode=TwoWay}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="8,6"/>
+                                <Setter Property="Margin" Value="0,2"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:HelpTopic}">
+                                <DockPanel LastChildFill="True">
+                                    <!-- Shortcut Pill (if present) -->
+                                    <Border DockPanel.Dock="Right"
+                                            Visibility="{Binding HasShortcut, Converter={StaticResource BoolToVisibility}}"
+                                            Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                                            BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="6,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Shortcut}" Foreground="{StaticResource Accent}"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="10" FontWeight="SemiBold"/>
+                                    </Border>
+
+                                    <!-- Topic Title & Category -->
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ShortTitle}" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Category}" FontSize="10"
+                                                   Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
+                          Background="Transparent" Cursor="SizeWE"/>
+
+            <!-- ── Right Column: In-Depth Topic Viewer ── -->
+            <Border Grid.Column="2" Background="{StaticResource BgElevated}"
+                    BorderBrush="{StaticResource BorderNormal}" BorderThickness="1"
+                    CornerRadius="6" Padding="18,14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <!-- Topic Header -->
+                        <DockPanel LastChildFill="True" Margin="0,0,0,12">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Visibility="{Binding SelectedTopic.HasShortcut, Converter={StaticResource BoolToVisibility}}"
+                                        Background="{StaticResource AccentMuted}" BorderBrush="{StaticResource Accent}"
+                                        BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding SelectedTopic.Shortcut, StringFormat='Shortcut: {0}'}"
+                                               FontFamily="{StaticResource MonoFont}" FontWeight="Bold"
+                                               Foreground="{StaticResource Accent}" FontSize="{StaticResource FontSizeSmall}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedTopic.Title}" FontWeight="Bold"
+                                           FontSize="{StaticResource FontSizeHeading}" Foreground="{StaticResource TextPrimary}"/>
+                                <TextBlock Text="{Binding SelectedTopic.Category}" Foreground="{StaticResource Accent}"
+                                           FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- UI Location Card -->
+                        <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                                BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,14">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="📍 Where to find: " FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="{Binding SelectedTopic.UiLocation}" Foreground="{StaticResource TextPrimary}"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeSmall}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 1. Feature Overview -->
+                        <TextBlock Text="Feature Overview" FontWeight="Bold" FontSize="{StaticResource FontSizeSubtitle}"
+                                   Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding SelectedTopic.Overview}" Foreground="{StaticResource TextSecondary}"
+                                   TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,16"/>
+
+                        <!-- 2. Demo Walkthrough Scenario -->
+                        <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderNormal}"
+                                BorderThickness="1" CornerRadius="5" Padding="12,10" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="💡 Demo Scenario &amp; Practical Example" FontWeight="Bold"
+                                           Foreground="{StaticResource Accent}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding SelectedTopic.DemoScenario}"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeMonoSmall}"
+                                           Foreground="{StaticResource TextPrimary}" TextWrapping="Wrap" LineHeight="18"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 3. How to Work It (Step-by-Step) -->
+                        <TextBlock Text="How to Use (Step-by-Step Instructions)" FontWeight="Bold"
+                                   FontSize="{StaticResource FontSizeSubtitle}" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <Border Background="{StaticResource BgBase}" BorderBrush="{StaticResource BorderSubtle}"
+                                BorderThickness="1" CornerRadius="4" Padding="12,10" Margin="0,0,0,16">
+                            <TextBlock Text="{Binding SelectedTopic.StepByStep}" Foreground="{StaticResource TextSecondary}"
+                                       TextWrapping="Wrap" LineHeight="20"/>
+                        </Border>
+
+                        <!-- 4. Under The Hood (Engine Mechanics) -->
+                        <TextBlock Text="Under The Hood (Engine Mechanics)" FontWeight="Bold"
+                                   FontSize="{StaticResource FontSizeSubtitle}" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <Border Background="{StaticResource BgBase}" BorderBrush="{StaticResource BorderSubtle}"
+                                BorderThickness="1" CornerRadius="4" Padding="12,10" Margin="0,0,0,12">
+                            <TextBlock Text="{Binding SelectedTopic.UnderTheHood}" Foreground="{StaticResource TextMuted}"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeMonoSmall}"
+                                       TextWrapping="Wrap" LineHeight="19"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>
