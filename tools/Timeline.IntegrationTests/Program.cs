@@ -20,7 +20,7 @@ internal static class Program
         });
         app.Run();
         if (failure != null) throw new InvalidOperationException("Timeline integration failed", failure);
-        Console.WriteLine("Timeline and structured JSON integration passed: real file tailing, Serilog CLEF, typed filtering, inspector layout, toggle view, live appends and disposal.");
+        Console.WriteLine("Timeline, structured JSON, and Request/Trace ID correlation integration passed: real file tailing, multi-source correlation, exact matching, substring exclusion, inspector layout, toggle view, live appends and disposal.");
     }
 
     private static void Check(bool condition, string message)
@@ -199,6 +199,82 @@ internal static class Program
             Check(appended.StructuredEvent?.TryGetProperty("ErrorCode", out object? ec) == true && Convert.ToInt32(ec) == 999, "Live appended JSON record did not parse custom property");
 
             sourceC.Dispose();
+
+            // ── Phase 3: Request/Trace ID Correlation Real-File Integration Tests ──
+            string d = Path.Combine(folder, "d.log");
+            string e = Path.Combine(folder, "e.json");
+
+            string dContent =
+                "2026-11-06T10:20:00Z [req-corr-777] Gateway: Incoming order\n" +
+                "2026-11-06T10:20:01Z [req-corr-999] Gateway: Other order\n" +
+                "2026-11-06T10:20:05Z [req-corr-777] Gateway: Order completed\n";
+
+            string eContent =
+                "{\"@t\":\"2026-11-06T10:20:02Z\",\"@l\":\"Information\",\"RequestId\":\"req-corr-777\",\"@m\":\"Backend: Payment charged\"}\n" +
+                "{\"@t\":\"2026-11-06T10:20:03Z\",\"@l\":\"Information\",\"RequestId\":\"req-corr-777\",\"@m\":\"Backend: Inventory reserved\"}\n" +
+                "{\"@t\":\"2026-11-06T10:20:04Z\",\"@l\":\"Information\",\"RequestId\":\"req-corr-7774\",\"@m\":\"Backend: Similar but different id\"}\n";
+
+            await File.WriteAllTextAsync(d, dContent);
+            await File.WriteAllTextAsync(e, eContent);
+
+            using LogTabViewModel sourceD = new(d, settingsJson);
+            using LogTabViewModel sourceE = new(e, settingsJson);
+            await sourceD.InitializeAsync();
+            await sourceE.InitializeAsync();
+            Check(sourceD.IsLoaded && sourceE.IsLoaded, "Sources D and E did not load");
+
+            // Verify suggested ID extraction on selection
+            sourceD.SelectedLogLine = sourceD.AllLines[0];
+            Check(sourceD.SuggestedCorrelationId == "req-corr-777", "Suggested correlation ID mismatch on raw line");
+            sourceE.SelectedLogLine = sourceE.AllLines[0];
+            Check(sourceE.SuggestedCorrelationId == "req-corr-777", "Suggested correlation ID mismatch on JSON line");
+
+            // Create Correlation Tab across sourceD and sourceE
+            using LogTabViewModel corrTab = new([sourceD, sourceE], "req-corr-777", settingsJson);
+            Check(corrTab.IsCorrelationTab, "IsCorrelationTab must be true");
+            Check(corrTab.CorrelationId == "req-corr-777", "CorrelationId mismatch");
+
+            // Await correlation merge
+            await UntilAsync(() => corrTab.AllLines.Count == 4, "Correlation tab merge count");
+
+            // Verify chronological order:
+            // 10:20:00 (D#1) -> 10:20:02 (E#1) -> 10:20:03 (E#2) -> 10:20:05 (D#3)
+            Check(corrTab.AllLines[0].Text.Contains("Gateway: Incoming order"), "Correlation row 0 mismatch");
+            Check(corrTab.AllLines[1].Text.Contains("Backend: Payment charged"), "Correlation row 1 mismatch");
+            Check(corrTab.AllLines[2].Text.Contains("Backend: Inventory reserved"), "Correlation row 2 mismatch");
+            Check(corrTab.AllLines[3].Text.Contains("Gateway: Order completed"), "Correlation row 3 mismatch");
+
+            // Verify substring exclusion: req-corr-7774 and req-corr-999 are not in corrTab
+            Check(!corrTab.AllLines.Any(r => r.Text.Contains("req-corr-7774")), "Substring req-corr-7774 incorrectly included");
+            Check(!corrTab.AllLines.Any(r => r.Text.Contains("req-corr-999")), "req-corr-999 incorrectly included");
+
+            // Verify view layout for correlation tab
+            view.DataContext = corrTab;
+            await UntilAsync(() => grid.Columns[3].Width == 245 && grid.Columns[4].Width == 180, "Correlation columns layout");
+
+            // Verify navigation back to original line
+            LogLine originalBackendLine = sourceE.AllLines[0];
+            corrTab.SelectedLogLine = corrTab.AllLines[1];
+            LogLine? corrRequested = null;
+            corrTab.OriginalLineRequested += (_, row) => corrRequested = row.OriginalLine;
+            corrTab.OpenOriginalLineCommand.Execute(null);
+            Check(ReferenceEquals(corrRequested, originalBackendLine), "Correlation original navigation lost identity");
+            sourceE.NavigateToLine(corrRequested!);
+            Check(ReferenceEquals(sourceE.SelectedLogLine, originalBackendLine), "Correlation original selection failed");
+
+            // Verify live tail append to source D matching the correlation ID
+            await File.AppendAllTextAsync(d, "2026-11-06T10:20:06Z [req-corr-777] Gateway: Audit logged\n");
+            await UntilAsync(() => corrTab.AllLines.Count == 5, "Live correlated append");
+            Check(corrTab.AllLines[^1].Text.Contains("Audit logged"), "Appended correlated row mismatch");
+
+            // Verify live tail append of unmatching ID is ignored
+            await File.AppendAllTextAsync(e, "{\"@t\":\"2026-11-06T10:20:07Z\",\"@l\":\"Information\",\"RequestId\":\"req-corr-888\",\"@m\":\"Ignored\"}\n");
+            await Task.Delay(400);
+            Check(corrTab.AllLines.Count == 5, "Uncorrelated append should not be added to correlation tab");
+
+            corrTab.Dispose();
+            sourceD.Dispose();
+            sourceE.Dispose();
         }
         finally
         {

@@ -136,4 +136,90 @@ LogLine plainLine = Line(99, "2026-11-06 10:00:00 plain line");
 Check(tf10!.Matches(plainLine) == false, "Exists on plain-text line must be false");
 Check(tf12!.Matches(plainLine) == true, "!exists on plain-text line must be true");
 
-Console.WriteLine("Timeline and Structured JSON service checks passed: timezone ordering, Serilog CLEF, malformed handling, nested properties and typed field filters.");
+// 9. CorrelationService: Suggested ID extraction and exact matching
+CorrelationService corrService = new();
+
+// A. Structured log line with TraceId
+LogLine structuredTraceLine = new()
+{
+    LineNumber = 10,
+    Text = "{\"@t\":\"2026-11-06T10:00:00Z\",\"@tr\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"@m\":\"Handled request\"}",
+    StructuredEvent = JsonLogParser.TryParse("{\"@t\":\"2026-11-06T10:00:00Z\",\"@tr\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"@m\":\"Handled request\"}")
+};
+Check(CorrelationService.ExtractSuggestedId(structuredTraceLine) == "4bf92f3577b34da6a3ce929d0e0e4736", "ExtractSuggestedId failed on structured @tr");
+Check(CorrelationService.MatchesCorrelationId(structuredTraceLine, "4bf92f3577b34da6a3ce929d0e0e4736"), "MatchesCorrelationId failed on structured @tr");
+Check(CorrelationService.MatchesCorrelationId(structuredTraceLine, "4BF92F3577B34DA6A3CE929D0E0E4736"), "MatchesCorrelationId should be case-insensitive");
+
+// B. Plain text lines with token boundaries and substring exclusion
+LogLine exactTokenLine = Line(11, "2026-11-06 10:00:01 INFO [req-123] Processed order");
+LogLine prefixLine = Line(12, "2026-11-06 10:00:02 INFO [req-12345] Processed other order");
+LogLine suffixLine = Line(13, "2026-11-06 10:00:03 INFO [pre-req-123] Processed other order");
+LogLine shortTokenLine = Line(14, "2026-11-06 10:00:04 INFO token=abc status=ok");
+LogLine shortSubstrLine = Line(15, "2026-11-06 10:00:05 INFO token=abcdef status=ok");
+
+Check(CorrelationService.MatchesCorrelationId(exactTokenLine, "req-123"), "Exact token req-123 should match");
+Check(!CorrelationService.MatchesCorrelationId(prefixLine, "req-123"), "req-123 must NOT match req-12345");
+Check(!CorrelationService.MatchesCorrelationId(suffixLine, "req-123"), "req-123 must NOT match pre-req-123");
+Check(CorrelationService.MatchesCorrelationId(shortTokenLine, "abc"), "Exact token abc should match");
+Check(!CorrelationService.MatchesCorrelationId(shortSubstrLine, "abc"), "abc must NOT match abcdef");
+Check(!CorrelationService.MatchesCorrelationId(exactTokenLine, ""), "Empty ID must not match");
+Check(!CorrelationService.MatchesCorrelationId(exactTokenLine, "   "), "Whitespace ID must not match");
+
+// C. Nested JSON property correlation
+LogLine nestedPropLine = new()
+{
+    LineNumber = 16,
+    Text = "{\"@t\":\"2026-11-06T10:00:06Z\",\"Details\":{\"RequestId\":\"req-nested-999\"}}",
+    StructuredEvent = JsonLogParser.TryParse("{\"@t\":\"2026-11-06T10:00:06Z\",\"Details\":{\"RequestId\":\"req-nested-999\"}}")
+};
+Check(CorrelationService.MatchesCorrelationId(nestedPropLine, "req-nested-999"), "Nested JSON RequestId should match");
+Check(!CorrelationService.MatchesCorrelationId(nestedPropLine, "req-nested-99"), "Nested JSON substring must not match");
+
+// D. Plain-text GUID and W3C trace regex extraction
+LogLine guidLine = Line(17, "2026-11-06 10:00:07 Error occurred in transaction e4b3c2a1-0000-0000-0000-000000000001 details follow");
+Check(CorrelationService.ExtractSuggestedId(guidLine) == "e4b3c2a1-0000-0000-0000-000000000001", "ExtractSuggestedId failed on GUID");
+LogLine kvLine = Line(18, "2026-11-06 10:00:08 request_id: my-custom-req-555 finished");
+Check(CorrelationService.ExtractSuggestedId(kvLine) == "my-custom-req-555", "ExtractSuggestedId failed on key-value request_id");
+
+// 10. CorrelationService: Multi-source chronological merge, bounding, and cancellation
+LogLine source1Match1 = Line(1, "2026-11-06 10:00:10 TraceId: t-100 ServiceA start");
+LogLine source1NonMatch = Line(2, "2026-11-06 10:00:11 ServiceA heartbeat");
+LogLine source1Match2 = Line(3, "2026-11-06 10:00:30 TraceId: t-100 ServiceA done");
+
+LogLine source2Match1 = Line(1, "2026-11-06 10:00:05 TraceId: t-100 ServiceB received");
+LogLine source2Match2 = Line(2, "2026-11-06 10:00:20 TraceId: t-100 ServiceB processed");
+
+TimelineSource srcA = new("C:/serviceA.log", "serviceA.log", [source1Match1, source1NonMatch, source1Match2]);
+TimelineSource srcB = new("C:/serviceB.log", "serviceB.log", [source2Match1, source2Match2]);
+
+CorrelationResult corrAll = corrService.MergeCorrelated([srcA, srcB], "t-100");
+Check(corrAll.TotalMatches == 4, "Total matches count mismatch");
+Check(corrAll.Rows.Count == 4, "Merged rows count mismatch");
+Check(!corrAll.IsTruncated, "Should not be truncated when under limit");
+Check(corrAll.SearchedSourcesCount == 2, "Searched sources count mismatch");
+
+// Verify chronological order: 10:00:05 (B#1) -> 10:00:10 (A#1) -> 10:00:20 (B#2) -> 10:00:30 (A#2)
+Check(ReferenceEquals(corrAll.Rows[0].OriginalLine, source2Match1), "Earliest match should be B#1 (10:00:05)");
+Check(ReferenceEquals(corrAll.Rows[1].OriginalLine, source1Match1), "Second match should be A#1 (10:00:10)");
+Check(ReferenceEquals(corrAll.Rows[2].OriginalLine, source2Match2), "Third match should be B#2 (10:00:20)");
+Check(ReferenceEquals(corrAll.Rows[3].OriginalLine, source1Match2), "Fourth match should be A#2 (10:00:30)");
+Check(corrAll.Rows[0].SourceFileName == "serviceB.log", "SourceFileName lost");
+Check(corrAll.Rows[1].SourceFileName == "serviceA.log", "SourceFileName lost");
+
+// Verify bounding and truncation
+CorrelationResult corrBounded = corrService.MergeCorrelated([srcA, srcB], "t-100", maxResults: 2);
+Check(corrBounded.TotalMatches == 4, "TotalMatches should still report 4");
+Check(corrBounded.Rows.Count == 2, "Rows should be bounded to 2");
+Check(corrBounded.IsTruncated, "IsTruncated must be true");
+
+// Verify cancellation
+using CancellationTokenSource corrCts = new();
+corrCts.Cancel();
+try
+{
+    corrService.MergeCorrelated([srcA, srcB], "t-100", ct: corrCts.Token);
+    throw new Exception("Correlation merge did not throw OperationCanceledException on cancelled token");
+}
+catch (OperationCanceledException) { }
+
+Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, and Request/Trace ID Correlation.");

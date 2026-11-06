@@ -5,7 +5,21 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.3 - 2026-11-06 (CURRENT) - ROADMAP PHASE 2: STRUCTURED JSON LOG VIEWER
+## v2.4 - 2026-11-06 (CURRENT) - ROADMAP PHASE 3: REQUEST/TRACE ID CORRELATION
+
+- Implemented roadmap Phase 3: Request/Trace ID correlation across open logs.
+- Added CorrelationService with exact-value matching for common trace/request fields (TraceId, @tr, RequestId, CorrelationId, SpanId, TransactionId), custom nested JSON properties, and plain-text tokens with strict boundaries.
+- Excluded partial substring matches (e.g. req-123 never matches req-12345 or pre-req-123; abc never matches abcdef).
+- Added suggested correlation ID extraction recognizing structured keys, key-value patterns, prefixed tokens (req-*, trace-*, corr-*), GUIDs, and W3C trace IDs.
+- Added CorrelateIdDialog allowing users to inspect and select open file sources, with Select/Deselect All buttons and search scope explanation.
+- Added live correlation tabs with dedicated source and UTC timestamp columns, sorting chronologically with stable tie-breaking and bounded rendering (with truncation notices).
+- Integrated correlation actions in LogTabView context menu, DetailsPanel header button, and DetailsPanel property tree context menu ('Correlate by Value').
+- Preserved navigation back to original lines via OpenOriginalLineCommand.
+- Added unit checks in Timeline.Tests and real-file live tailing integration checks in Timeline.IntegrationTests.
+
+---
+
+## v2.3 - 2026-11-06 - ROADMAP PHASE 2: STRUCTURED JSON LOG VIEWER
 
 - Implemented roadmap Phase 2: structured JSON log viewer for line-delimited JSON and Serilog CLEF format.
 - Added StructuredLogEvent preserving raw text, exact timestamps with offsets, normalized levels, rendered message vs template distinction, exceptions, and typed properties (primitives, nested objects, and arrays).

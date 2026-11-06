@@ -117,6 +117,8 @@
                 <Separator/>
                 <MenuItem Header="_Combined Timeline…"
                           Command="{Binding MergeTabsCommand}"/>
+                <MenuItem Header="Correlate _Request / Trace ID…"
+                          Command="{Binding CorrelateIdCommand}"/>
             </MenuItem>
 
             <MenuItem Header="_View">

@@ -1,0 +1,47 @@
+<Window x:Class="LogTailPro.Views.CorrelateIdDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Correlate Request / Trace ID" Width="660" Height="480"
+        MinWidth="460" MinHeight="320" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBase}" Foreground="{StaticResource TextPrimary}">
+    <DockPanel Margin="16">
+        <!-- Top instructions and ID input -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="Correlate events across open logs matching an exact Request ID, Trace ID, or correlation token. Only loaded records are searched; substring matches (e.g. 'abc' matching 'abcdef') are excluded."/>
+
+            <TextBlock Text="Correlation / Trace ID:" FontWeight="SemiBold" Margin="0,4,0,4"/>
+            <TextBox x:Name="IdTextBox" Text="{Binding CorrelationId, UpdateSourceTrigger=PropertyChanged}"
+                     FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeMonoBody}"
+                     Padding="8,6" Margin="0,0,0,10"/>
+
+            <DockPanel LastChildFill="False" Margin="0,4,0,4">
+                <TextBlock Text="Search Scope (Open Sources):" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Button DockPanel.Dock="Right" Content="Deselect All" Click="DeselectAll_Click" Style="{StaticResource FlatToolbarButton}" Padding="8,2" Margin="4,0,0,0"/>
+                <Button DockPanel.Dock="Right" Content="Select All" Click="SelectAll_Click" Style="{StaticResource FlatToolbarButton}" Padding="8,2"/>
+            </DockPanel>
+        </StackPanel>
+
+        <!-- Bottom Action buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Correlate" IsDefault="True" Click="Correlate_Click" Style="{StaticResource PrimaryButton}" Padding="16,6"/>
+            <Button Content="Cancel" IsCancel="True" Style="{StaticResource SecondaryButton}" Padding="14,6" Margin="8,0,0,0"/>
+        </StackPanel>
+
+        <!-- Sources List -->
+        <Border BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" Background="{StaticResource BgElevated}" CornerRadius="4">
+            <ListBox x:Name="SourcesListBox" ItemsSource="{Binding Choices}" HorizontalContentAlignment="Stretch" BorderThickness="0" Background="Transparent" Padding="4">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox IsChecked="{Binding IsSelected}" Margin="4,6">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Tab.FileName}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Tab.FilePath}" Foreground="{StaticResource TextSecondary}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </CheckBox>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </DockPanel>
+</Window>

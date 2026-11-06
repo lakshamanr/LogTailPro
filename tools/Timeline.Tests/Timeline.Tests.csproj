@@ -14,5 +14,6 @@
     <Compile Include="../../src/LogTailPro/Models/TypedFieldFilter.cs" Link="TypedFieldFilter.cs"/>
     <Compile Include="../../src/LogTailPro/Services/JsonLogParser.cs" Link="JsonLogParser.cs"/>
     <Compile Include="../../src/LogTailPro/Services/TimelineService.cs" Link="TimelineService.cs"/>
+    <Compile Include="../../src/LogTailPro/Services/CorrelationService.cs" Link="CorrelationService.cs"/>
   </ItemGroup>
 </Project>

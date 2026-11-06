@@ -7,7 +7,7 @@ the combined timeline, not the original core-viewer Phase 1. Later phases are pl
 |---|---|---|---|
 | 1 | Combined log timeline | Completed | Select open file sources; merge loaded lines chronologically; show timestamp/source/original line; live updates; navigate to originals; deterministic ordering; handle truncation, retention and source closure. |
 | 2 | Structured JSON logs | Completed | Detect JSONL and Serilog-style events; timestamp/level/message/exception columns; nested property inspector; typed field filters; preserve raw and malformed input. Depends on Phase 1 source identity. |
-| 3 | Request/Trace ID correlation | Planned | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
+| 3 | Request/Trace ID correlation | Completed | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
 | 4 | Saved workspaces | Planned | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
 | 5 | Multiline exceptions | Planned | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
 | 6 | Error timeline chart | Planned | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
@@ -64,3 +64,24 @@ toggle between Structured View and Raw View, and live appends of JSON records.
 - Typed field filters (`TypedFieldFilter`) support syntax expressions (e.g. `StatusCode >= 400`, `exists(UserId)`, `Level == Error`) directly in the search bar or filter chain.
 - Line Details / Property Inspector panel (`DetailsPanel.xaml`) provides header summary, hierarchical property tree (`LogPropertyNode`), exception viewer with copy button, and raw/pretty-printed text tab.
 - Structured columns (`StructuredLevelColumn`, `StructuredTimeColumn`) and rendered message display toggleable via Toolbar toggle and context menu.
+
+## Phase 3 detailed design
+
+Implemented in Phase 3. Local Release build: zero warnings/errors.
+Service checks in `Timeline.Tests` verify `MatchesCorrelationId` exact-value matching, case-insensitivity,
+exclusion of substrings (e.g. `req-123` never matches `req-12345` or `pre-req-123`; `abc` never matches `abcdef`),
+nested dictionary and list property paths, strict token boundary regex (`(?<![\w\-])` and `(?![\w\-])`),
+suggested correlation ID extraction (`@tr`, `TraceId`, `RequestId`, key-value pairs, GUIDs, W3C trace IDs, prefixed tokens),
+multi-source chronological merging in UTC with deterministic tie-breaking, bounding limits (default 50,000 matches with truncation notice),
+and cancellation.
+Dispatcher-based integration checks in `Timeline.IntegrationTests` verify multi-source correlation across real files (mixed raw and JSONL),
+suggested ID extraction on selection, Correlate ID dialog workflow, correlation tab with dedicated source and UTC timestamp columns,
+navigation to original source lines, live tail appends matching correlation IDs, and unmatching appends ignored.
+
+- Correlation service (`CorrelationService.cs`) checks common trace/request fields (`TraceId`, `@tr`, `RequestId`, `CorrelationId`, `SpanId`, `TransactionId`), custom nested properties, and plain text with strict token boundaries.
+- Never matches substring prefixes or suffixes; strips enclosing quotes when pasted.
+- Scope selection dialog (`CorrelateIdDialog.xaml(.cs)`) lets users inspect and select from open log sources, with Select/Deselect All buttons and explicit notice that only loaded records are searched.
+- Live correlation tab (`LogTabViewModel.Timeline.cs`) merges matching records chronologically in UTC, displays source and UTC timestamp columns, and notifies truncation limits in the tab banner.
+- Right-click context menu in log tabs (`Correlate Request / Trace ID…`), Property Inspector header "Correlate ID" button on detected IDs, and Property Inspector tree item context menu ("Correlate by Value").
+- Seamless navigation back to original line (`OpenOriginalLineCommand`), with fallback warnings if records rotated or trimmed.
+

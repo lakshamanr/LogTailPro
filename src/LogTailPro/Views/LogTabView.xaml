@@ -54,6 +54,7 @@
                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                         <MenuItem Header="Open original line" Command="{Binding OpenOriginalLineCommand}"
                                   Visibility="{Binding IsTimeline, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <MenuItem Header="Correlate Request / Trace ID…" Command="{Binding RequestCorrelationCommand}"/>
                         <MenuItem Header="{Binding StructuredViewLabel}" Command="{Binding ToggleStructuredViewCommand}"
                                   Visibility="{Binding HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <MenuItem Header="Copy selected lines" Command="{Binding CopySelectedLinesCommand}"/>

@@ -207,6 +207,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _hasSelectedLineException;
     [ObservableProperty] private string _selectedLineRawText = string.Empty;
     [ObservableProperty] private ObservableCollection<LogPropertyNode> _selectedLineProperties = new();
+    [ObservableProperty] private string? _suggestedCorrelationId;
 
     public double StructuredLevelWidth => (IsStructuredViewEnabled && HasStructuredLogs) ? 70.0 : 0.0;
     public double StructuredTimeWidth => (IsStructuredViewEnabled && HasStructuredLogs) ? 190.0 : 0.0;
@@ -233,6 +234,20 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     public event EventHandler? LayoutUpdateRequested;
 
+    /// <summary>Raised when this tab requests correlation search for an ID.</summary>
+    public event EventHandler<string?>? CorrelationRequested;
+
+    /// <summary>Extracts a suggested correlation ID from the currently selected log line.</summary>
+    public string? ExtractSuggestedCorrelationId() =>
+        SelectedLogLine != null ? CorrelationService.ExtractSuggestedId(SelectedLogLine) : null;
+
+    [RelayCommand]
+    private void RequestCorrelation(string? id = null)
+    {
+        string? target = !string.IsNullOrWhiteSpace(id) ? id : ExtractSuggestedCorrelationId();
+        CorrelationRequested?.Invoke(this, target);
+    }
+
     private void UpdateInspectorDetails(LogLine? line)
     {
         if (line == null)
@@ -249,10 +264,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             SelectedLineProperties.Clear();
             SelectedLineRawText = string.Empty;
             DetailText = string.Empty;
+            SuggestedCorrelationId = null;
             return;
         }
 
         SelectedLineRawText = line.Text;
+        SuggestedCorrelationId = CorrelationService.ExtractSuggestedId(line);
         if (line.StructuredEvent != null && line.StructuredEvent.IsValidJson)
         {
             IsSelectedLineStructured = true;

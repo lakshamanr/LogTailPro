@@ -11,7 +11,13 @@
         <conv:NullToVisibilityConverter x:Key="NullToVisibility"/>
 
         <HierarchicalDataTemplate DataType="{x:Type models:LogPropertyNode}" ItemsSource="{Binding Children}">
-            <Border Padding="3,2" Margin="0,1">
+            <Border Padding="3,2" Margin="0,1" Background="Transparent">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Correlate by Value" Click="CorrelateProperty_Click"/>
+                        <MenuItem Header="Copy Value" Click="CopyPropertyValue_Click"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Accent}"
                                FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeMonoSmall}"/>
@@ -48,6 +54,13 @@
                         <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedTab.SelectedLineTimestamp}"
                                    Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"
                                    FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"/>
+
+                        <Button DockPanel.Dock="Right" Content="Correlate ID" Style="{StaticResource FlatToolbarButton}"
+                                Padding="6,2" FontSize="11" Margin="6,0,8,0"
+                                Visibility="{Binding SelectedTab.SuggestedCorrelationId, Converter={StaticResource StringNotEmptyToVisibility}}"
+                                Command="{Binding CorrelateIdCommand}"
+                                CommandParameter="{Binding SelectedTab.SuggestedCorrelationId}"
+                                ToolTip="Correlate this Request / Trace ID across open logs"/>
 
                         <Border CornerRadius="3" Padding="6,2" Margin="0,0,8,0" HorizontalAlignment="Left"
                                 Visibility="{Binding SelectedTab.SelectedLineLevel, Converter={StaticResource StringNotEmptyToVisibility}}">

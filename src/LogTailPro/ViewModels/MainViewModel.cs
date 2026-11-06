@@ -56,6 +56,16 @@ public sealed partial class MainViewModel : ObservableObject
         ProcessExplorer.AttachRequested += (_, e) => OpenProcessTab(e.Info, e.Type);
         ProcessExplorer.LaunchAndAttachRequested += (_, _) => OpenLaunchDialog();
         ProcessExplorer.OpenLogsRequested += async (_, processes) => await OpenLogsAsync(processes);
+        _tabs.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems != null)
+            {
+                foreach (LogTabViewModel t in e.NewItems)
+                {
+                    t.CorrelationRequested += (_, id) => CorrelateId(id);
+                }
+            }
+        };
     }
 
     private readonly ProcessLogDiscoveryService _logDiscovery = new();
@@ -398,6 +408,44 @@ public sealed partial class MainViewModel : ObservableObject
         };
         Tabs.Add(timeline);
         SelectedTab = timeline;
+    }
+
+    [RelayCommand]
+    public void CorrelateId(string? initialId = null)
+    {
+        LogTabViewModel[] sources = Tabs.Where(tab => tab.IsTimelineSource).ToArray();
+        if (sources.Length == 0)
+        {
+            StatusMessage = "Open at least one log file to correlate.";
+            return;
+        }
+        string? suggested = initialId;
+        if (string.IsNullOrWhiteSpace(suggested) && SelectedTab != null)
+        {
+            suggested = SelectedTab.ExtractSuggestedCorrelationId();
+        }
+        CorrelateIdDialog dlg = new(sources, suggested) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true) return;
+        string correlationId = dlg.CorrelationId.Trim();
+        if (string.IsNullOrEmpty(correlationId) || dlg.SelectedSources.Count == 0) return;
+        LogTabViewModel correlationTab = new(dlg.SelectedSources, correlationId, Settings)
+        {
+            IsHighlightingEnabled = IsHighlightingEnabled
+        };
+        correlationTab.OriginalLineRequested += (_, line) =>
+        {
+            LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
+                string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+            if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+            {
+                StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
+                return;
+            }
+            SelectedTab = source;
+            source.NavigateToLine(line.OriginalLine);
+        };
+        Tabs.Add(correlationTab);
+        SelectedTab = correlationTab;
     }
     // ── Workspace ─────────────────────────────────────────────────────────────
 

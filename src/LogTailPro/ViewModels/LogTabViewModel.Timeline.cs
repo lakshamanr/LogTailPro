@@ -11,6 +11,7 @@ public sealed partial class LogTabViewModel
 {
     private readonly List<LogTabViewModel> _timelineSources = new();
     private readonly TimelineService _timelineService = new();
+    private readonly CorrelationService _correlationService = new();
     private DispatcherTimer? _timelineTimer;
     private bool _timelineDirty;
     private bool _timelineBuilding;
@@ -26,8 +27,14 @@ public sealed partial class LogTabViewModel
     /// <summary>Requests navigation back to a timeline row's source.</summary>
     public event EventHandler<LogLine>? OriginalLineRequested;
 
-    /// <summary>Whether this tab is a live combined timeline.</summary>
+    /// <summary>Whether this tab is a live combined timeline or correlation view.</summary>
     public bool IsTimeline { get; private init; }
+
+    /// <summary>Whether this tab is a Request/Trace ID correlation tab.</summary>
+    public bool IsCorrelationTab { get; private init; }
+
+    /// <summary>The target correlation ID for this tab.</summary>
+    public string? CorrelationId { get; private init; }
 
     /// <summary>Whether this tab can be selected as a file source.</summary>
     public bool IsTimelineSource => !_isReadOnly && !IsProcessTab && TempFilePath == null;
@@ -43,6 +50,31 @@ public sealed partial class LogTabViewModel
         : this("Combined Timeline", Array.Empty<LogLine>(), settings)
     {
         IsTimeline = true;
+        IsFollowTail = settings.FollowTailOnOpen;
+        FileStatus = FileStatus.Watching;
+        _timelineSources.AddRange(sources.Distinct());
+        foreach (LogTabViewModel source in _timelineSources)
+        {
+            source.LinesChanged += OnTimelineSourceChanged;
+            source.Closed += OnTimelineSourceClosed;
+            source.PropertyChanged += OnTimelineSourcePropertyChanged;
+        }
+        _timelineTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _timelineTimer.Tick += OnTimelineTick;
+        _timelineTimer.Start();
+        MarkTimelineDirty();
+    }
+
+    /// <summary>Creates a live correlation tab filtering across existing tabs by exact correlation ID.</summary>
+    public LogTabViewModel(IReadOnlyList<LogTabViewModel> sources, string correlationId, AppSettings settings)
+        : this($"Correlate: {correlationId}", Array.Empty<LogLine>(), settings)
+    {
+        IsTimeline = true;
+        IsCorrelationTab = true;
+        CorrelationId = correlationId;
         IsFollowTail = settings.FollowTailOnOpen;
         FileStatus = FileStatus.Watching;
         _timelineSources.AddRange(sources.Distinct());
@@ -98,7 +130,23 @@ public sealed partial class LogTabViewModel
         {
             TimelineSource[] snapshot = _timelineSources.Select(source =>
                 new TimelineSource(source.FilePath, source.FileName, source.AllLines.ToArray())).ToArray();
-            IReadOnlyList<LogLine> rows = await Task.Run(() => _timelineService.Merge(snapshot, ct), ct);
+            IReadOnlyList<LogLine> rows;
+            bool isTruncated = false;
+            int totalFound = 0;
+
+            if (IsCorrelationTab && !string.IsNullOrEmpty(CorrelationId))
+            {
+                CorrelationResult corrResult = await Task.Run(() =>
+                    _correlationService.MergeCorrelated(snapshot, CorrelationId, ct: ct), ct);
+                rows = corrResult.Rows;
+                isTruncated = corrResult.IsTruncated;
+                totalFound = corrResult.TotalMatches;
+            }
+            else
+            {
+                rows = await Task.Run(() => _timelineService.Merge(snapshot, ct), ct);
+            }
+
             if (_disposed || ct.IsCancellationRequested) return;
             // Publish each completed batch even when more lines arrived during the merge;
             // the next tick reconciles the newest snapshot without starving the display.
@@ -114,8 +162,19 @@ public sealed partial class LogTabViewModel
             UpdateStatsAll();
             string warnings = string.Join(" | ", _timelineSources.Where(source => !string.IsNullOrEmpty(source.WarningMessage))
                 .Select(source => $"{source.FileName}: {source.WarningMessage}"));
-            WarningMessage = $"{_timelineSources.Count} source(s). {TimelinePolicy}" +
-                (warnings.Length == 0 ? string.Empty : $" {warnings}");
+
+            if (IsCorrelationTab)
+            {
+                string truncMsg = isTruncated ? $" (capped at {rows.Count:N0} of {totalFound:N0} matches)" : string.Empty;
+                WarningMessage = $"Correlating '{CorrelationId}' across {_timelineSources.Count} source(s){truncMsg}. {TimelinePolicy}" +
+                    (warnings.Length == 0 ? string.Empty : $" {warnings}");
+            }
+            else
+            {
+                WarningMessage = $"{_timelineSources.Count} source(s). {TimelinePolicy}" +
+                    (warnings.Length == 0 ? string.Empty : $" {warnings}");
+            }
+
             UpdateStatus();
             await ApplySearchAsync();
             if (!_disposed && selectedOriginal != null && !IsFollowTail)
@@ -125,7 +184,7 @@ public sealed partial class LogTabViewModel
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            if (!_disposed) WarningMessage = $"Timeline update failed: {ex.Message}";
+            if (!_disposed) WarningMessage = $"{(IsCorrelationTab ? "Correlation" : "Timeline")} update failed: {ex.Message}";
         }
         finally
         {
