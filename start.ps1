@@ -32,7 +32,7 @@ Write-Host "-------------------------------------------------" -ForegroundColor 
 Write-Host ""
 Write-Host "PROJECT FILES READY:" -ForegroundColor White
 Write-Host "  CLAUDE.md                 - Agent master instructions" -ForegroundColor Gray
-Write-Host "  SKILL.md                  - Technical reference (WPF/C# patterns)" -ForegroundColor Gray
+Write-Host "  SKILL/technical skill/SKILL.md               - Technical reference (WPF/C# patterns)" -ForegroundColor Gray
 Write-Host "  prompts/PHASE_1.md        - Core viewer" -ForegroundColor Gray
 Write-Host "  prompts/PHASE_2.md        - Search and filter" -ForegroundColor Gray
 Write-Host "  prompts/PHASE_3.md        - Large file support" -ForegroundColor Gray

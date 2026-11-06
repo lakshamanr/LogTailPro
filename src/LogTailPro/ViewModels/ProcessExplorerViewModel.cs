@@ -1,0 +1,211 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Windows;
+using System.Windows.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using LogTailPro.Models;
+using LogTailPro.Services;
+
+namespace LogTailPro.ViewModels;
+
+/// <summary>Root ViewModel for the Process Explorer side panel.</summary>
+public sealed partial class ProcessExplorerViewModel : ObservableObject, IDisposable
+{
+    private readonly ProcessSnapshotService _snapshot = new();
+    private readonly DispatcherTimer _refreshTimer;
+    private readonly AppSettings _settings;
+    private readonly HashSet<int> _expandedPids = new();
+    private bool _refreshing;
+    private bool _refreshPending;
+    private bool _disposed;
+
+    /// <summary>Creates the panel ViewModel, restoring filter options from <paramref name="settings"/>.</summary>
+    public ProcessExplorerViewModel(AppSettings settings)
+    {
+        _settings = settings;
+        _showDotNetOnly = settings.ProcessExplorerDotNetOnly;
+        _showSystemProcesses = settings.ProcessExplorerShowSystem;
+
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _refreshTimer.Tick += async (_, _) => await RefreshAsync();
+
+        // Assign through the property so the timer starts when auto-refresh was persisted on.
+        IsAutoRefresh = settings.ProcessExplorerAutoRefresh;
+    }
+
+    /// <summary>Root nodes of the process tree.</summary>
+    [ObservableProperty] private ObservableCollection<ProcessItemViewModel> _processes = new();
+
+    /// <summary>Currently selected node.</summary>
+    [ObservableProperty] private ProcessItemViewModel? _selectedProcess;
+
+    /// <summary>Name / PID filter text.</summary>
+    [ObservableProperty] private string _searchText = string.Empty;
+
+    /// <summary>Whether the list refreshes every 2 seconds.</summary>
+    [ObservableProperty] private bool _isAutoRefresh;
+
+    /// <summary>Whether system/service processes are included.</summary>
+    [ObservableProperty] private bool _showSystemProcesses;
+
+    /// <summary>Whether only .NET processes are listed.</summary>
+    [ObservableProperty] private bool _showDotNetOnly;
+
+    /// <summary>Status line shown at the bottom of the panel.</summary>
+    [ObservableProperty] private string _statusText = "Click Refresh to load processes";
+
+    partial void OnSearchTextChanged(string value) => _ = RefreshAsync();
+
+    partial void OnShowSystemProcessesChanged(bool value)
+    {
+        _settings.ProcessExplorerShowSystem = value;
+        _ = RefreshAsync();
+    }
+
+    partial void OnShowDotNetOnlyChanged(bool value)
+    {
+        _settings.ProcessExplorerDotNetOnly = value;
+        _ = RefreshAsync();
+    }
+
+    partial void OnIsAutoRefreshChanged(bool value)
+    {
+        _settings.ProcessExplorerAutoRefresh = value;
+        if (value) _refreshTimer.Start();
+        else       _refreshTimer.Stop();
+    }
+
+    /// <summary>Raised when the user picks a process + capture type. Handled by MainViewModel.</summary>
+    public event EventHandler<(ProcessInfo Info, ProcessAttachmentType Type)>? AttachRequested;
+
+    /// <summary>Raised when the user clicks Launch &amp; Attach. Handled by MainViewModel.</summary>
+    public event EventHandler? LaunchAndAttachRequested;
+
+    /// <summary>Re-reads the process list. Overlapping calls are coalesced into one follow-up refresh.</summary>
+    [RelayCommand]
+    public async Task RefreshAsync()
+    {
+        if (_disposed) return;
+        if (_refreshing) { _refreshPending = true; return; }
+        _refreshing = true;
+
+        try
+        {
+            do
+            {
+                _refreshPending = false;
+                await RefreshCoreAsync();
+            }
+            while (_refreshPending && !_disposed);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Refresh failed: {ex.Message}";
+        }
+        finally { _refreshing = false; }
+    }
+
+    private async Task RefreshCoreAsync()
+    {
+        // Capture UI-bound values on the UI thread before going to the pool.
+        bool showSystem = ShowSystemProcesses;
+        bool dotNetOnly = ShowDotNetOnly;
+        string search = SearchText.Trim();
+        int? selectedPid = SelectedProcess?.Pid;
+
+        (IReadOnlyList<ProcessInfo> roots, int total) = await Task.Run(() =>
+        {
+            IReadOnlyList<ProcessInfo> flat = _snapshot.GetAll();
+            IEnumerable<ProcessInfo> filtered = flat;
+            if (!showSystem)  filtered = filtered.Where(p => !p.IsSystemProcess);
+            if (dotNetOnly)   filtered = filtered.Where(p => p.IsDotNet);
+            if (search.Length > 0)
+                filtered = filtered.Where(p =>
+                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    p.Pid.ToString().Contains(search));
+            return (_snapshot.BuildTree(filtered.ToList()), flat.Count);
+        });
+
+        bool expandAll = search.Length > 0;
+        ObservableCollection<ProcessItemViewModel> newRoots = new();
+        ProcessItemViewModel? reselect = null;
+        foreach (ProcessInfo root in roots)
+            newRoots.Add(BuildItemVm(root, expandAll, selectedPid, ref reselect));
+
+        Processes = newRoots;
+        if (reselect != null) reselect.IsSelected = true;
+        else SelectedProcess = null;
+
+        StatusText = $"{total} processes  •  {DateTime.Now:HH:mm:ss}";
+    }
+
+    private ProcessItemViewModel BuildItemVm(ProcessInfo info, bool expandAll, int? selectedPid,
+                                             ref ProcessItemViewModel? reselect)
+    {
+        ProcessItemViewModel vm = new(info, OnAttach, OnLaunch, OnKill)
+        {
+            IsExpanded = expandAll || _expandedPids.Contains(info.Pid)
+        };
+
+        // Remember the user's expand/collapse choices across refreshes.
+        vm.PropertyChanged += OnItemPropertyChanged;
+
+        if (selectedPid == info.Pid) reselect = vm;
+
+        foreach (ProcessInfo child in info.Children)
+            vm.Children.Add(BuildItemVm(child, expandAll, selectedPid, ref reselect));
+        return vm;
+    }
+
+    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not ProcessItemViewModel item) return;
+
+        if (e.PropertyName == nameof(ProcessItemViewModel.IsExpanded) && SearchText.Length == 0)
+        {
+            if (item.IsExpanded) _expandedPids.Add(item.Pid);
+            else _expandedPids.Remove(item.Pid);
+        }
+        else if (e.PropertyName == nameof(ProcessItemViewModel.IsSelected) && item.IsSelected)
+        {
+            SelectedProcess = item;
+        }
+    }
+
+    private void OnAttach(ProcessInfo info, ProcessAttachmentType type) =>
+        AttachRequested?.Invoke(this, (info, type));
+
+    private void OnLaunch() => LaunchAndAttachRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnKill(ProcessInfo info)
+    {
+        try
+        {
+            using Process p = Process.GetProcessById(info.Pid);
+            p.Kill(entireProcessTree: true);
+        }
+        catch (ArgumentException)
+        {
+            // Already gone — just refresh.
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not kill {info.DisplayName}:\n{ex.Message}", "Kill Process",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        _ = RefreshAsync();
+    }
+
+    [RelayCommand]
+    private void LaunchAndAttach() => OnLaunch();
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _refreshTimer.Stop();
+    }
+}

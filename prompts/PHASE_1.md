@@ -16,7 +16,7 @@ No search, no filter, no highlight rules yet. Just a working, fast, real-time lo
 ## Pre-flight Checklist (Do These First)
 - [ ] Verify .NET 8 SDK is installed: `dotnet --version` (must be 8.x)
 - [ ] Verify the target is Windows (WPF is Windows-only)
-- [ ] Read `../SKILL.md` sections 1–5 before writing any code
+- [ ] Read `../SKILL/technical skill/SKILL.md` sections 1–5 before writing any code
 
 ---
 
@@ -50,7 +50,7 @@ Create all directories listed in `../CLAUDE.md` under "Project Structure".
 ## Step 3: Implement in This Order
 
 ### 3a. Models (no dependencies, build first)
-Create these exactly as specified in `../SKILL.md` section 2:
+Create these exactly as specified in `../SKILL/technical skill/SKILL.md` section 2:
 - `Models/LogLine.cs`
 - `Models/LogFile.cs`
 - `Models/HighlightRule.cs`
@@ -148,7 +148,7 @@ private async void Window_Drop(object sender, DragEventArgs e)
 
 ## Step 4: Apply Dark Theme
 
-Create `Themes/Dark.xaml` as shown in SKILL.md section 6.
+Create `Themes/Dark.xaml` as shown in SKILL/technical skill/SKILL.md section 6.
 Apply in `App.xaml`:
 ```xml
 <Application.Resources>

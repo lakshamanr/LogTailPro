@@ -1,0 +1,280 @@
+<UserControl x:Class="LogTailPro.Views.ProcessExplorerPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:LogTailPro.ViewModels"
+             xmlns:conv="clr-namespace:LogTailPro.Converters"
+             xmlns:models="clr-namespace:LogTailPro.Models"
+             Background="{StaticResource BgSurface}"
+             MinWidth="220">
+
+    <UserControl.Resources>
+        <!-- Converters must be declared here: the window's resources are not visible while this control is parsed. -->
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility"/>
+
+        <!-- Status dot: colour comes from theme brushes, driven by the process status. -->
+        <Style x:Key="StatusDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Fill" Value="{StaticResource StatusGreen}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:ProcessStatus.NotResponding}">
+                    <Setter Property="Fill" Value="{StaticResource StatusError}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:ProcessStatus.Suspended}">
+                    <Setter Property="Fill" Value="{StaticResource StatusWarn}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+
+        <!-- ── Header ──────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}"
+                BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <TextBlock Text="PROCESS EXPLORER"
+                       Foreground="{StaticResource TextSecondary}"
+                       FontFamily="{StaticResource UiFont}"
+                       FontSize="{StaticResource FontSizeSmall}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- ── Search box ──────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}"
+                BorderThickness="0,0,0,1"
+                Padding="6,5">
+            <Grid>
+                <TextBox x:Name="FilterBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Background="{StaticResource BgInput}"
+                         Foreground="{StaticResource TextPrimary}"
+                         CaretBrush="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource BorderNormal}"
+                         BorderThickness="1"
+                         Padding="6,3"
+                         FontFamily="{StaticResource UiFont}"
+                         FontSize="{StaticResource FontSizeBody}"/>
+                <!-- Placeholder -->
+                <TextBlock Text="Filter by name or PID…"
+                           IsHitTestVisible="False"
+                           Foreground="{StaticResource TextMuted}"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="{StaticResource FontSizeBody}"
+                           VerticalAlignment="Center"
+                           Margin="9,0,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=FilterBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Border>
+
+        <!-- ── Toolbar ─────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}"
+                BorderThickness="0,0,0,1"
+                Padding="4,4">
+            <WrapPanel Orientation="Horizontal">
+                <Button Content="↻ Refresh"
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="8,3" Margin="2,0"
+                        ToolTip="Refresh process list (F5)"/>
+
+                <CheckBox Content=".NET"
+                          IsChecked="{Binding ShowDotNetOnly}"
+                          VerticalAlignment="Center"
+                          Margin="6,0,0,0"
+                          ToolTip="Show only .NET processes"/>
+
+                <CheckBox Content="Sys"
+                          IsChecked="{Binding ShowSystemProcesses}"
+                          VerticalAlignment="Center"
+                          Margin="6,0,0,0"
+                          ToolTip="Include system processes"/>
+
+                <CheckBox Content="Auto"
+                          IsChecked="{Binding IsAutoRefresh}"
+                          VerticalAlignment="Center"
+                          Margin="6,0,0,0"
+                          ToolTip="Auto-refresh every 2 seconds"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- ── Status bar (bottom-most) ────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource BgBase}"
+                BorderBrush="{StaticResource BorderSubtle}"
+                BorderThickness="0,1,0,0"
+                Padding="8,3">
+            <TextBlock Text="{Binding StatusText}"
+                       Foreground="{StaticResource TextMuted}"
+                       FontSize="{StaticResource FontSizeSmall}"/>
+        </Border>
+
+        <!-- ── Details strip ───────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource BgElevated}"
+                BorderBrush="{StaticResource BorderNormal}"
+                BorderThickness="0,1,0,0"
+                Padding="8,6"
+                Visibility="{Binding SelectedProcess, Converter={StaticResource NullToVisibility}}">
+            <StackPanel>
+                <TextBlock Foreground="{StaticResource TextPrimary}"
+                           FontFamily="{StaticResource MonoFont}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           Text="{Binding SelectedProcess.DisplayName, Mode=OneWay, FallbackValue=''}"/>
+                <TextBlock Foreground="{StaticResource TextSecondary}"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           Text="{Binding SelectedProcess.ExecutablePath, Mode=OneWay, FallbackValue=''}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding SelectedProcess.ExecutablePath}"
+                           Margin="0,2,0,0"/>
+                <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU" Foreground="{StaticResource TextMuted}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,4,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedProcess.CpuText, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontSize="{StaticResource FontSizeSmall}" FontFamily="{StaticResource MonoFont}"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="MEM" Foreground="{StaticResource TextMuted}" FontSize="{StaticResource FontSizeSmall}" Margin="8,0,4,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding SelectedProcess.MemoryText, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontSize="{StaticResource FontSizeSmall}" FontFamily="{StaticResource MonoFont}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="User" Foreground="{StaticResource TextMuted}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,4,0"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding SelectedProcess.UserName, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontSize="{StaticResource FontSizeSmall}" TextTrimming="CharacterEllipsis"/>
+                </Grid>
+                <TextBlock Text="{Binding SelectedProcess.StartTimeText, Mode=OneWay, StringFormat='Started  {0}', FallbackValue=''}"
+                           Foreground="{StaticResource TextMuted}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           Margin="0,2,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Process tree ────────────────────────────────────────────── -->
+        <TreeView ItemsSource="{Binding Processes}"
+                  Background="{StaticResource BgBase}"
+                  BorderThickness="0"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  KeyDown="TreeView_KeyDown">
+
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type vm:ProcessItemViewModel}"
+                                          ItemsSource="{Binding Children}">
+                    <Grid Margin="2,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Ellipse Grid.Column="0" Style="{StaticResource StatusDotStyle}"/>
+
+                        <!-- .NET badge -->
+                        <TextBlock Grid.Column="1"
+                                   Text="ᴺ"
+                                   Foreground="{StaticResource Accent}"
+                                   FontSize="9"
+                                   VerticalAlignment="Center"
+                                   Margin="2,0,0,0"
+                                   ToolTip=".NET process">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDotNet}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <!-- Name + PID -->
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding DisplayName}"
+                                   Foreground="{StaticResource TextPrimary}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,8,0"
+                                   TextTrimming="CharacterEllipsis"/>
+
+                        <!-- CPU + memory -->
+                        <StackPanel Grid.Column="3"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CpuText}"
+                                       Foreground="{StaticResource TextMuted}"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="10"
+                                       MinWidth="36"
+                                       TextAlignment="Right"
+                                       Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding MemoryText}"
+                                       Foreground="{StaticResource TextMuted}"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="10"
+                                       MinWidth="52"
+                                       TextAlignment="Right"/>
+                        </StackPanel>
+                    </Grid>
+                </HierarchicalDataTemplate>
+            </TreeView.Resources>
+
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                    <Setter Property="Padding"    Value="2,1"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu>
+                                <MenuItem Header="Capture Debug Output (OutputDebugString)"
+                                          Command="{Binding AttachDebugOutputCommand}"/>
+                                <MenuItem Header="Monitor Windows Event Log"
+                                          Command="{Binding AttachEventLogCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Launch &amp; Attach stdout/stderr…"
+                                          Command="{Binding LaunchAndAttachCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Open in Explorer"
+                                          Command="{Binding OpenFileLocationCommand}"/>
+                                <MenuItem Header="Copy PID"
+                                          Command="{Binding CopyPidCommand}"/>
+                                <MenuItem Header="Copy Path"
+                                          Command="{Binding CopyPathCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Kill Process…"
+                                          Command="{Binding KillProcessCommand}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
+    </DockPanel>
+</UserControl>

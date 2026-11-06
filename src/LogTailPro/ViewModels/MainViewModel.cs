@@ -36,6 +36,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHighlightingEnabled = true;
 
+    /// <summary>Process Explorer panel ViewModel.</summary>
+    public ProcessExplorerViewModel ProcessExplorer { get; }
+
+    /// <summary>Whether the Process Explorer left panel is visible.</summary>
+    [ObservableProperty]
+    private bool _isProcessExplorerVisible;
+
     public MainViewModel(SettingsService settingsService)
     {
         _settingsService = settingsService;
@@ -43,6 +50,18 @@ public sealed partial class MainViewModel : ObservableObject
 
         _directoryMonitor.NewFileDetected += async (_, path) =>
             await Application.Current.Dispatcher.InvokeAsync(() => OpenFileTabAsync(path));
+
+        _isProcessExplorerVisible = Settings.IsProcessExplorerVisible;
+        ProcessExplorer = new ProcessExplorerViewModel(Settings);
+        ProcessExplorer.AttachRequested += (_, e) => OpenProcessTab(e.Info, e.Type);
+        ProcessExplorer.LaunchAndAttachRequested += (_, _) => OpenLaunchDialog();
+    }
+
+    partial void OnIsProcessExplorerVisibleChanged(bool value)
+    {
+        Settings.IsProcessExplorerVisible = value;
+        _settingsService.Save(Settings);
+        if (value) _ = ProcessExplorer.RefreshAsync();
     }
 
     partial void OnIsHighlightingEnabledChanged(bool value)
@@ -99,6 +118,113 @@ public sealed partial class MainViewModel : ObservableObject
         _settingsService.Save(Settings);
 
         await tabVm.InitializeAsync();
+    }
+
+    // ── Process Explorer ──────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void ToggleProcessExplorer() => IsProcessExplorerVisible = !IsProcessExplorerVisible;
+
+    /// <summary>Opens a new tab capturing output from <paramref name="process"/>.</summary>
+    public void OpenProcessTab(ProcessInfo process, ProcessAttachmentType type)
+    {
+        switch (type)
+        {
+            case ProcessAttachmentType.DebugOutput:
+                OpenDebugOutputTab(process);
+                break;
+            case ProcessAttachmentType.WindowsEventLog:
+                OpenEventLogTab(process);
+                break;
+            default:
+                // stdout/stderr can only be captured for processes LogTailPro launches itself.
+                OpenLaunchDialog();
+                break;
+        }
+    }
+
+    private void OpenDebugOutputTab(ProcessInfo process)
+    {
+        DebugOutputMonitorService monitor = new();
+        try { monitor.Start(); }
+        catch (InvalidOperationException ex)
+        {
+            monitor.Dispose();
+            MessageBox.Show(ex.Message, "Process Explorer", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        ProcessOutputCaptureService lineSource = new();
+        int targetPid = process.Pid;
+        monitor.LineReceived += (_, e) =>
+        {
+            if (targetPid == 0 || e.Pid == targetPid)
+                lineSource.Emit($"[{e.Pid}] {e.Message}");
+        };
+
+        AddProcessTab(new LogTabViewModel(process, ProcessAttachmentType.DebugOutput,
+                                          lineSource, Settings, ownedResource: monitor));
+    }
+
+    private void OpenEventLogTab(ProcessInfo process)
+    {
+        ProcessOutputCaptureService lineSource = new();
+        System.Diagnostics.EventLog log;
+        try
+        {
+            log = new System.Diagnostics.EventLog("Application");
+            log.EntryWritten += (_, e) =>
+            {
+                if (e.Entry.Source.Contains(process.Name, StringComparison.OrdinalIgnoreCase))
+                    lineSource.Emit($"[{e.Entry.EntryType}] [{e.Entry.TimeWritten:HH:mm:ss}] " +
+                                    $"{e.Entry.Source}: {e.Entry.Message}");
+            };
+            log.EnableRaisingEvents = true;
+        }
+        catch (Exception ex)
+        {
+            lineSource.Dispose();
+            MessageBox.Show($"Cannot monitor the Windows Event Log:\n{ex.Message}", "Process Explorer",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        AddProcessTab(new LogTabViewModel(process, ProcessAttachmentType.WindowsEventLog,
+                                          lineSource, Settings, ownedResource: log));
+    }
+
+    private void OpenLaunchDialog()
+    {
+        LaunchProcessDialog dlg = new() { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true) return;
+
+        ProcessOutputCaptureService capture = new();
+        try
+        {
+            capture.Start(dlg.ExecutablePath, dlg.Arguments, dlg.CaptureType, dlg.WorkingDirectory);
+        }
+        catch (Exception ex)
+        {
+            capture.Dispose();
+            MessageBox.Show($"Could not start process:\n{ex.Message}", "Launch & Attach",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        ProcessInfo launched = new()
+        {
+            Name = Path.GetFileNameWithoutExtension(dlg.ExecutablePath),
+            Pid = capture.ProcessId ?? 0,
+            ExecutablePath = dlg.ExecutablePath
+        };
+        AddProcessTab(new LogTabViewModel(launched, dlg.CaptureType, capture, Settings));
+    }
+
+    private void AddProcessTab(LogTabViewModel tab)
+    {
+        tab.IsHighlightingEnabled = IsHighlightingEnabled;
+        Tabs.Add(tab);
+        SelectedTab = tab;
     }
 
     [RelayCommand]
@@ -384,6 +510,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Exit()
     {
+        ProcessExplorer.Dispose();
         _settingsService.Save(Settings);
         Application.Current.Shutdown();
     }

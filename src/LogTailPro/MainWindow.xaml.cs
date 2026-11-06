@@ -17,6 +17,32 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            ViewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.IsProcessExplorerVisible))
+                    ApplyProcessPanelWidth();
+            };
+            ApplyProcessPanelWidth();
+        };
+    }
+
+    // ── Process Explorer panel layout ─────────────────────────────────────────
+
+    /// <summary>Shows the panel at its persisted width, or collapses its column to zero when hidden.</summary>
+    private void ApplyProcessPanelWidth()
+    {
+        ProcessPanelColumn.Width = ViewModel.IsProcessExplorerVisible
+            ? new GridLength(Math.Clamp(ViewModel.Settings.ProcessExplorerPanelWidth, 220, 600))
+            : new GridLength(0);
+    }
+
+    private void ProcessSplitter_DragCompleted(object sender,
+        System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (ProcessPanelColumn.ActualWidth >= 220)
+            ViewModel.Settings.ProcessExplorerPanelWidth = ProcessPanelColumn.ActualWidth;
     }
 
     // ── File drag-and-drop ────────────────────────────────────────────────────

@@ -72,4 +72,21 @@ public sealed class AppSettings
 
     /// <summary>Active log parser preset name (empty = none).</summary>
     public string LogParserPreset { get; set; } = string.Empty;
+
+    // ── Phase 7: Process Explorer ─────────────────────────────────────────────
+
+    /// <summary>Whether the Process Explorer panel is open.</summary>
+    public bool IsProcessExplorerVisible { get; set; }
+
+    /// <summary>Width of the Process Explorer panel in device-independent pixels.</summary>
+    public double ProcessExplorerPanelWidth { get; set; } = 280.0;
+
+    /// <summary>Whether the Process Explorer auto-refreshes every 2 seconds.</summary>
+    public bool ProcessExplorerAutoRefresh { get; set; }
+
+    /// <summary>Whether system processes (PID &lt;= 4, or service accounts) are shown.</summary>
+    public bool ProcessExplorerShowSystem { get; set; }
+
+    /// <summary>Whether only .NET processes are shown in the Process Explorer.</summary>
+    public bool ProcessExplorerDotNetOnly { get; set; }
 }

@@ -1,6 +1,6 @@
 # LogTailPro
 
-A full-featured real-time log file viewer for Windows — built in C# + WPF + .NET 8.
+A full-featured real-time log file viewer for Windows — built in C# + WPF + .NET 10.
 Designed as a BareTailPro clone that goes beyond it.
 
 ## Quick Start
@@ -44,7 +44,7 @@ dotnet publish src/LogTailPro/LogTailPro.csproj -c Release -r win-x64 --self-con
 See `CLAUDE.md` for full project structure and architecture decisions.
 
 ## Tech Stack
-- C# 12 / .NET 8 / WPF
+- C# 12 / .NET 10 / WPF
 - MVVM via CommunityToolkit.Mvvm
 - Settings via Newtonsoft.Json
 - No external UI libraries

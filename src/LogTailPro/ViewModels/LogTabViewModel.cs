@@ -23,6 +23,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private readonly AppSettings _settings;
     private readonly bool _isReadOnly;
 
+    /// <summary>Non-null when this tab streams from a process instead of a file.</summary>
+    private readonly ProcessOutputCaptureService? _captureService;
+
+    /// <summary>Extra resource (debug monitor, event log…) whose lifetime is tied to this tab.</summary>
+    private readonly IDisposable? _ownedResource;
+
     private IReadOnlyList<(HighlightRule Rule, Regex CompiledPattern)> _compiledHighlightRules = [];
 
     private readonly List<LogLine> _allLines = new();
@@ -39,6 +45,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public LogFile LogFile { get; }
     public string FileName => LogFile.FileName;
     public string FilePath => LogFile.FilePath;
+
+    /// <summary>True when this tab was opened via Process Explorer (not a file).</summary>
+    public bool IsProcessTab { get; private init; }
+
+    /// <summary>PID of the attached process, if this is a process tab (0 = all processes / unknown).</summary>
+    public int? AttachedProcessId { get; private init; }
+
+    /// <summary>Capture mode for process tabs.</summary>
+    public ProcessAttachmentType? ProcessCaptureType { get; private init; }
 
     // ── Lines ─────────────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<LogLine> _visibleLines = new();
@@ -273,11 +288,49 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         UpdateStatus();
     }
 
+    /// <summary>
+    /// Creates a tab that streams lines from a <see cref="ProcessOutputCaptureService"/>
+    /// instead of a file. The tab takes ownership of <paramref name="captureService"/> and
+    /// <paramref name="ownedResource"/> and disposes both when it is closed.
+    /// </summary>
+    public LogTabViewModel(ProcessInfo process, ProcessAttachmentType captureType,
+                           ProcessOutputCaptureService captureService, AppSettings settings,
+                           IDisposable? ownedResource = null)
+    {
+        _settings = settings;
+        _captureService = captureService;
+        _ownedResource = ownedResource;
+        IsProcessTab = true;
+        AttachedProcessId = process.Pid;
+        ProcessCaptureType = captureType;
+
+        string modeLabel = captureType switch
+        {
+            ProcessAttachmentType.StandardOutput         => "stdout",
+            ProcessAttachmentType.StandardError          => "stderr",
+            ProcessAttachmentType.StandardOutputAndError => "stdout+stderr",
+            ProcessAttachmentType.DebugOutput            => "debug output",
+            ProcessAttachmentType.WindowsEventLog        => "event log",
+            _                                            => "output"
+        };
+        string pidText = process.Pid > 0 ? $" [{process.Pid}]" : string.Empty;
+        LogFile = new LogFile { FilePath = $"{process.Name}{pidText} — {modeLabel}" };
+        _displayName = LogFile.FilePath;
+        _isFollowTail = true;
+        _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
+        FileStatus = FileStatus.Watching;
+        IsLoaded = true;
+
+        _captureService.NewLinesAvailable += OnNewLinesAvailable;
+        _captureService.ProcessExited     += OnCapturedProcessExited;
+        UpdateStatus();
+    }
+
     // ── Initialisation ────────────────────────────────────────────────────────
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        if (_isReadOnly) return;
+        if (_isReadOnly || IsProcessTab) return;
 
         IsLoading = true;
         LoadProgress = 0;
@@ -377,7 +430,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             while (VisibleLines.Count > _settings.MaxLinesInMemory)
                 VisibleLines.RemoveAt(0);
 
-            try { FileSizeBytes = new FileInfo(LogFile.FilePath).Length; } catch { }
+            if (!IsProcessTab)
+            {
+                try { FileSizeBytes = new FileInfo(LogFile.FilePath).Length; } catch { }
+            }
             UpdateStats(created);
             CheckForNotifications(created);
             UpdateStatus();
@@ -393,6 +449,16 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             WarningMessage = "File deleted or moved.";
             StatusText = "File deleted";
         });
+    }
+
+    private void OnCapturedProcessExited(object? sender, int exitCode)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            FileStatus = FileStatus.Deleted;
+            StatusText = $"Process exited (code {exitCode})";
+            WarningMessage = $"Process exited with code {exitCode}.";
+        }, DispatcherPriority.Background);
     }
 
     private void OnFileTruncated(object? sender, EventArgs e)
@@ -914,9 +980,11 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         string state = IsLoaded ? (FileStatus == FileStatus.Watching ? "Watching" : FileStatus.ToString()) : "Loading";
         if (IsWatchPaused) state = "Paused";
-        string size = FileSizeBytes >= 1_048_576
-            ? $"{FileSizeBytes / 1_048_576.0:F1} MB"
-            : $"{FileSizeBytes / 1024.0:F1} KB";
+        string size = IsProcessTab
+            ? "live"
+            : FileSizeBytes >= 1_048_576
+                ? $"{FileSizeBytes / 1_048_576.0:F1} MB"
+                : $"{FileSizeBytes / 1024.0:F1} KB";
         string filter = FilterMode != FilterMode.None || !string.IsNullOrEmpty(SearchText)
             ? " | Filter active" : string.Empty;
         string trim = _allLines.Count >= _settings.MaxLinesInMemory
@@ -931,7 +999,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _searchCts?.Cancel();
-        if (!_isReadOnly)
+        if (_captureService != null)
+        {
+            _captureService.NewLinesAvailable -= OnNewLinesAvailable;
+            _captureService.ProcessExited     -= OnCapturedProcessExited;
+            _ownedResource?.Dispose();
+            _captureService.Dispose();
+        }
+        if (!_isReadOnly && !IsProcessTab)
         {
             _watcher.NewLinesAvailable -= OnNewLinesAvailable;
             _watcher.FileDeleted -= OnFileDeleted;

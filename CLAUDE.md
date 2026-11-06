@@ -9,7 +9,7 @@ This is a commercial-quality desktop application. Do not cut corners.
 
 ## Golden Rules (Never Break These)
 1. **Read CHANGELOG.md first, every session.** It tells you what changed in the plan.
-2. **Read SKILL.md before writing any code.** It is at `./SKILL.md`.
+2. **Read SKILL.md before writing any code.** It is at `./SKILL/technical skill/SKILL.md`.
 3. **Read the current phase file before starting each phase.** They are in `./prompts/`.
 4. **Always review the plan before implementing.** Output a summary of what you will do, wait, then build.
 5. **Never skip a phase.** Each phase builds on the last.
@@ -208,7 +208,7 @@ dotnet publish src/LogTailPro/LogTailPro.csproj \
 When the user says **"start"** or **"build"**, do this in order:
 
 1. Read `./CHANGELOG.md` (check for plan changes)
-2. Read `./SKILL.md` (full technical reference)
+2. Read `./SKILL/technical skill/SKILL.md` (full technical reference)
 3. Read `./prompts/PHASE_1.md`
 4. Scaffold the solution and project file
 5. Implement Phase 1 fully

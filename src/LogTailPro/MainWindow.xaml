@@ -61,6 +61,7 @@
         <KeyBinding Key="C"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.CopyWithLineNumbersCommand}"/>
         <KeyBinding Key="S"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.ToggleStatsPanelCommand}"/>
         <KeyBinding Key="E"    Modifiers="Ctrl+Shift"  Command="{Binding SelectedTab.ToggleElapsedColumnCommand}"/>
+        <KeyBinding Key="P"    Modifiers="Ctrl+Shift"  Command="{Binding ToggleProcessExplorerCommand}"/>
     </Window.InputBindings>
 
     <DockPanel LastChildFill="True">
@@ -146,6 +147,12 @@
                 <MenuItem Header="Stats Panel"
                           Command="{Binding SelectedTab.ToggleStatsPanelCommand}"
                           InputGestureText="Ctrl+Shift+S"/>
+                <Separator/>
+                <MenuItem Header="Process Explorer"
+                          Command="{Binding ToggleProcessExplorerCommand}"
+                          InputGestureText="Ctrl+Shift+P"
+                          IsCheckable="True"
+                          IsChecked="{Binding IsProcessExplorerVisible, Mode=OneWay}"/>
             </MenuItem>
 
             <MenuItem Header="_Search">
@@ -199,6 +206,8 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -246,7 +255,19 @@
                     <ComboBoxItem Content="ASCII"/>
                 </ComboBox>
 
-                <TextBlock Grid.Column="7"
+                <Rectangle Grid.Column="6"
+                           Width="1" Height="20"
+                           Fill="{StaticResource BorderNormal}"
+                           VerticalAlignment="Center"
+                           Margin="8,0"/>
+
+                <Button Grid.Column="7"
+                        Content="⚙ Processes"
+                        Command="{Binding ToggleProcessExplorerCommand}"
+                        Style="{StaticResource SecondaryButton}"
+                        ToolTip="Toggle Process Explorer (Ctrl+Shift+P)"/>
+
+                <TextBlock Grid.Column="9"
                            Text="{Binding SelectedTab.FilePathWithSize, Mode=OneWay, FallbackValue=''}"
                            Foreground="{StaticResource TextSecondary}"
                            FontFamily="Segoe UI"
@@ -554,14 +575,40 @@
             </Grid>
         </Border>
 
-        <!-- ═══ 6. Log Content — fills remaining space (LastChild) ═════════════ -->
-        <ContentControl Content="{Binding SelectedTab}">
-            <ContentControl.ContentTemplate>
-                <DataTemplate DataType="{x:Type vm:LogTabViewModel}">
-                    <views:LogTabView/>
-                </DataTemplate>
-            </ContentControl.ContentTemplate>
-        </ContentControl>
+        <!-- ═══ 6. Process Explorer + Log Content — fills remaining space (LastChild) ═══ -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!-- Width is driven from MainWindow.xaml.cs (collapsed to 0 when the panel is hidden). -->
+                <ColumnDefinition x:Name="ProcessPanelColumn" Width="0" MinWidth="0" MaxWidth="600"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <views:ProcessExplorerPanel Grid.Column="0"
+                                        DataContext="{Binding ProcessExplorer}"
+                                        Visibility="{Binding DataContext.IsProcessExplorerVisible,
+                                                     RelativeSource={RelativeSource AncestorType=Window},
+                                                     Converter={StaticResource BoolToVisibility}}"/>
+
+            <GridSplitter x:Name="ProcessSplitter"
+                          Grid.Column="1"
+                          Width="4"
+                          Background="{StaticResource BorderNormal}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch"
+                          ResizeBehavior="PreviousAndNext"
+                          DragCompleted="ProcessSplitter_DragCompleted"
+                          Visibility="{Binding IsProcessExplorerVisible,
+                                       Converter={StaticResource BoolToVisibility}}"/>
+
+            <ContentControl Grid.Column="2" Content="{Binding SelectedTab}">
+                <ContentControl.ContentTemplate>
+                    <DataTemplate DataType="{x:Type vm:LogTabViewModel}">
+                        <views:LogTabView/>
+                    </DataTemplate>
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </Grid>
 
     </DockPanel>
 </Window>
