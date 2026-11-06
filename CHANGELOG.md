@@ -5,7 +5,20 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.4 - 2026-11-06 (CURRENT) - ROADMAP PHASE 3: REQUEST/TRACE ID CORRELATION
+## v2.5 - 2026-11-06 (CURRENT) - ROADMAP PHASE 4: SAVED WORKSPACES
+
+- Implemented roadmap Phase 4: complete saved workspaces with multi-file timelines, correlation tabs, layout, scroll, and filters.
+- Extended Workspace and WorkspaceTab models with schema versioning (v2), WorkspaceTabType (File, Timeline, Correlation), active tab document identity (ActiveTabId), source file paths for dependent views, vertical/horizontal scroll offsets, and AvalonDock layout XML.
+- Created WorkspaceService for asynchronous atomic saves using temporary file replacement to prevent file corruption on interruption.
+- Supported full backward compatibility for legacy schema v1 workspaces, automatically upgrading to v2.
+- Preserved and restored search patterns, regex flags, case sensitivity, filter modes, bookmarks, follow-tail, scroll positions, custom highlight rules, and docking layout.
+- Enforced safe restoration ordering: file sources are restored first before resolving dependent timelines and correlation tabs.
+- Handled missing files gracefully with warning notices without crashing or destroying existing user tabs on invalid or corrupt workspace files.
+- Added unit tests to Timeline.Tests and real-file workspace round-trip integration tests to Timeline.IntegrationTests.
+
+---
+
+## v2.4 - 2026-11-06 - ROADMAP PHASE 3: REQUEST/TRACE ID CORRELATION
 
 - Implemented roadmap Phase 3: Request/Trace ID correlation across open logs.
 - Added CorrelationService with exact-value matching for common trace/request fields (TraceId, @tr, RequestId, CorrelationId, SpanId, TransactionId), custom nested JSON properties, and plain-text tokens with strict boundaries.

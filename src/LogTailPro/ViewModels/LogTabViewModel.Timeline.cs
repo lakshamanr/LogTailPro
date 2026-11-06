@@ -39,6 +39,13 @@ public sealed partial class LogTabViewModel
     /// <summary>Whether this tab can be selected as a file source.</summary>
     public bool IsTimelineSource => !_isReadOnly && !IsProcessTab && TempFilePath == null;
 
+    /// <summary>Active source tabs used by this timeline or correlation tab.</summary>
+    public IReadOnlyList<LogTabViewModel> TimelineSources => _timelineSources;
+
+    /// <summary>File paths of the active source tabs used by this timeline or correlation tab.</summary>
+    public IReadOnlyList<string> TimelineSourcePaths =>
+        _timelineSources.Select(source => source.FilePath).ToArray();
+
     /// <summary>Width of the dedicated source column; zero in ordinary file tabs.</summary>
     public double TimelineSourceWidth => IsTimeline ? 180 : 0;
 

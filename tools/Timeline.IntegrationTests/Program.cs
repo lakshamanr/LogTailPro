@@ -20,7 +20,7 @@ internal static class Program
         });
         app.Run();
         if (failure != null) throw new InvalidOperationException("Timeline integration failed", failure);
-        Console.WriteLine("Timeline, structured JSON, and Request/Trace ID correlation integration passed: real file tailing, multi-source correlation, exact matching, substring exclusion, inspector layout, toggle view, live appends and disposal.");
+        Console.WriteLine("Timeline, structured JSON, Request/Trace ID correlation, and saved workspaces integration passed: real file tailing, multi-source correlation, workspaces round-trip, layout, filters, bookmarks, and disposal.");
     }
 
     private static void Check(bool condition, string message)
@@ -275,6 +275,91 @@ internal static class Program
             corrTab.Dispose();
             sourceD.Dispose();
             sourceE.Dispose();
+
+            // ── Phase 4: Saved Workspaces Real-File Integration Tests ──────────
+            string wsLogA = Path.Combine(folder, "ws_a.log");
+            string wsLogB = Path.Combine(folder, "ws_b.log");
+            string wsPath = Path.Combine(folder, "project.ltpw");
+
+            await File.WriteAllTextAsync(wsLogA, "2026-11-06T10:30:00Z line 1 error in auth\n2026-11-06T10:30:05Z line 2 info\n");
+            await File.WriteAllTextAsync(wsLogB, "2026-11-06T10:30:02Z line 3 trace-xyz processing\n");
+
+            MainViewModel wsMainVm = new(new LogTailPro.Services.SettingsService());
+            string capturedLayoutXml = string.Empty;
+            wsMainVm.RequestLayoutXml = () => "<LayoutRoot><TestMockLayout/></LayoutRoot>";
+            wsMainVm.RestoreLayoutXml = xml => capturedLayoutXml = xml;
+
+            await wsMainVm.OpenFileTabAsync(wsLogA);
+            await wsMainVm.OpenFileTabAsync(wsLogB);
+            Check(wsMainVm.Tabs.Count == 2, "Workspace source tabs count mismatch");
+
+            LogTabViewModel wsTabA = wsMainVm.Tabs[0];
+            LogTabViewModel wsTabB = wsMainVm.Tabs[1];
+
+            wsTabA.SearchText = "error";
+            wsTabA.FilterMode = FilterMode.IncludeMatching;
+            wsTabA.IsRegexMode = true;
+            wsTabA.IsFollowTail = false;
+            wsTabA.SavedScrollVertical = 25.0;
+            wsTabA.RestoreBookmarks([1]);
+
+            // Add combined timeline tab
+            LogTabViewModel wsTimeline = new([wsTabA, wsTabB], wsMainVm.Settings);
+            wsMainVm.Tabs.Add(wsTimeline);
+
+            // Add correlation tab
+            LogTabViewModel wsCorrelation = new([wsTabA, wsTabB], "trace-xyz", wsMainVm.Settings);
+            wsMainVm.Tabs.Add(wsCorrelation);
+
+            // Set active tab to correlation tab
+            wsMainVm.SelectedTab = wsCorrelation;
+
+            // Save workspace
+            await wsMainVm.SaveWorkspaceAsync(wsPath);
+            Check(File.Exists(wsPath), "Workspace file project.ltpw was not written");
+
+            // Create new MainViewModel and load workspace
+            MainViewModel restoredMainVm = new(new LogTailPro.Services.SettingsService());
+            string restoredLayoutXml = string.Empty;
+            restoredMainVm.RestoreLayoutXml = xml => restoredLayoutXml = xml;
+
+            await restoredMainVm.LoadWorkspaceAsync(wsPath);
+
+            // Verify all 4 tabs restored: 2 file tabs, 1 timeline, 1 correlation
+            Check(restoredMainVm.Tabs.Count == 4, "Restored workspace tab count mismatch");
+            LogTabViewModel restoredTabA = restoredMainVm.Tabs.Single(t => string.Equals(t.FilePath, wsLogA, StringComparison.OrdinalIgnoreCase));
+            LogTabViewModel restoredTabB = restoredMainVm.Tabs.Single(t => string.Equals(t.FilePath, wsLogB, StringComparison.OrdinalIgnoreCase));
+            LogTabViewModel restoredTimeline = restoredMainVm.Tabs.Single(t => t.IsTimeline && !t.IsCorrelationTab);
+            LogTabViewModel restoredCorrelation = restoredMainVm.Tabs.Single(t => t.IsCorrelationTab);
+
+            // Check restored properties on file tab A
+            Check(restoredTabA.SearchText == "error", "Restored SearchText mismatch");
+            Check(restoredTabA.FilterMode == FilterMode.IncludeMatching, "Restored FilterMode mismatch");
+            Check(restoredTabA.IsRegexMode, "Restored IsRegexMode mismatch");
+            Check(!restoredTabA.IsFollowTail, "Restored IsFollowTail mismatch");
+            Check(restoredTabA.SavedScrollVertical == 25.0, "Restored SavedScrollVertical mismatch");
+            Check(restoredTabA.Bookmarks.Any(b => b.LineNumber == 1), "Restored bookmark line 1 missing");
+
+            // Check restored timeline and correlation tabs
+            Check(restoredTimeline.TimelineSources.Count == 2, "Restored timeline sources count mismatch");
+            Check(restoredCorrelation.TimelineSources.Count == 2, "Restored correlation sources count mismatch");
+            Check(restoredCorrelation.CorrelationId == "trace-xyz", "Restored CorrelationId mismatch");
+
+            // Check active tab was preserved
+            Check(ReferenceEquals(restoredMainVm.SelectedTab, restoredCorrelation), "Restored ActiveTab mismatch");
+
+            // Check layout XML was passed to RestoreLayoutXml delegate
+            Check(restoredLayoutXml == "<LayoutRoot><TestMockLayout/></LayoutRoot>", "Restored LayoutXml mismatch");
+
+            // Verify non-destructive load on corrupt JSON
+            string corruptLtpw = Path.Combine(folder, "corrupt.ltpw");
+            await File.WriteAllTextAsync(corruptLtpw, "{ \"Broken\": JSON ");
+            await restoredMainVm.LoadWorkspaceAsync(corruptLtpw);
+            Check(restoredMainVm.Tabs.Count == 4, "Corrupt workspace load destroyed current open tabs");
+            Check(restoredMainVm.StatusMessage.Contains("Failed to load workspace"), "StatusMessage should indicate failure on corrupt load");
+
+            foreach (var t in wsMainVm.Tabs.ToList()) t.Dispose();
+            foreach (var t in restoredMainVm.Tabs.ToList()) t.Dispose();
         }
         finally
         {

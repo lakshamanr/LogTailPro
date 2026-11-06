@@ -166,6 +166,21 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Restores specific bookmarks from line numbers.</summary>
+    public void RestoreBookmarks(IEnumerable<long> lineNumbers)
+    {
+        HashSet<long> set = new(lineNumbers);
+        foreach (LogLine line in _allLines)
+        {
+            if (set.Contains(line.LineNumber) && !line.IsBookmarked)
+            {
+                line.IsBookmarked = true;
+                Bookmarks.Add(line);
+            }
+        }
+        NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
+    }
+
     // ── Phase 6 features ─────────────────────────────────────────────────────
     [ObservableProperty] private bool _isLineWrapEnabled;
     [ObservableProperty] private bool _isStatsPanelVisible;

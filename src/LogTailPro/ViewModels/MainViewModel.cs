@@ -16,6 +16,13 @@ public sealed partial class MainViewModel : ObservableObject
 {
     private readonly SettingsService _settingsService;
     private readonly DirectoryMonitorService _directoryMonitor = new();
+    private readonly WorkspaceService _workspaceService = new();
+
+    /// <summary>Delegate invoked by MainViewModel to query the current AvalonDock layout XML.</summary>
+    public Func<string>? RequestLayoutXml { get; set; }
+
+    /// <summary>Delegate invoked by MainViewModel to restore an AvalonDock layout XML.</summary>
+    public Action<string>? RestoreLayoutXml { get; set; }
 
     /// <summary>Loaded and persisted application settings.</summary>
     public AppSettings Settings { get; private set; }
@@ -450,71 +457,303 @@ public sealed partial class MainViewModel : ObservableObject
     // ── Workspace ─────────────────────────────────────────────────────────────
 
     [RelayCommand]
-    private async Task SaveWorkspaceAsync()
+    public async Task SaveWorkspaceAsync(string? targetFilePath = null)
     {
-        SaveFileDialog dlg = new()
+        string? savePath = targetFilePath;
+        if (string.IsNullOrEmpty(savePath))
         {
-            Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
-            FileName = "workspace.ltpw",
-            Title = "Save Workspace"
-        };
-        if (dlg.ShowDialog() != true) return;
+            SaveFileDialog dlg = new()
+            {
+                Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
+                FileName = "workspace.ltpw",
+                Title = "Save Workspace"
+            };
+            if (dlg.ShowDialog() != true) return;
+            savePath = dlg.FileName;
+        }
+
+        List<WorkspaceTab> wsTabs = new();
+        foreach (LogTabViewModel t in Tabs)
+        {
+            if (t.IsProcessTab) continue;
+
+            if (t.IsCorrelationTab)
+            {
+                wsTabs.Add(new WorkspaceTab
+                {
+                    TabType = WorkspaceTabType.Correlation,
+                    FilePath = t.FilePath,
+                    FileName = t.FileName,
+                    CorrelationId = t.CorrelationId,
+                    SourceFilePaths = t.TimelineSourcePaths.ToList(),
+                    SearchText = t.SearchText,
+                    IsRegex = t.IsRegexMode,
+                    IsCaseSensitive = t.IsCaseSensitive,
+                    FilterMode = t.FilterMode,
+                    BookmarkedLines = t.Bookmarks.Select(b => b.LineNumber).ToList(),
+                    IsFollowTail = t.IsFollowTail,
+                    ScrollVerticalOffset = t.SavedScrollVertical,
+                    ScrollHorizontalOffset = t.SavedScrollHorizontal,
+                    IsStructuredViewEnabled = t.IsStructuredViewEnabled
+                });
+            }
+            else if (t.IsTimeline)
+            {
+                wsTabs.Add(new WorkspaceTab
+                {
+                    TabType = WorkspaceTabType.Timeline,
+                    FilePath = t.FilePath,
+                    FileName = t.FileName,
+                    SourceFilePaths = t.TimelineSourcePaths.ToList(),
+                    SearchText = t.SearchText,
+                    IsRegex = t.IsRegexMode,
+                    IsCaseSensitive = t.IsCaseSensitive,
+                    FilterMode = t.FilterMode,
+                    BookmarkedLines = t.Bookmarks.Select(b => b.LineNumber).ToList(),
+                    IsFollowTail = t.IsFollowTail,
+                    ScrollVerticalOffset = t.SavedScrollVertical,
+                    ScrollHorizontalOffset = t.SavedScrollHorizontal,
+                    IsStructuredViewEnabled = t.IsStructuredViewEnabled
+                });
+            }
+            else if (!string.IsNullOrEmpty(t.FilePath) && File.Exists(t.FilePath))
+            {
+                wsTabs.Add(new WorkspaceTab
+                {
+                    TabType = WorkspaceTabType.File,
+                    FilePath = t.FilePath,
+                    FileName = t.FileName,
+                    SearchText = t.SearchText,
+                    IsRegex = t.IsRegexMode,
+                    IsCaseSensitive = t.IsCaseSensitive,
+                    FilterMode = t.FilterMode,
+                    BookmarkedLines = t.Bookmarks.Select(b => b.LineNumber).ToList(),
+                    IsFollowTail = t.IsFollowTail,
+                    ScrollVerticalOffset = t.SavedScrollVertical,
+                    ScrollHorizontalOffset = t.SavedScrollHorizontal,
+                    IsStructuredViewEnabled = t.IsStructuredViewEnabled
+                });
+            }
+        }
+
+        string? dockLayoutXml = RequestLayoutXml?.Invoke();
 
         Workspace ws = new()
         {
+            SchemaVersion = WorkspaceService.CurrentSchemaVersion,
+            Name = Path.GetFileNameWithoutExtension(savePath),
+            ActiveTabId = SelectedTab?.FilePath ?? SelectedTab?.FileName,
             ActiveTabIndex = SelectedTab != null ? Tabs.IndexOf(SelectedTab) : 0,
-            Tabs = Tabs.Where(t => File.Exists(t.FilePath)).Select(t => new WorkspaceTab
-            {
-                FilePath = t.FilePath,
-                SearchText = t.SearchText,
-                IsRegex = t.IsRegexMode,
-                IsCaseSensitive = t.IsCaseSensitive,
-                FilterMode = t.FilterMode,
-                BookmarkedLines = t.Bookmarks.Select(b => b.LineNumber).ToList()
-            }).ToList()
+            Tabs = wsTabs,
+            HighlightRules = Settings.HighlightRules.ToList(),
+            DockLayoutXml = dockLayoutXml
         };
 
-        await File.WriteAllTextAsync(dlg.FileName,
-            JsonConvert.SerializeObject(ws, Formatting.Indented));
-        StatusMessage = $"Workspace saved to {Path.GetFileName(dlg.FileName)}";
+        try
+        {
+            await _workspaceService.SaveAsync(savePath, ws);
+            StatusMessage = $"Workspace saved to {Path.GetFileName(savePath)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to save workspace: {ex.Message}";
+        }
     }
 
     [RelayCommand]
-    private async Task LoadWorkspaceAsync()
+    public async Task LoadWorkspaceAsync(string? sourceFilePath = null)
     {
-        OpenFileDialog dlg = new()
+        string? openPath = sourceFilePath;
+        if (string.IsNullOrEmpty(openPath))
         {
-            Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
-            Title = "Load Workspace"
-        };
-        if (dlg.ShowDialog() != true) return;
+            OpenFileDialog dlg = new()
+            {
+                Filter = "LogTailPro Workspace|*.ltpw|All Files|*.*",
+                Title = "Load Workspace"
+            };
+            if (dlg.ShowDialog() != true) return;
+            openPath = dlg.FileName;
+        }
 
-        Workspace? ws = JsonConvert.DeserializeObject<Workspace>(
-            await File.ReadAllTextAsync(dlg.FileName));
-        if (ws == null) return;
+        WorkspaceLoadResult result = await _workspaceService.LoadAsync(openPath);
+        if (!result.Success || result.Workspace == null)
+        {
+            StatusMessage = $"Failed to load workspace: {result.ErrorMessage ?? "Invalid format"}";
+            return;
+        }
+
+        Workspace ws = result.Workspace;
+
+        List<WorkspaceTab> fileTabs = ws.Tabs.Where(t => t.TabType == WorkspaceTabType.File).ToList();
+        List<WorkspaceTab> dependentTabs = ws.Tabs.Where(t => t.TabType is WorkspaceTabType.Timeline or WorkspaceTabType.Correlation).ToList();
+
+        List<string> missingFiles = result.MissingFiles.ToList();
+        List<WorkspaceTab> validFileTabs = fileTabs.Where(t => File.Exists(t.FilePath)).ToList();
+
+        if (validFileTabs.Count == 0 && dependentTabs.Count == 0 && missingFiles.Count > 0)
+        {
+            StatusMessage = $"Workspace load cancelled: All {missingFiles.Count} log file(s) are missing.";
+            return;
+        }
 
         // Close all current tabs
         foreach (LogTabViewModel tab in Tabs.ToList()) tab.Dispose();
         Tabs.Clear();
         SelectedTab = null;
 
-        foreach (WorkspaceTab wt in ws.Tabs)
+        // Restore custom highlight rules if present
+        if (ws.HighlightRules != null && ws.HighlightRules.Count > 0)
         {
-            if (!File.Exists(wt.FilePath)) continue;
-            await OpenFileTabAsync(wt.FilePath);
-            if (SelectedTab == null) continue;
-            SelectedTab.SearchText = wt.SearchText;
-            SelectedTab.IsRegexMode = wt.IsRegex;
-            SelectedTab.IsCaseSensitive = wt.IsCaseSensitive;
-            SelectedTab.FilterMode = wt.FilterMode;
+            Settings.HighlightRules = ws.HighlightRules.ToList();
+            _settingsService.Save(Settings);
+            foreach (LogTabViewModel tab in Tabs) tab.RefreshHighlighting();
         }
 
-        if (ws.ActiveTabIndex >= 0 && ws.ActiveTabIndex < Tabs.Count)
-            SelectedTab = Tabs[ws.ActiveTabIndex];
+        // 1. Restore File tabs first
+        Dictionary<string, LogTabViewModel> openedFiles = new(StringComparer.OrdinalIgnoreCase);
+        foreach (WorkspaceTab wt in validFileTabs)
+        {
+            await OpenFileTabAsync(wt.FilePath);
+            LogTabViewModel? tab = Tabs.FirstOrDefault(t => string.Equals(t.FilePath, wt.FilePath, StringComparison.OrdinalIgnoreCase));
+            if (tab == null) continue;
 
-        StatusMessage = $"Workspace loaded: {Path.GetFileName(dlg.FileName)}";
+            openedFiles[wt.FilePath] = tab;
+            tab.SearchText = wt.SearchText;
+            tab.IsRegexMode = wt.IsRegex;
+            tab.IsCaseSensitive = wt.IsCaseSensitive;
+            tab.FilterMode = wt.FilterMode;
+            tab.IsFollowTail = wt.IsFollowTail;
+            tab.SavedScrollVertical = wt.ScrollVerticalOffset;
+            tab.SavedScrollHorizontal = wt.ScrollHorizontalOffset;
+            tab.IsStructuredViewEnabled = wt.IsStructuredViewEnabled;
+            if (wt.BookmarkedLines.Count > 0)
+            {
+                tab.RestoreBookmarks(wt.BookmarkedLines);
+            }
+        }
+
+        // 2. Restore Dependent tabs (Timelines and Correlations)
+        List<string> unrestorableTabs = new();
+        foreach (WorkspaceTab dt in dependentTabs)
+        {
+            List<LogTabViewModel> matchingSources = new();
+            foreach (string sp in dt.SourceFilePaths)
+            {
+                if (openedFiles.TryGetValue(sp, out LogTabViewModel? src))
+                {
+                    matchingSources.Add(src);
+                }
+            }
+
+            if (dt.TabType == WorkspaceTabType.Timeline)
+            {
+                if (matchingSources.Count >= 2)
+                {
+                    LogTabViewModel timeline = new(matchingSources, Settings)
+                    {
+                        IsHighlightingEnabled = IsHighlightingEnabled,
+                        SearchText = dt.SearchText,
+                        IsRegexMode = dt.IsRegex,
+                        IsCaseSensitive = dt.IsCaseSensitive,
+                        FilterMode = dt.FilterMode,
+                        IsFollowTail = dt.IsFollowTail,
+                        SavedScrollVertical = dt.ScrollVerticalOffset,
+                        SavedScrollHorizontal = dt.ScrollHorizontalOffset,
+                        IsStructuredViewEnabled = dt.IsStructuredViewEnabled
+                    };
+                    timeline.OriginalLineRequested += (_, line) =>
+                    {
+                        LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
+                            string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+                        if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+                        {
+                            StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
+                            return;
+                        }
+                        SelectedTab = source;
+                        source.NavigateToLine(line.OriginalLine);
+                    };
+                    if (dt.BookmarkedLines.Count > 0) timeline.RestoreBookmarks(dt.BookmarkedLines);
+                    Tabs.Add(timeline);
+                }
+                else
+                {
+                    unrestorableTabs.Add(dt.FileName);
+                }
+            }
+            else if (dt.TabType == WorkspaceTabType.Correlation)
+            {
+                if (matchingSources.Count >= 1 && !string.IsNullOrEmpty(dt.CorrelationId))
+                {
+                    LogTabViewModel corr = new(matchingSources, dt.CorrelationId, Settings)
+                    {
+                        IsHighlightingEnabled = IsHighlightingEnabled,
+                        SearchText = dt.SearchText,
+                        IsRegexMode = dt.IsRegex,
+                        IsCaseSensitive = dt.IsCaseSensitive,
+                        FilterMode = dt.FilterMode,
+                        IsFollowTail = dt.IsFollowTail,
+                        SavedScrollVertical = dt.ScrollVerticalOffset,
+                        SavedScrollHorizontal = dt.ScrollHorizontalOffset,
+                        IsStructuredViewEnabled = dt.IsStructuredViewEnabled
+                    };
+                    corr.OriginalLineRequested += (_, line) =>
+                    {
+                        LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
+                            string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+                        if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+                        {
+                            StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
+                            return;
+                        }
+                        SelectedTab = source;
+                        source.NavigateToLine(line.OriginalLine);
+                    };
+                    if (dt.BookmarkedLines.Count > 0) corr.RestoreBookmarks(dt.BookmarkedLines);
+                    Tabs.Add(corr);
+                }
+                else
+                {
+                    unrestorableTabs.Add(dt.FileName);
+                }
+            }
+        }
+
+        // 3. Restore Active Tab
+        LogTabViewModel? active = null;
+        if (!string.IsNullOrEmpty(ws.ActiveTabId))
+        {
+            active = Tabs.FirstOrDefault(t =>
+                string.Equals(t.FilePath, ws.ActiveTabId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(t.FileName, ws.ActiveTabId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (active == null && ws.ActiveTabIndex >= 0 && ws.ActiveTabIndex < Tabs.Count)
+        {
+            active = Tabs[ws.ActiveTabIndex];
+        }
+
+        SelectedTab = active ?? (Tabs.Count > 0 ? Tabs[0] : null);
+
+        // 4. Restore Docking Layout
+        if (!string.IsNullOrWhiteSpace(ws.DockLayoutXml))
+        {
+            try { RestoreLayoutXml?.Invoke(ws.DockLayoutXml); } catch { }
+        }
+
+        // 5. Status message
+        if (missingFiles.Count > 0 || unrestorableTabs.Count > 0)
+        {
+            string detail = missingFiles.Count > 0
+                ? $"{missingFiles.Count} file(s) missing"
+                : $"{unrestorableTabs.Count} view(s) could not be restored";
+            StatusMessage = $"Workspace loaded with warnings ({detail}): {Path.GetFileName(openPath)}";
+        }
+        else
+        {
+            StatusMessage = $"Workspace loaded: {Path.GetFileName(openPath)}";
+        }
     }
-
     // ── Tools ─────────────────────────────────────────────────────────────────
 
     [RelayCommand]

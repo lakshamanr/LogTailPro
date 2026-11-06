@@ -8,7 +8,7 @@ the combined timeline, not the original core-viewer Phase 1. Later phases are pl
 | 1 | Combined log timeline | Completed | Select open file sources; merge loaded lines chronologically; show timestamp/source/original line; live updates; navigate to originals; deterministic ordering; handle truncation, retention and source closure. |
 | 2 | Structured JSON logs | Completed | Detect JSONL and Serilog-style events; timestamp/level/message/exception columns; nested property inspector; typed field filters; preserve raw and malformed input. Depends on Phase 1 source identity. |
 | 3 | Request/Trace ID correlation | Completed | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
-| 4 | Saved workspaces | Planned | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
+| 4 | Saved workspaces | Completed | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
 | 5 | Multiline exceptions | Planned | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
 | 6 | Error timeline chart | Planned | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
 
@@ -85,3 +85,22 @@ navigation to original source lines, live tail appends matching correlation IDs,
 - Right-click context menu in log tabs (`Correlate Request / Trace ID…`), Property Inspector header "Correlate ID" button on detected IDs, and Property Inspector tree item context menu ("Correlate by Value").
 - Seamless navigation back to original line (`OpenOriginalLineCommand`), with fallback warnings if records rotated or trimmed.
 
+
+## Phase 4 detailed design
+
+Implemented in Phase 4. Local Release build: zero warnings/errors.
+Service checks in Timeline.Tests verify WorkspaceService atomic saving (interrupted saves leave previous content completely intact),
+schema versioning (v2 format with backward-compatible v1 upgrade), multi-tab round-trip (file tabs, timeline definitions, correlation views,
+search patterns, filter modes, bookmarks, follow-tail, scroll positions, custom highlight rules, and AvalonDock layout XML),
+missing files detection, and corrupt JSON error reporting.
+Dispatcher-based integration checks in Timeline.IntegrationTests verify saving and loading full workspaces with active file tabs,
+combined timeline, correlation view, active tab preservation by identity, restored scroll offsets and bookmarks, layout XML round-trip,
+and non-destructive loading (corrupt workspaces do not clear or destroy open tabs).
+
+- Workspace model (Workspace.cs, WorkspaceTab.cs) supports WorkspaceTabType (File, Timeline, Correlation), schema versioning, active document by path/name identity (ActiveTabId), source paths for dependent views, and AvalonDock layout XML.
+- WorkspaceService handles atomic saves via safe temp-file replacement, preventing workspace corruption if interrupted.
+- Backward compatibility: legacy v1 workspaces load seamlessly, automatically upgrading to schema 2.
+- Restoration order: restores underlying file sources first, then resolves and builds dependent timelines and correlation tabs without creating duplicate file watchers.
+- Active tab selection prioritizes document identity rather than naive index to prevent misselection when sources are missing or reordered.
+- Missing file recovery: missing files are identified and surfaced in StatusMessage while valid files and remaining tabs load cleanly.
+- Non-destructive: corrupt JSON or completely missing workspaces cancel loading without wiping out current user work.

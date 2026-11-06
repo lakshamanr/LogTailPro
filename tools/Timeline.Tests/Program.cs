@@ -222,4 +222,121 @@ try
 }
 catch (OperationCanceledException) { }
 
-Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, and Request/Trace ID Correlation.");
+// 11. WorkspaceService: Atomic saving, schema versioning, round-trip, legacy format and missing files
+WorkspaceService wsService = new();
+string testWsDir = Path.Combine(Path.GetTempPath(), "LogTailPro-WsTest-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(testWsDir);
+try
+{
+    string wsFile = Path.Combine(testWsDir, "test.ltpw");
+    string realLogFile = Path.Combine(testWsDir, "real.log");
+    File.WriteAllText(realLogFile, "2026-11-06 10:00:00 line 1\n2026-11-06 10:00:01 line 2\n");
+
+    // A. Round-trip version 2 workspace with file, timeline, and correlation tabs
+    Workspace wsV2 = new()
+    {
+        Name = "DevWorkspace",
+        ActiveTabId = realLogFile,
+        ActiveTabIndex = 0,
+        HighlightRules = [new HighlightRule { Pattern = "error", ForegroundColor = "#FF0000" }],
+        DockLayoutXml = "<LayoutRoot><Panels/></LayoutRoot>",
+        Tabs = 
+        [
+            new WorkspaceTab
+            {
+                TabType = WorkspaceTabType.File,
+                FilePath = realLogFile,
+                FileName = "real.log",
+                SearchText = "line",
+                IsRegex = false,
+                IsCaseSensitive = true,
+                FilterMode = FilterMode.IncludeMatching,
+                BookmarkedLines = [1, 2],
+                IsFollowTail = false,
+                ScrollVerticalOffset = 42.5,
+                IsStructuredViewEnabled = true
+            },
+            new WorkspaceTab
+            {
+                TabType = WorkspaceTabType.Timeline,
+                FileName = "Combined Timeline",
+                SourceFilePaths = [realLogFile, "C:/fake2.log"],
+                IsFollowTail = true
+            },
+            new WorkspaceTab
+            {
+                TabType = WorkspaceTabType.Correlation,
+                FileName = "Correlate: req-100",
+                CorrelationId = "req-100",
+                SourceFilePaths = [realLogFile]
+            }
+        ]
+    };
+
+    wsService.SaveAsync(wsFile, wsV2).GetAwaiter().GetResult();
+    Check(File.Exists(wsFile), "Workspace file was not created");
+
+    WorkspaceLoadResult loadRes = wsService.LoadAsync(wsFile).GetAwaiter().GetResult();
+    Check(loadRes.Success && loadRes.Workspace != null, "Failed to load saved workspace");
+    Workspace loadedWs = loadRes.Workspace!;
+    Check(loadedWs.SchemaVersion == 2, "SchemaVersion mismatch");
+    Check(loadedWs.Name == "DevWorkspace", "Workspace name mismatch");
+    Check(loadedWs.ActiveTabId == realLogFile, "ActiveTabId mismatch");
+    Check(loadedWs.Tabs.Count == 3, "Tabs count mismatch");
+    Check(loadedWs.Tabs[0].TabType == WorkspaceTabType.File, "Tab 0 type mismatch");
+    Check(loadedWs.Tabs[0].BookmarkedLines.Count == 2, "Tab 0 bookmarks count mismatch");
+    Check(loadedWs.Tabs[0].ScrollVerticalOffset == 42.5, "Tab 0 scroll offset mismatch");
+    Check(loadedWs.Tabs[1].TabType == WorkspaceTabType.Timeline, "Tab 1 type mismatch");
+    Check(loadedWs.Tabs[1].SourceFilePaths.Count == 2, "Tab 1 source paths count mismatch");
+    Check(loadedWs.Tabs[2].TabType == WorkspaceTabType.Correlation, "Tab 2 type mismatch");
+    Check(loadedWs.Tabs[2].CorrelationId == "req-100", "Tab 2 CorrelationId mismatch");
+    Check(loadedWs.HighlightRules?.Count == 1, "HighlightRules count mismatch");
+    Check(loadedWs.DockLayoutXml == "<LayoutRoot><Panels/></LayoutRoot>", "DockLayoutXml mismatch");
+
+    // B. Missing files detection
+    string missingWsFile = Path.Combine(testWsDir, "missing.ltpw");
+    Workspace wsMissing = new()
+    {
+        Tabs = [new WorkspaceTab { TabType = WorkspaceTabType.File, FilePath = "C:/non_existent_12345.log" }]
+    };
+    wsService.SaveAsync(missingWsFile, wsMissing).GetAwaiter().GetResult();
+    WorkspaceLoadResult missingRes = wsService.LoadAsync(missingWsFile).GetAwaiter().GetResult();
+    Check(missingRes.Success, "Missing files workspace should still load successfully");
+    Check(missingRes.MissingFiles.Count == 1 && missingRes.MissingFiles[0] == "C:/non_existent_12345.log", "Missing files list did not detect missing file");
+
+    // C. Legacy format (Schema 1) upgrade
+    string legacyWsFile = Path.Combine(testWsDir, "legacy.ltpw");
+    string legacyJson = "{\"Name\":\"OldWorkspace\",\"ActiveTabIndex\":0,\"Tabs\":[{\"FilePath\":\"" + realLogFile.Replace("\\", "\\\\") + "\",\"SearchText\":\"old\",\"IsRegex\":false,\"IsCaseSensitive\":false,\"FilterMode\":0,\"BookmarkedLines\":[1]}]}";
+    File.WriteAllText(legacyWsFile, legacyJson);
+    WorkspaceLoadResult legacyRes = wsService.LoadAsync(legacyWsFile).GetAwaiter().GetResult();
+    Check(legacyRes.Success && legacyRes.Workspace != null, "Failed to load legacy workspace");
+    Check(legacyRes.Workspace!.SchemaVersion == 2, "Legacy workspace not upgraded to schema 2");
+    Check(legacyRes.Workspace.Tabs[0].TabType == WorkspaceTabType.File, "Legacy tab not assigned WorkspaceTabType.File");
+    Check(legacyRes.Workspace.Tabs[0].SearchText == "old", "Legacy tab SearchText lost");
+
+    // D. Interrupted save preserves previous file intact
+    string atomicWsFile = Path.Combine(testWsDir, "atomic.ltpw");
+    File.WriteAllText(atomicWsFile, "ORIGINAL CONTENT PRESERVED");
+    using CancellationTokenSource cancelCts = new();
+    cancelCts.Cancel();
+    try
+    {
+        wsService.SaveAsync(atomicWsFile, wsV2, cancelCts.Token).GetAwaiter().GetResult();
+        throw new Exception("Atomic save did not throw OperationCanceledException");
+    }
+    catch (OperationCanceledException) { }
+    Check(File.ReadAllText(atomicWsFile) == "ORIGINAL CONTENT PRESERVED", "Interrupted save damaged previous file");
+
+    // E. Corrupt JSON error reporting
+    string corruptWsFile = Path.Combine(testWsDir, "corrupt.ltpw");
+    File.WriteAllText(corruptWsFile, "{ \"Name\": \"BadJson\", unquoted ");
+    WorkspaceLoadResult corruptRes = wsService.LoadAsync(corruptWsFile).GetAwaiter().GetResult();
+    Check(!corruptRes.Success && corruptRes.Workspace == null, "Corrupt JSON should fail gracefully");
+    Check(!string.IsNullOrEmpty(corruptRes.ErrorMessage), "Corrupt JSON should report error message");
+}
+finally
+{
+    try { Directory.Delete(testWsDir, true); } catch { }
+}
+
+Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, and Saved Workspaces.");

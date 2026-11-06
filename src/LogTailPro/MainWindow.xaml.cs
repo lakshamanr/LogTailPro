@@ -68,6 +68,8 @@ public partial class MainWindow : Window
     private void AssignPanelDataContexts()
     {
         if (DataContext is not MainViewModel vm) return;
+        vm.RequestLayoutXml = GetLayoutXml;
+        vm.RestoreLayoutXml = LoadLayoutXml;
         foreach ((string id, object content) in _panelContents)
         {
             if (content is FrameworkElement fe)
@@ -76,6 +78,35 @@ public partial class MainWindow : Window
     }
 
     // ── Docking: layout save / restore ────────────────────────────────────────
+
+    /// <summary>Serializes the current docking layout to an XML string.</summary>
+    public string GetLayoutXml()
+    {
+        using StringWriter sw = new();
+        new XmlLayoutSerializer(Dock).Serialize(sw);
+        return sw.ToString();
+    }
+
+    /// <summary>Restores a docking layout from an XML string, falling back safely on error.</summary>
+    public void LoadLayoutXml(string layoutXml)
+    {
+        if (string.IsNullOrWhiteSpace(layoutXml)) return;
+        try
+        {
+            using StringReader sr = new(layoutXml);
+            CreateSerializer().Deserialize(sr);
+            RefreshAnchorables();
+        }
+        catch (Exception)
+        {
+            try
+            {
+                CreateSerializer().Deserialize(new StringReader(_defaultLayoutXml));
+                RefreshAnchorables();
+            }
+            catch { }
+        }
+    }
 
     private XmlLayoutSerializer CreateSerializer()
     {
