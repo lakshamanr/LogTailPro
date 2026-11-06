@@ -11,6 +11,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         FontFamily = settings.FontFamily;
         FontSize = settings.FontSize;
         MaxLinesInMemory = settings.MaxLinesInMemory;
+        MaxLoadMegabytes = settings.MaxLoadMegabytes;
         FollowTailOnOpen = settings.FollowTailOnOpen;
         TabWidth = settings.TabWidth;
         AutomaticallyOpenLastFileOnStartup = settings.AutomaticallyOpenLastFileOnStartup;
@@ -27,7 +28,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _fontCharacterOffsetPx = 0;
 
     // ── Behaviour ─────────────────────────────────────────────────────────────
-    [ObservableProperty] private int _maxLinesInMemory = 100_000;
+    [ObservableProperty] private int _maxLinesInMemory = 0;
+    [ObservableProperty] private int _maxLoadMegabytes = 1024;
     [ObservableProperty] private bool _followTailOnOpen = true;
     [ObservableProperty] private int _tabWidth = 8;
     [ObservableProperty] private bool _automaticallyOpenLastFileOnStartup = true;
@@ -52,7 +54,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         settings.FontFamily = FontFamily;
         settings.FontSize = FontSize;
-        settings.MaxLinesInMemory = MaxLinesInMemory;
+        settings.MaxLinesInMemory = Math.Max(0, MaxLinesInMemory);
+        settings.MaxLoadMegabytes = Math.Max(0, MaxLoadMegabytes);
         settings.FollowTailOnOpen = FollowTailOnOpen;
         settings.TabWidth = TabWidth;
         settings.AutomaticallyOpenLastFileOnStartup = AutomaticallyOpenLastFileOnStartup;

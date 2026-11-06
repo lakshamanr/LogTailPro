@@ -65,16 +65,27 @@ public partial class LogTabView : UserControl
         }
     }
 
+    private bool _scrollPending;
+
     private void OnVisibleLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_viewModel?.IsFollowTail == true && e.Action == NotifyCollectionChangedAction.Add)
+        // Bulk updates arrive as Reset, appends as Add — both must keep the view pinned to the end.
+        if (_viewModel?.IsFollowTail != true) return;
+        if (e.Action != NotifyCollectionChangedAction.Add && e.Action != NotifyCollectionChangedAction.Reset) return;
+        RequestScrollToEnd();
+    }
+
+    /// <summary>Scrolls to the last line once per UI turn, however many lines arrived (coalesced).</summary>
+    private void RequestScrollToEnd()
+    {
+        if (_scrollPending) return;
+        _scrollPending = true;
+        Dispatcher.InvokeAsync(() =>
         {
-            Dispatcher.InvokeAsync(() =>
-            {
-                if (LogListView.Items.Count > 0)
-                    LogListView.ScrollIntoView(LogListView.Items[^1]);
-            }, DispatcherPriority.Background);
-        }
+            _scrollPending = false;
+            if (_viewModel?.IsFollowTail == true && LogListView.Items.Count > 0)
+                LogListView.ScrollIntoView(LogListView.Items[^1]);
+        }, DispatcherPriority.Background);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

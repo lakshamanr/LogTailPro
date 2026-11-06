@@ -8,8 +8,14 @@ public sealed class AppSettings
     /// <summary>"Dark" or "Light".</summary>
     public string Theme { get; set; } = "Light"; // legacy; single soft-light theme is always used
 
-    /// <summary>Maximum number of log lines kept in memory per tab.</summary>
-    public int MaxLinesInMemory { get; set; } = 100_000;
+    /// <summary>Maximum number of log lines kept in memory per tab. 0 (default) = unlimited.</summary>
+    public int MaxLinesInMemory { get; set; } = 0;
+
+    /// <summary>
+    /// Largest part of a file (in MB, counted from the end) that is loaded when it is opened.
+    /// Bigger files show their last N MB with a notice. 0 = always load the whole file.
+    /// </summary>
+    public int MaxLoadMegabytes { get; set; } = 1024;
 
     /// <summary>Whether new tabs should start in follow-tail mode.</summary>
     public bool FollowTailOnOpen { get; set; } = true;

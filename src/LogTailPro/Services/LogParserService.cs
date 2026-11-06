@@ -3,10 +3,10 @@ using System.Text;
 
 namespace LogTailPro.Services;
 
-/// <summary>Result returned by the tail-load operation.</summary>
+/// <summary>Result returned by the file-load operation.</summary>
 public sealed class TailLoadResult
 {
-    /// <summary>Lines read from the tail of the file (oldest first).</summary>
+    /// <summary>Lines read from the file (oldest first).</summary>
     public List<string> Lines { get; init; } = new();
 
     /// <summary>Detected encoding.</summary>
@@ -17,94 +17,205 @@ public sealed class TailLoadResult
 
     /// <summary>Byte offset where the first returned line begins in the file.</summary>
     public long TailStartByteOffset { get; init; }
+
+    /// <summary>
+    /// Byte offset just after the last byte that was read. File watching must continue from here
+    /// (NOT from <see cref="TailStartByteOffset"/>) or the whole loaded range is delivered twice.
+    /// </summary>
+    public long ReadEndOffset { get; init; }
+
+    /// <summary>1-based number of the first returned line within the whole file (absolute, not tail-relative).</summary>
+    public long FirstLineNumber { get; init; } = 1;
+
+    /// <summary>Bytes at the start of the file that were not loaded (0 when the whole file was read).</summary>
+    public long SkippedBytes { get; init; }
 }
 
 /// <summary>
-/// Reads the tail of a log file by seeking backwards in 64 KB chunks.
-/// Never loads the full file into memory — suitable for files of any size.
+/// Streams a log file forward in 1 MB chunks using an incremental decoder, so multi-byte characters
+/// split across chunks are decoded correctly. Optional limits (max lines / max bytes) keep very
+/// large files from exhausting memory; both can be disabled (0) to load everything.
 /// </summary>
 public sealed class LogParserService
 {
-    private const int ChunkSize = 65_536; // 64 KB
+    private const int ChunkSize = 1 << 20; // 1 MB
 
-    /// <summary>
-    /// Reads the last <paramref name="maxLines"/> lines from <paramref name="filePath"/>
-    /// by reading backwards in chunks. Reports progress from 0–100.
-    /// </summary>
+    /// <summary>Loads lines from <paramref name="filePath"/>.</summary>
+    /// <param name="filePath">File to read (opened with full sharing so writers are never blocked).</param>
+    /// <param name="maxLines">Keep only the last N lines; 0 or less = unlimited.</param>
+    /// <param name="maxBytes">Only read the last N bytes (aligned to a line start); 0 or less = whole file.</param>
+    /// <param name="progress">Receives 0–100.</param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task<TailLoadResult> LoadTailAsync(
         string filePath,
         int maxLines,
+        long maxBytes,
         IProgress<int>? progress = null,
         CancellationToken ct = default)
     {
         Encoding encoding = await DetectEncodingAsync(filePath, ct);
-        long fileSize = new FileInfo(filePath).Length;
+        int bomLength = encoding.Preamble.Length;
 
-        if (fileSize == 0)
+        using FileStream stream = new(
+            filePath, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: ChunkSize, useAsync: true);
+
+        long fileSize = stream.Length;
+        if (fileSize <= bomLength)
         {
+            progress?.Report(100);
             return new TailLoadResult
             {
-                Lines = new List<string>(),
                 Encoding = encoding,
-                FileSize = 0,
-                TailStartByteOffset = 0
+                FileSize = fileSize,
+                TailStartByteOffset = fileSize,
+                ReadEndOffset = fileSize
             };
         }
 
-        using FileStream stream = new(
-            filePath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete,
-            bufferSize: ChunkSize,
-            useAsync: true);
+        long start = bomLength;
+        long baseLine = 1;
+        bool byteNewline = encoding is not UnicodeEncoding; // UTF-16 is always read whole (newline is 2 bytes)
 
-        List<string> lines = new(maxLines);
+        // Optional byte cap: begin at a line boundary near (fileSize - maxBytes) and count the lines
+        // we skip so that line numbers stay absolute.
+        if (maxBytes > 0 && byteNewline && fileSize - bomLength > maxBytes)
+        {
+            long cut = fileSize - maxBytes;
+            start = await FindLineStartAsync(stream, cut, fileSize, ct);
+            baseLine = 1 + await CountNewlinesAsync(stream, start, ct);
+        }
+
+        long remaining = fileSize - start;
+        stream.Seek(start, SeekOrigin.Begin);
+
+        Decoder decoder = encoding.GetDecoder();
         byte[] buffer = new byte[ChunkSize];
-        string leftover = string.Empty;
-        long position = fileSize;
+        char[] chars = new char[encoding.GetMaxCharCount(ChunkSize)];
+        StringBuilder pending = new();
 
-        while (position > 0 && lines.Count < maxLines)
+        Queue<string>? ring = maxLines > 0 ? new Queue<string>() : null;
+        List<string>? list = maxLines > 0 ? null : new List<string>((int)Math.Min(remaining / 60 + 16, 4_000_000));
+        long dropped = 0;
+        long readTotal = 0;
+
+        void Emit(string line)
+        {
+            if (ring != null)
+            {
+                ring.Enqueue(line);
+                if (ring.Count > maxLines) { ring.Dequeue(); dropped++; }
+            }
+            else
+            {
+                list!.Add(line);
+            }
+        }
+
+        int lastPercent = -1;
+        while (readTotal < remaining)
         {
             ct.ThrowIfCancellationRequested();
 
-            long readFrom = Math.Max(0, position - ChunkSize);
-            int bytesToRead = (int)(position - readFrom);
+            int want = (int)Math.Min(buffer.Length, remaining - readTotal);
+            int read = await stream.ReadAsync(buffer.AsMemory(0, want), ct);
+            if (read <= 0) break;
+            readTotal += read;
 
-            stream.Seek(readFrom, SeekOrigin.Begin);
-            int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, bytesToRead), ct);
+            int charCount = decoder.GetChars(buffer, 0, read, chars, 0, flush: readTotal >= remaining);
+            SplitLines(chars, charCount, pending, Emit);
 
-            // Prepend leftover from the previous (right-ward) chunk so line boundaries join correctly
-            string chunk = encoding.GetString(buffer, 0, bytesRead) + leftover;
-            string[] chunkLines = chunk.Split('\n');
-
-            // The first segment is incomplete (leftover for the next left-ward iteration)
-            leftover = chunkLines[0];
-
-            // Complete lines are chunkLines[1..^0] (index 1 onward), added in reverse
-            for (int i = chunkLines.Length - 1; i >= 1; i--)
+            int percent = (int)(readTotal * 100 / remaining);
+            if (percent != lastPercent)
             {
-                lines.Insert(0, chunkLines[i].TrimEnd('\r'));
-                if (lines.Count >= maxLines) break;
+                lastPercent = percent;
+                progress?.Report(percent);
             }
-
-            position = readFrom;
-            progress?.Report((int)((fileSize - position) * 100 / fileSize));
         }
 
-        // If we read all the way to the start, include the leftover (first line of file)
-        if (position == 0 && !string.IsNullOrEmpty(leftover))
-            lines.Insert(0, leftover.TrimEnd('\r'));
+        // A final line without a trailing newline is still a line.
+        if (pending.Length > 0)
+            Emit(pending.ToString().TrimEnd('\r'));
 
         progress?.Report(100);
 
         return new TailLoadResult
         {
-            Lines = lines,
+            Lines = ring != null ? ring.ToList() : list!,
             Encoding = encoding,
             FileSize = fileSize,
-            TailStartByteOffset = position
+            TailStartByteOffset = start,
+            ReadEndOffset = start + readTotal,
+            FirstLineNumber = baseLine + dropped,
+            SkippedBytes = start > bomLength ? start : 0
         };
+    }
+
+    /// <summary>
+    /// Splits decoded characters into lines. Kept synchronous because spans cannot live across awaits.
+    /// An unfinished line is carried over in <paramref name="pending"/> to the next chunk.
+    /// </summary>
+    private static void SplitLines(char[] chars, int count, StringBuilder pending, Action<string> emit)
+    {
+        ReadOnlySpan<char> span = chars.AsSpan(0, count);
+        while (true)
+        {
+            int nl = span.IndexOf('\n');
+            if (nl < 0)
+            {
+                pending.Append(span);
+                return;
+            }
+
+            ReadOnlySpan<char> part = span[..nl];
+            if (pending.Length == 0)
+            {
+                emit(part.TrimEnd('\r').ToString());
+            }
+            else
+            {
+                pending.Append(part);
+                emit(pending.ToString().TrimEnd('\r'));
+                pending.Clear();
+            }
+            span = span[(nl + 1)..];
+        }
+    }
+
+    /// <summary>Returns the offset of the first line that begins at or after <paramref name="cut"/>.</summary>
+    private static async Task<long> FindLineStartAsync(FileStream stream, long cut, long fileSize, CancellationToken ct)
+    {
+        byte[] buf = new byte[64 * 1024];
+        long pos = Math.Max(0, cut - 1); // include the byte before cut: if it is a newline, cut is already a line start
+        while (pos < fileSize)
+        {
+            ct.ThrowIfCancellationRequested();
+            stream.Seek(pos, SeekOrigin.Begin);
+            int read = await stream.ReadAsync(buf.AsMemory(0, (int)Math.Min(buf.Length, fileSize - pos)), ct);
+            if (read <= 0) break;
+            int idx = buf.AsSpan(0, read).IndexOf((byte)'\n');
+            if (idx >= 0) return pos + idx + 1;
+            pos += read;
+        }
+        return cut; // no newline found: just start at the cut
+    }
+
+    /// <summary>Counts newline bytes in [0, <paramref name="end"/>) using vectorised span counting.</summary>
+    private static async Task<long> CountNewlinesAsync(FileStream stream, long end, CancellationToken ct)
+    {
+        byte[] buf = new byte[4 * 1024 * 1024];
+        long count = 0, pos = 0;
+        stream.Seek(0, SeekOrigin.Begin);
+        while (pos < end)
+        {
+            ct.ThrowIfCancellationRequested();
+            int read = await stream.ReadAsync(buf.AsMemory(0, (int)Math.Min(buf.Length, end - pos)), ct);
+            if (read <= 0) break;
+            count += buf.AsSpan(0, read).Count((byte)'\n');
+            pos += read;
+        }
+        return count;
     }
 
     /// <summary>
@@ -131,7 +242,10 @@ public sealed class LogParserService
             if (read >= 2 && bom[0] == 0xFE && bom[1] == 0xFF)
                 return Encoding.BigEndianUnicode;
         }
-        catch { }
+        catch
+        {
+            // fall through to the default
+        }
 
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     }

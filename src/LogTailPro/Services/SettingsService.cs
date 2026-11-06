@@ -34,6 +34,10 @@ public sealed class SettingsService
             }
         }
 
+        // 100,000 was the old built-in cap that truncated long logs; it now means "unlimited".
+        if (settings.MaxLinesInMemory == 100_000)
+            settings.MaxLinesInMemory = 0;
+
         if (settings.HighlightRules.Count == 0)
             settings.HighlightRules = CreateDefaultRules();
         else

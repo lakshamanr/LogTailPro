@@ -56,7 +56,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public ProcessAttachmentType? ProcessCaptureType { get; private init; }
 
     // ── Lines ─────────────────────────────────────────────────────────────────
-    [ObservableProperty] private ObservableCollection<LogLine> _visibleLines = new();
+    [ObservableProperty] private BulkObservableCollection<LogLine> _visibleLines = new();
 
     // ── File state ────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _isFollowTail = true;
@@ -312,8 +312,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 ByteOffset = line.ByteOffset
             };
             _allLines.Add(copy);
-            VisibleLines.Add(copy);
         }
+        VisibleLines.ReplaceAll(_allLines);
 
         _nextLineNumber = num;
         TotalLineCount = preloadedLines.Count;
@@ -372,21 +372,28 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         try
         {
             IProgress<int> progress = new Progress<int>(p => LoadProgress = p);
+            long maxBytes = _settings.MaxLoadMegabytes > 0 ? _settings.MaxLoadMegabytes * 1024L * 1024L : 0;
             TailLoadResult result = await _parser.LoadTailAsync(
-                LogFile.FilePath, _settings.MaxLinesInMemory, progress, ct);
+                LogFile.FilePath, _settings.MaxLinesInMemory, maxBytes, progress, ct);
 
             LogFile.FileSizeBytes = result.FileSize;
             LogFile.Encoding = result.Encoding;
             FileSizeBytes = result.FileSize;
 
+            // Line numbers are absolute: when the start of a huge file was skipped, numbering continues from there.
+            _nextLineNumber = result.FirstLineNumber;
             List<LogLine> lines = await Task.Run(() => BuildLogLines(result.Lines), ct);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 RestoreBookmarks(lines);
                 _allLines.AddRange(lines);
-                foreach (LogLine line in lines) VisibleLines.Add(line);
+                VisibleLines.ReplaceAll(lines);
                 TotalLineCount = _nextLineNumber - 1;
+                WarningMessage = string.Empty;
+                if (result.SkippedBytes > 0)
+                    WarningMessage = $"Large file: showing the last {FormatSize(result.FileSize - result.SkippedBytes)} of {FormatSize(result.FileSize)} " +
+                                     $"(first {result.FirstLineNumber - 1:N0} lines not loaded). Raise \"Max load size\" in Settings to load more.";
                 IsLoaded = true;
                 IsLoading = false;
                 FileStatus = FileStatus.Watching;
@@ -394,10 +401,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
             }, DispatcherPriority.Background, ct);
 
+            // Continue exactly where the load stopped — never from the start of the loaded range, or the
+            // whole file would be delivered a second time on the first append.
+            _watcher.NewLinesAvailable -= OnNewLinesAvailable;
+            _watcher.FileDeleted -= OnFileDeleted;
+            _watcher.FileTruncated -= OnFileTruncated;
             _watcher.NewLinesAvailable += OnNewLinesAvailable;
             _watcher.FileDeleted += OnFileDeleted;
             _watcher.FileTruncated += OnFileTruncated;
-            _watcher.StartWatching(LogFile.FilePath, result.TailStartByteOffset, result.Encoding);
+            _watcher.StartWatching(LogFile.FilePath, result.ReadEndOffset, result.Encoding);
         }
         catch (OperationCanceledException)
         {
@@ -410,6 +422,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             StatusText = $"Error: {ex.Message}";
         }
     }
+
+    private static string FormatSize(long bytes)
+        => bytes >= 1_073_741_824 ? $"{bytes / 1_073_741_824.0:F1} GB"
+         : bytes >= 1_048_576 ? $"{bytes / 1_048_576.0:F0} MB"
+         : $"{bytes / 1024.0:F0} KB";
+
+    /// <summary>True when a line limit is configured (0 or less means unlimited).</summary>
+    private bool HasLineLimit => _settings.MaxLinesInMemory > 0;
 
     private List<LogLine> BuildLogLines(IReadOnlyList<string> rawLines, bool isFromWatcher = false)
     {
@@ -456,14 +476,16 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             _allLines.AddRange(created);
             TrimOldLines();
 
+            List<LogLine> toShow = new(created.Count);
             foreach (LogLine line in created)
             {
                 MarkSearchMatch(line);
-                if (LinePassesFilter(line)) VisibleLines.Add(line);
+                if (LinePassesFilter(line)) toShow.Add(line);
             }
+            VisibleLines.AppendRange(toShow);
 
-            while (VisibleLines.Count > _settings.MaxLinesInMemory)
-                VisibleLines.RemoveAt(0);
+            if (HasLineLimit && VisibleLines.Count > _settings.MaxLinesInMemory)
+                VisibleLines.RemoveFirst(VisibleLines.Count - _settings.MaxLinesInMemory);
 
             if (!IsProcessTab)
             {
@@ -513,6 +535,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private void TrimOldLines()
     {
+        if (!HasLineLimit) return;
         int toRemove = _allLines.Count - _settings.MaxLinesInMemory;
         if (toRemove > 0) _allLines.RemoveRange(0, toRemove);
     }
@@ -567,8 +590,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
             if (ct.IsCancellationRequested) return;
 
-            VisibleLines.Clear();
-            foreach (LogLine line in filtered) VisibleLines.Add(line);
+            VisibleLines.ReplaceAll(filtered);
 
             MatchCount = pattern != null ? filtered.Count(l => l.IsSearchMatch) : 0;
             CurrentMatchIndex = -1;
@@ -1025,7 +1047,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 : $"{FileSizeBytes / 1024.0:F1} KB";
         string filter = FilterMode != FilterMode.None || !string.IsNullOrEmpty(SearchText)
             ? " | Filter active" : string.Empty;
-        string trim = _allLines.Count >= _settings.MaxLinesInMemory
+        string trim = HasLineLimit && _allLines.Count >= _settings.MaxLinesInMemory
             ? " | trimming old lines" : string.Empty;
         StatusText = $"{state} | Lines: {TotalLineCount:N0} | {size}{filter}{trim}";
     }

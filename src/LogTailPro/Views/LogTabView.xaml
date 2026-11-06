@@ -126,7 +126,7 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <!-- Line number gutter (52px) -->
-                        <GridViewColumn Width="52">
+                        <GridViewColumn Width="78">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding LineNumber}"

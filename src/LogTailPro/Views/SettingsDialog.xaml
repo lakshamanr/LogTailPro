@@ -81,13 +81,32 @@
 
                 <Grid Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Label Grid.Column="0" Content="Max lines in memory:" VerticalAlignment="Center" Padding="0"/>
                     <TextBox Grid.Column="1"
                              Text="{Binding MaxLinesInMemory, UpdateSourceTrigger=PropertyChanged}"
-                             Padding="4,3"/>
+                             Padding="4,3"
+                             ToolTip="0 = unlimited (recommended). Older lines are dropped only if you set a limit."/>
+                    <TextBlock Grid.Column="2" Text="0 = unlimited" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMuted}"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Max load size (MB):" VerticalAlignment="Center" Padding="0"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding MaxLoadMegabytes, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3"
+                             ToolTip="Files larger than this open showing only their last N MB. 0 = always load the whole file."/>
+                    <TextBlock Grid.Column="2" Text="0 = whole file" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMuted}"/>
                 </Grid>
 
                 <Grid Margin="0,0,0,6">
