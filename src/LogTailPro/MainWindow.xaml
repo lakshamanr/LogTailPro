@@ -322,19 +322,18 @@
                             </xcad:LayoutAnchorablePane>
                         </xcad:LayoutPanel>
 
-                        <!-- Bottom: search above results (separate panes so typing never swaps the Search tab away) -->
-                        <xcad:LayoutPanel Orientation="Vertical" DockHeight="330">
-                            <xcad:LayoutAnchorablePane DockHeight="150">
-                                <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search">
-                                    <views:SearchPanelView x:Name="SearchView"/>
-                                </xcad:LayoutAnchorable>
-                            </xcad:LayoutAnchorablePane>
-                            <xcad:LayoutAnchorablePane DockHeight="180">
-                                <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
-                                    <views:SearchResultsPanel/>
-                                </xcad:LayoutAnchorable>
-                            </xcad:LayoutAnchorablePane>
-                        </xcad:LayoutPanel>
+                        <!-- Bottom: search above results, as two direct children of the root so that hidden
+                             panes collapse completely (a nested panel keeps an empty gray block) -->
+                        <xcad:LayoutAnchorablePane DockHeight="150">
+                            <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search">
+                                <views:SearchPanelView x:Name="SearchView"/>
+                            </xcad:LayoutAnchorable>
+                        </xcad:LayoutAnchorablePane>
+                        <xcad:LayoutAnchorablePane DockHeight="240">
+                            <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
+                                <views:SearchResultsPanel/>
+                            </xcad:LayoutAnchorable>
+                        </xcad:LayoutAnchorablePane>
 
                     </xcad:LayoutPanel>
                 </xcad:LayoutRoot>

@@ -1,63 +1,203 @@
 <UserControl x:Class="LogTailPro.Views.SearchResultsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:LogTailPro.Views"
+             xmlns:conv="clr-namespace:LogTailPro.Converters"
              Background="{StaticResource BgElevated}">
-    <Grid>
-        <TextBlock Text="Run a search to see matching lines here."
-                   Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="12" VerticalAlignment="Top">
-            <TextBlock.Style>
-                <Style TargetType="TextBlock">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding SelectedTab.SearchResults.Count, FallbackValue=0}" Value="0">
-                            <Setter Property="Visibility" Value="Visible"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-        </TextBlock>
-        <ListView ItemsSource="{Binding SelectedTab.SearchResults}"
-                  SelectedItem="{Binding SelectedTab.SelectedSearchResult}"
-                  Background="Transparent"
-                  Foreground="{StaticResource TextResults}"
-                  FontFamily="{StaticResource MonoFont}"
-                  FontSize="{StaticResource FontSizeMonoSmall}">
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="Padding" Value="0"/>
-                    <Setter Property="BorderThickness" Value="0"/>
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Foreground" Value="{StaticResource TextResults}"/>
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="{StaticResource BgLogSelected}"/>
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                        </Trigger>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{StaticResource BgLogHover}"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </ListView.ItemContainerStyle>
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="Line" Width="70">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding LineNumber}" TextAlignment="Right"
-                                           Foreground="{StaticResource TextSecondary}"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="Text" Width="2000">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                </GridView>
-            </ListView.View>
-        </ListView>
-    </Grid>
+
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <!-- Lets DataGrid columns (not in the visual tree) bind to this panel's DataContext. -->
+        <views:BindingProxy x:Key="Proxy" Data="{Binding}"/>
+
+        <!-- Column resize grippers -->
+        <Style x:Key="HeaderGripper" TargetType="Thumb">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="SizeWE"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="{TemplateBinding Background}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Header: themed, with a sort arrow -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource BgSurface}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Grid>
+                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <DockPanel>
+                                    <Path x:Name="arrow" DockPanel.Dock="Right" Visibility="Collapsed"
+                                          Fill="{StaticResource Accent}" Margin="8,0,0,0"
+                                          VerticalAlignment="Center" Data="M0,5 L8,5 L4,0 Z"/>
+                                    <ContentPresenter VerticalAlignment="Center"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                                </DockPanel>
+                            </Border>
+                            <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Style="{StaticResource HeaderGripper}"/>
+                            <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Style="{StaticResource HeaderGripper}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="SortDirection" Value="Ascending">
+                                <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="SortDirection" Value="Descending">
+                                <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="arrow" Property="Data" Value="M0,0 L8,0 L4,5 Z"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgOverlay}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rows -->
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextLog}"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgLogHover}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgLogSelected}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Cells: no focus rectangle, vertical centring -->
+        <Style TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RightAligned" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+        </Style>
+        <Style x:Key="Trimmed" TargetType="TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="Muted" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="AccentText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- Summary bar -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource BgSurface}"
+                BorderBrush="{StaticResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="12,5">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Content="Clear" Padding="10,2"
+                        Command="{Binding SelectedTab.ClearSearchCommand}"
+                        Style="{StaticResource FlatToolbarButton}"
+                        ToolTip="Clear the search text and results"/>
+                <TextBlock Text="{Binding SelectedTab.SearchResultsSummary}"
+                           Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <Grid>
+            <DataGrid ItemsSource="{Binding SelectedTab.SearchResults}"
+                      SelectedItem="{Binding SelectedTab.SelectedSearchResult, Mode=TwoWay}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      SelectionUnit="FullRow"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource BorderSubtle}"
+                      AlternatingRowBackground="{StaticResource BgBase}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      RowHeaderWidth="0"
+                      EnableRowVirtualization="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      FontFamily="{StaticResource MonoFont}"
+                      FontSize="{StaticResource FontSizeMonoSmall}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Line" Width="80" MinWidth="50"
+                                        Binding="{Binding LineNumber}"
+                                        SortMemberPath="LineNumber"
+                                        ElementStyle="{StaticResource RightAligned}"/>
+                    <DataGridTextColumn Header="Time" Width="150" MinWidth="90"
+                                        Binding="{Binding TimestampDisplay}"
+                                        SortMemberPath="Timestamp"
+                                        ElementStyle="{StaticResource Muted}"
+                                        Visibility="{Binding Data.SelectedTab.HasSearchTimestamps, Source={StaticResource Proxy}, Converter={StaticResource BoolToVisibility}}"/>
+                    <DataGridTextColumn Header="Text" Width="*" MinWidth="200"
+                                        Binding="{Binding Text}"
+                                        SortMemberPath="Text"
+                                        ElementStyle="{StaticResource Trimmed}"/>
+                    <DataGridTextColumn Header="Groups" Width="240" MinWidth="80"
+                                        Binding="{Binding GroupsDisplay}"
+                                        SortMemberPath="GroupsDisplay"
+                                        ElementStyle="{StaticResource AccentText}"
+                                        Visibility="{Binding Data.SelectedTab.HasSearchGroups, Source={StaticResource Proxy}, Converter={StaticResource BoolToVisibility}}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Empty state, centred in the grid area -->
+            <TextBlock Text="No results yet. Type in the Search box and matching lines will be listed here."
+                       Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                       IsHitTestVisible="False">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedTab.SearchResults.Count, FallbackValue=0}" Value="0">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
+    </DockPanel>
 </UserControl>

@@ -206,7 +206,19 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isInvertMatch;
 
     // ── Search results table ──────────────────────────────────────────────────
-    [ObservableProperty] private ObservableCollection<SearchResultRow> _searchResults = new();
+    [ObservableProperty] private BulkObservableCollection<SearchResultRow> _searchResults = new();
+
+    /// <summary>Most rows shown in the results grid; the match count and highlighting still cover every match.</summary>
+    private const int MaxSearchResultRows = 200_000;
+
+    /// <summary>True when at least one result has capturing groups (shows the Groups column).</summary>
+    [ObservableProperty] private bool _hasSearchGroups;
+
+    /// <summary>True when at least one result has a timestamp (shows the Time column).</summary>
+    [ObservableProperty] private bool _hasSearchTimestamps;
+
+    /// <summary>Text above the results grid, e.g. "111 results".</summary>
+    [ObservableProperty] private string _searchResultsSummary = string.Empty;
     [ObservableProperty] private bool _isSearchResultsVisible;
     [ObservableProperty] private SearchResultRow? _selectedSearchResult;
     partial void OnSelectedSearchResultChanged(SearchResultRow? value)
@@ -560,7 +572,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         else
         {
             _activePattern = null;
-            SearchResults.Clear();
+            SearchResults.ReplaceAll(Array.Empty<SearchResultRow>());
+            HasSearchGroups = false;
+            HasSearchTimestamps = false;
+            SearchResultsSummary = string.Empty;
             IsSearchResultsVisible = false;
         }
 
@@ -573,6 +588,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
         try
         {
+            List<SearchResultRow> rows = new();
             List<LogLine> filtered = await Task.Run(() =>
             {
                 foreach (LogLine line in snapshot)
@@ -585,7 +601,32 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 if (compiledChain.Count > 0)
                     result = result.Where(l => _searchService.LineMatchesChain(l.Text, compiledChain));
 
-                return result.ToList();
+                List<LogLine> list = result.ToList();
+
+                // Build the grid rows here, off the UI thread (regex group extraction per match is not free).
+                if (pattern != null)
+                {
+                    foreach (LogLine line in list)
+                    {
+                        if (!line.IsSearchMatch) continue;
+                        if (rows.Count >= MaxSearchResultRows) break;
+                        string[] groups = _searchService.GetCapturingGroups(pattern, line.Text);
+                        rows.Add(new SearchResultRow
+                        {
+                            LineNumber = line.LineNumber,
+                            Timestamp = line.ArrivedAt != DateTime.MinValue
+                                ? line.ArrivedAt
+                                : line.Timestamp ?? DateTime.MinValue,
+                            Text = line.Text,
+                            Group1 = groups.Length > 0 ? groups[0] : string.Empty,
+                            Group2 = groups.Length > 1 ? groups[1] : string.Empty,
+                            Group3 = groups.Length > 2 ? groups[2] : string.Empty,
+                            CapturingGroups = groups.ToList(),
+                            Source = line
+                        });
+                    }
+                }
+                return list;
             }, ct);
 
             if (ct.IsCancellationRequested) return;
@@ -596,28 +637,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             CurrentMatchIndex = -1;
             SelectedLogLine = null;
 
-            // Populate search results table with capturing groups
-            SearchResults.Clear();
-            if (pattern != null)
-            {
-                foreach (LogLine line in filtered.Where(l => l.IsSearchMatch))
-                {
-                    string[] groups = _searchService.GetCapturingGroups(pattern, line.Text);
-                    SearchResults.Add(new SearchResultRow
-                    {
-                        LineNumber = line.LineNumber,
-                        Timestamp = line.ArrivedAt != DateTime.MinValue
-                            ? line.ArrivedAt
-                            : line.Timestamp ?? DateTime.MinValue,
-                        Text = line.Text,
-                        Group1 = groups.Length > 0 ? groups[0] : string.Empty,
-                        Group2 = groups.Length > 1 ? groups[1] : string.Empty,
-                        Group3 = groups.Length > 2 ? groups[2] : string.Empty,
-                        CapturingGroups = groups.ToList(),
-                        Source = line
-                    });
-                }
-            }
+            // Populate the results grid in one go (a single UI notification)
+            SearchResults.ReplaceAll(rows);
+            HasSearchGroups = rows.Any(r => r.CapturingGroups.Any(g => g.Length > 0));
+            HasSearchTimestamps = rows.Any(r => r.Timestamp != DateTime.MinValue);
+            SearchResultsSummary = pattern == null ? string.Empty
+                : MatchCount > rows.Count
+                    ? $"Showing first {rows.Count:N0} of {MatchCount:N0} matches"
+                    : $"{rows.Count:N0} match{(rows.Count == 1 ? "" : "es")}";
             IsSearchResultsVisible = SearchResults.Count > 0;
 
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
@@ -664,7 +691,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         else               { _watcher.Pause();  IsWatchPaused = true;  }
     }
 
-    [RelayCommand] private void ClearSearch() { SearchText = string.Empty; SearchResults.Clear(); IsSearchResultsVisible = false; MatchCount = 0; }
+    [RelayCommand] private void ClearSearch() { SearchText = string.Empty; SearchResults.ReplaceAll(Array.Empty<SearchResultRow>()); HasSearchGroups = false; HasSearchTimestamps = false; SearchResultsSummary = string.Empty; IsSearchResultsVisible = false; MatchCount = 0; }
     [RelayCommand] private void AddSavedPattern() => SavePatternCommand.Execute(null);
 
     [RelayCommand]
