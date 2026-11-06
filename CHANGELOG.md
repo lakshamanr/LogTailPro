@@ -5,7 +5,22 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.6 - 2026-11-06 (CURRENT) - ROADMAP PHASE 5: MULTILINE EXCEPTION GROUPING
+## v2.7 - 2026-11-06 (CURRENT) - ROADMAP PHASE 6: INTERACTIVE ERROR TIMELINE CHART
+
+- Implemented roadmap Phase 6: interactive error timeline chart with time-range filtering and drill-down navigation.
+- Created TimeBucket.cs model for adaptive time intervals, tracking Error, Warning, Information, and Other event counts with proportional height ratios, tooltips, and selection states.
+- Created ErrorTimelineChartService.cs providing severity normalization across structured JSON and plain-text formats, adaptive bucket sizing, bounded bucket counts (<= 120), and distinct event counting that skips multiline continuation frames to prevent count inflation.
+- Explicitly separated undated records (UndatedCount, UndatedErrors, etc.) with a dedicated status notice instead of inventing timestamps.
+- Created ErrorTimelineChartViewModel.cs supporting single bucket selection, click-and-drag range selection, filter clearing, drill-down navigation to source timestamps, and keyboard navigation.
+- Implemented ErrorTimelineChartView.xaml and high-performance native vector canvas ErrorTimelineChartCanvas rendering stacked severity bars (StatusRed, StatusYellow, Accent, Other), drag marquee overlay, hover tooltips, and keyboard accessibility.
+- Integrated time-range filtering into LogTabViewModel.LinePassesFilter and ApplySearchAsync combining seamlessly with existing search text and filter rules (AND semantics) without feedback loops.
+- Added toolbar toggle button ("ðŸ“Š  Chart"), View â–¸ Panels menu item, and AvalonDock dockable panel (ContentId="chart"), bound to Ctrl+Shift+T.
+- Hooked live append, source reconciliation, and retention trimming to update chart statistics asynchronously off the UI thread with background cancellation.
+- Added comprehensive unit checks in Timeline.Tests and real-file integration checks in Timeline.IntegrationTests.
+
+---
+
+## v2.6 - 2026-11-06 - ROADMAP PHASE 5: MULTILINE EXCEPTION GROUPING
 
 - Implemented roadmap Phase 5: expandable multiline exception grouping for .NET, Java, and Python stack traces.
 - Created MultilineGroupingService with regex detection for .NET stack frames, inner exceptions (--->), inner boundaries (--- End of ...), Java exception frames (Caused by:, ... common frames omitted), and Python tracebacks (File "...", During handling of..., Traceback), preserving blank lines within traces and avoiding misclassification of generic indented text.

@@ -20,7 +20,7 @@ internal static class Program
         });
         app.Run();
         if (failure != null) throw new InvalidOperationException("Timeline integration failed", failure);
-        Console.WriteLine("Timeline, structured JSON, Request/Trace ID correlation, saved workspaces, and multiline exception grouping integration passed: real file tailing, multi-source correlation, workspaces round-trip, layout, filters, bookmarks, exception collapsing/expanding, live append, and disposal.");
+        Console.WriteLine("All phases 1-6 integration passed: combined timeline, structured JSON, Request/Trace ID correlation, saved workspaces, multiline exception grouping, and interactive error timeline chart.");
     }
 
     private static void Check(bool condition, string message)
@@ -429,6 +429,53 @@ internal static class Program
             Check(excTab.HasSelectedLineException, "HasSelectedLineException should be true for root with continuations");
             Check(excTab.SelectedLineException.Contains("Database connection refused"), "SelectedLineException missing exception message");
             Check(excTab.SelectedLineException.Contains("at App.Data.Database.Connect()"), "SelectedLineException missing stack frame");
+
+            // â”€â”€ Phase 6 Error Timeline Chart Integration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            string chartLog = Path.Combine(folder, "chart_test.log");
+            string chartContent = "2026-11-06 10:00:00 [Info] Server starting\n" +
+                                  "2026-11-06 10:05:00 [Warning] High memory usage\n" +
+                                  "2026-11-06 10:10:00 [Error] Database connection dropped\n" +
+                                  "System.Exception: Socket closed\n" +
+                                  "   at DB.Open()\n" +
+                                  "2026-11-06 10:15:00 [Info] Server recovered\n" +
+                                  "Undated diagnostics line\n";
+            await File.WriteAllTextAsync(chartLog, chartContent);
+
+            using LogTabViewModel chartTab = new(chartLog, new AppSettings { MaxLinesInMemory = 1000 });
+            await chartTab.InitializeAsync();
+            Check(chartTab.IsLoaded, "Chart tab failed to load");
+
+            // 1. Wait for chart aggregation and verify event counts (grouping did not inflate counts)
+            await UntilAsync(() => chartTab.TimelineChart.Buckets.Count > 0, "Chart buckets populated");
+            Check(chartTab.TimelineChart.TotalEventCount == 5, $"Expected 5 total events (not inflating exception frames), got {chartTab.TimelineChart.TotalEventCount}");
+            Check(chartTab.TimelineChart.ErrorCount == 1, $"Expected 1 error count, got {chartTab.TimelineChart.ErrorCount}");
+            Check(chartTab.TimelineChart.WarningCount == 1, $"Expected 1 warning count, got {chartTab.TimelineChart.WarningCount}");
+            Check(chartTab.TimelineChart.InfoCount == 2, $"Expected 2 info count, got {chartTab.TimelineChart.InfoCount}");
+            Check(chartTab.TimelineChart.UndatedCount == 1, $"Expected 1 undated event, got {chartTab.TimelineChart.UndatedCount}");
+            Check(chartTab.TimelineChart.HasUndatedEvents, "HasUndatedEvents should be true");
+
+            // 2. Select bucket containing the error to activate time-range filter
+            TimeBucket errBucket = chartTab.TimelineChart.Buckets.First(b => b.ErrorCount > 0);
+            chartTab.TimelineChart.SelectBucketCommand.Execute(errBucket);
+            await UntilAsync(() => chartTab.TimelineChart.HasTimeRangeFilter, "Time-range filter activated");
+            Check(errBucket.IsSelected, "Error bucket should be marked IsSelected");
+            await UntilAsync(() => chartTab.VisibleLines.Count == 1, "Time-range filter should restrict visible lines to 1");
+            Check(chartTab.VisibleLines[0].LineNumber == 3, "Visible line should be the error event at line 3");
+
+            // 3. Clear time-range filter
+            chartTab.TimelineChart.ClearFilterCommand.Execute(null);
+            await UntilAsync(() => !chartTab.TimelineChart.HasTimeRangeFilter, "Time filter cleared");
+            await UntilAsync(() => chartTab.VisibleLines.Count == 5, "Visible lines should restore after clearing filter");
+
+            // 4. Live append updates chart error count
+            await File.AppendAllTextAsync(chartLog, "2026-11-06 10:20:00 [Error] Late arrival error\n");
+            await UntilAsync(() => chartTab.TimelineChart.ErrorCount == 2, "Live append should update chart error count");
+            Check(chartTab.TimelineChart.TotalEventCount == 6, "Total event count should be 6 after live append");
+
+            // 5. Layout and render actual ErrorTimelineChartView
+            ErrorTimelineChartView chartView = new() { DataContext = chartTab.TimelineChart };
+            chartView.Measure(new Size(1000, 300));
+            chartView.Arrange(new Rect(0, 0, 1000, 300));
         }
         finally
         {

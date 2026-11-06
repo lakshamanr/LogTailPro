@@ -145,7 +145,8 @@
                 <MenuItem x:Name="PanelsMenu" Header="_Panels" SubmenuOpened="PanelsMenu_SubmenuOpened">
                     <MenuItem Header="Process Explorer" Tag="process" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+P"/>
                     <MenuItem Header="Search"           Tag="search"    IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+F"/>
-                    <MenuItem Header="Search Results"   Tag="results"   IsCheckable="True" Click="PanelMenuItem_Click"/>
+                                        <MenuItem Header="Search Results"   Tag="results"   IsCheckable="True" Click="PanelMenuItem_Click"/>
+                    <MenuItem Header="Error Timeline Chart" Tag="chart" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+T"/>
                     <MenuItem Header="Stats"            Tag="stats"     IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+S"/>
                     <MenuItem Header="Line Details"     Tag="details"   IsCheckable="True" Click="PanelMenuItem_Click"/>
                     <MenuItem Header="Bookmarks"        Tag="bookmarks" IsCheckable="True" Click="PanelMenuItem_Click"/>
@@ -227,9 +228,12 @@
                                   IsChecked="{Binding SelectedTab.IsStructuredViewEnabled}"
                                   Visibility="{Binding SelectedTab.HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"
                                   ToolTip="Toggle structured JSON event view vs raw text view"/>
-                    <ToggleButton Content="&#x25B6;  Group Exceptions" Style="{StaticResource ToolbarToggle}"
+                    <ToggleButton Content="&#x25B6;  Group Exceptions" Style="{StaticResource ToolbarToggle}" Margin="0,0,6,0"
                                   IsChecked="{Binding SelectedTab.IsExceptionGroupingEnabled}"
                                   ToolTip="Group multiline exception stack traces into expandable rows"/>
+                    <ToggleButton Content="ðŸ“Š  Chart" Style="{StaticResource ToolbarToggle}"
+                                  IsChecked="{Binding SelectedTab.IsChartPanelVisible}"
+                                  ToolTip="Toggle Error Timeline Chart (Ctrl+Shift+T)"/>
 
                     <Rectangle Width="1" Height="22" Fill="{StaticResource BorderNormal}" Margin="10,0"/>
 
@@ -352,6 +356,11 @@
                         <xcad:LayoutAnchorablePane DockHeight="240">
                             <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
                                 <views:SearchResultsPanel/>
+                            </xcad:LayoutAnchorable>
+                        </xcad:LayoutAnchorablePane>
+                        <xcad:LayoutAnchorablePane DockHeight="160">
+                            <xcad:LayoutAnchorable x:Name="ChartPanelAnchor" ContentId="chart" Title="Error Timeline Chart">
+                                <views:ErrorTimelineChartView x:Name="ChartView"/>
                             </xcad:LayoutAnchorable>
                         </xcad:LayoutAnchorablePane>
 

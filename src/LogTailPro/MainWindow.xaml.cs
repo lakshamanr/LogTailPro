@@ -322,6 +322,9 @@ public partial class MainWindow : Window
             case nameof(LogTabViewModel.IsSearchResultsVisible):
                 SetAnchorableVisible("results", _watchedTab?.IsSearchResultsVisible == true, activate: false);
                 break;
+            case nameof(LogTabViewModel.IsChartPanelVisible):
+                SetAnchorableVisible("chart", _watchedTab?.IsChartPanelVisible == true);
+                break;
             case nameof(LogTabViewModel.IsStatsPanelVisible):
                 SetAnchorableVisible("stats", _watchedTab?.IsStatsPanelVisible == true);
                 break;
@@ -374,6 +377,7 @@ public partial class MainWindow : Window
             case "process": ViewModel.IsProcessExplorerVisible = visible; break;
             case "search":  if (tab != null) tab.IsSearchPanelVisible = visible; break;
             case "results": if (tab != null) tab.IsSearchResultsVisible = visible; break;
+            case "chart":   if (tab != null) tab.IsChartPanelVisible = visible; break;
             case "stats":   if (tab != null) tab.IsStatsPanelVisible = visible; break;
             case "details": if (tab != null) tab.IsDetailPanelVisible = visible; break;
         }
@@ -394,6 +398,7 @@ public partial class MainWindow : Window
         SetAnchorableVisible("process", ViewModel.IsProcessExplorerVisible);
         SetAnchorableVisible("search",  tab?.IsSearchPanelVisible == true);
         SetAnchorableVisible("results", tab?.IsSearchResultsVisible == true);
+        SetAnchorableVisible("chart",   tab?.IsChartPanelVisible == true);
         SetAnchorableVisible("stats",   tab?.IsStatsPanelVisible == true);
         SetAnchorableVisible("details", tab?.IsDetailPanelVisible == true);
         if (!_hadSavedLayout)
@@ -444,6 +449,7 @@ public partial class MainWindow : Window
             case "process": ViewModel.IsProcessExplorerVisible = visible; return;
             case "search"  when tab != null: tab.IsSearchPanelVisible = visible; return;
             case "results" when tab != null: tab.IsSearchResultsVisible = visible; return;
+            case "chart"   when tab != null: tab.IsChartPanelVisible = visible; return;
             case "stats"   when tab != null: tab.IsStatsPanelVisible = visible; return;
             case "details" when tab != null: tab.IsDetailPanelVisible = visible; return;
         }
@@ -472,6 +478,14 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+                if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (ViewModel.SelectedTab != null)
+                ViewModel.SelectedTab.IsChartPanelVisible = !ViewModel.SelectedTab.IsChartPanelVisible;
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
         {
             ViewModel.OpenFileCommand.Execute(null);

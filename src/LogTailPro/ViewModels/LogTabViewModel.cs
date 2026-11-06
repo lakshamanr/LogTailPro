@@ -20,6 +20,59 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private readonly SearchService _searchService = new();
     private readonly HighlightService _highlightService = new();
     private readonly MultilineGroupingService _groupingService = new();
+    private readonly ErrorTimelineChartService _chartService = new();
+    private CancellationTokenSource? _chartCts;
+
+    /// <summary>Interactive timeline error chart view-model for this tab.</summary>
+    public ErrorTimelineChartViewModel TimelineChart { get; } = new();
+
+    /// <summary>Whether the Error Timeline Chart panel is currently visible.</summary>
+    [ObservableProperty] private bool _isChartPanelVisible;
+
+    [RelayCommand]
+    private void ToggleChart() => IsChartPanelVisible = !IsChartPanelVisible;
+
+    private void InitChart()
+    {
+        TimelineChart.TimeRangeFilterChanged += async (_, _) => await ApplySearchAsync();
+        TimelineChart.NavigateToTimestampRequested += (_, targetTime) => NavigateToTimestamp(targetTime);
+    }
+
+    public void NavigateToTimestamp(DateTimeOffset targetTime)
+    {
+        LogLine? match = VisibleLines.FirstOrDefault(l =>
+        {
+            DateTimeOffset? t = l.TimelineTimestamp ?? (l.StructuredEvent?.Timestamp?.ToUniversalTime()) ?? (l.Timestamp.HasValue ? new DateTimeOffset(l.Timestamp.Value).ToUniversalTime() : TimelineService.ParseTimestamp(l));
+            return t.HasValue && t.Value >= targetTime;
+        });
+
+        if (match != null)
+        {
+            SelectedLogLine = match;
+        }
+    }
+
+    public async Task UpdateChartAsync()
+    {
+        _chartCts?.Cancel();
+        _chartCts = new CancellationTokenSource();
+        CancellationToken ct = _chartCts.Token;
+
+        List<LogLine> snapshot = _allLines.ToList();
+        string scope = IsTimeline
+            ? $"Combined Timeline ({TimelineSources.Count} sources)"
+            : (!string.IsNullOrEmpty(FilePath) ? Path.GetFileName(FilePath) : "Log Stream");
+
+        try
+        {
+            ErrorTimelineChartData data = await Task.Run(() => _chartService.BuildChartData(snapshot, scope, ct), ct);
+            if (!ct.IsCancellationRequested)
+            {
+                TimelineChart.SetData(data);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
 
     /// <summary>Whether multiline exceptions are grouped into expandable events.</summary>
     [ObservableProperty] private bool _isExceptionGroupingEnabled = true;
@@ -475,6 +528,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         LogFile = new LogFile { FilePath = filePath };
         _isFollowTail = settings.FollowTailOnOpen;
         _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
+        InitChart();
     }
 
     /// <summary>Creates a read-only merged tab from a pre-built sorted line list.</summary>
@@ -510,7 +564,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         TotalLineCount = preloadedLines.Count;
         _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
         IsLoaded = true;
+        InitChart();
         UpdateStatus();
+        _ = UpdateChartAsync();
     }
 
     /// <summary>
@@ -548,6 +604,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
         _captureService.NewLinesAvailable += OnNewLinesAvailable;
         _captureService.ProcessExited     += OnCapturedProcessExited;
+        InitChart();
         UpdateStatus();
     }
 
@@ -593,6 +650,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 UpdateStatus();
                 NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
                 LinesChanged?.Invoke(this, EventArgs.Empty);
+                _ = UpdateChartAsync();
             }, DispatcherPriority.Background, ct);
 
             // Continue exactly where the load stopped — never from the start of the loaded range, or the
@@ -717,6 +775,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             UpdateStatus();
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
             LinesChanged?.Invoke(this, EventArgs.Empty);
+            _ = UpdateChartAsync();
         }, DispatcherPriority.Background);
     }
 
@@ -768,6 +827,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 _allLines[0].IsPartialContinuation = true;
                 _allLines[0].GroupParent = null;
             }
+            _ = UpdateChartAsync();
         }
     }
 
@@ -841,7 +901,20 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     line.IsSearchMatch = m;
                 }
 
-                IEnumerable<LogLine> result = snapshot;
+                                IEnumerable<LogLine> result = snapshot;
+
+                if (TimelineChart.HasTimeRangeFilter && TimelineChart.SelectedStartTime.HasValue && TimelineChart.SelectedEndTime.HasValue)
+                {
+                    DateTimeOffset s = TimelineChart.SelectedStartTime.Value;
+                    DateTimeOffset e = TimelineChart.SelectedEndTime.Value;
+                    result = result.Where(l =>
+                    {
+                        DateTimeOffset? t = l.TimelineTimestamp ?? (l.StructuredEvent?.Timestamp?.ToUniversalTime()) ?? (l.Timestamp.HasValue ? new DateTimeOffset(l.Timestamp.Value).ToUniversalTime() : TimelineService.ParseTimestamp(l));
+                        if (t == null && l.IsContinuation && l.GroupParent != null)
+                            t = l.GroupParent.TimelineTimestamp ?? (l.GroupParent.StructuredEvent?.Timestamp?.ToUniversalTime()) ?? (l.GroupParent.Timestamp.HasValue ? new DateTimeOffset(l.GroupParent.Timestamp.Value).ToUniversalTime() : TimelineService.ParseTimestamp(l.GroupParent));
+                        return t.HasValue && t.Value >= s && t.Value <= e;
+                    });
+                }
                 if (mode != FilterMode.None)
                 {
                     if (typedFilter != null)
@@ -938,6 +1011,16 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private bool LinePassesFilter(LogLine line)
     {
+        if (TimelineChart.HasTimeRangeFilter && TimelineChart.SelectedStartTime.HasValue && TimelineChart.SelectedEndTime.HasValue)
+        {
+            DateTimeOffset? time = line.TimelineTimestamp ?? (line.StructuredEvent?.Timestamp?.ToUniversalTime()) ?? (line.Timestamp.HasValue ? new DateTimeOffset(line.Timestamp.Value).ToUniversalTime() : TimelineService.ParseTimestamp(line));
+            if (time == null && line.IsContinuation && line.GroupParent != null)
+            {
+                time = line.GroupParent.TimelineTimestamp ?? (line.GroupParent.StructuredEvent?.Timestamp?.ToUniversalTime()) ?? (line.GroupParent.Timestamp.HasValue ? new DateTimeOffset(line.GroupParent.Timestamp.Value).ToUniversalTime() : TimelineService.ParseTimestamp(line.GroupParent));
+            }
+            if (time == null || time < TimelineChart.SelectedStartTime.Value || time > TimelineChart.SelectedEndTime.Value)
+                return false;
+        }
         if (FilterMode != FilterMode.None)
         {
             bool matches = false;

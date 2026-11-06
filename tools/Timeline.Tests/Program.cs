@@ -450,4 +450,83 @@ string? extractedId = CorrelationService.ExtractSuggestedId(corrHeader);
 Check(extractedId == "550e8400-e29b-41d4-a716-446655440000", "ExtractSuggestedId did not find ID in continuation frame");
 Check(CorrelationService.MatchesCorrelationId(corrHeader, "550e8400-e29b-41d4-a716-446655440000"), "MatchesCorrelationId did not match ID in continuation frame");
 
-Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, Saved Workspaces, and Multiline Exception Grouping.");
+// â”€â”€ Phase 6 Error Timeline Chart Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ErrorTimelineChartService chartService = new();
+
+// 1. Severity Normalization
+LogLine errLine = Line(1, "2026-11-06 10:00:00 [Error] Database failed");
+LogLine warnLine = Line(2, "2026-11-06 10:01:00 [Warning] High CPU usage");
+LogLine infoLine = Line(3, "2026-11-06 10:02:00 [Info] Processing finished");
+LogLine otherLine = Line(4, "2026-11-06 10:03:00 Background worker running");
+
+Check(ErrorTimelineChartService.NormalizeSeverity(errLine) == LogSeverity.Error, "Plain text [Error] normalization failed");
+Check(ErrorTimelineChartService.NormalizeSeverity(warnLine) == LogSeverity.Warning, "Plain text [Warning] normalization failed");
+Check(ErrorTimelineChartService.NormalizeSeverity(infoLine) == LogSeverity.Information, "Plain text [Info] normalization failed");
+Check(ErrorTimelineChartService.NormalizeSeverity(otherLine) == LogSeverity.Other, "Plain text neutral normalization failed");
+
+// Structured JSON severity normalization
+LogLine clefFatal = Line(5, "{\"@t\":\"2026-11-06T10:00:00Z\",\"@l\":\"Fatal\",\"@m\":\"Kernel panic\"}"); clefFatal.StructuredEvent = JsonLogParser.TryParse("{\"@t\":\"2026-11-06T10:00:00Z\",\"@l\":\"Fatal\",\"@m\":\"Kernel panic\"}");
+LogLine clefDebug = Line(6, "{\"@t\":\"2026-11-06T10:00:00Z\",\"@l\":\"Debug\",\"@m\":\"Trace step\"}"); clefDebug.StructuredEvent = JsonLogParser.TryParse("{\"@t\":\"2026-11-06T10:00:00Z\",\"@l\":\"Debug\",\"@m\":\"Trace step\"}");
+Check(ErrorTimelineChartService.NormalizeSeverity(clefFatal) == LogSeverity.Error, "CLEF Fatal should normalize to Error");
+Check(ErrorTimelineChartService.NormalizeSeverity(clefDebug) == LogSeverity.Information, "CLEF Debug should normalize to Information");
+
+// 2. Multiline Grouping does NOT inflate event counts
+LogLine multilineRoot = Line(10, "2026-11-06 10:10:00 [Error] Critical crash");
+LogLine frame1 = Line(11, "   at App.Service.Run()"); frame1.IsContinuation = true; frame1.GroupParent = multilineRoot;
+LogLine frame2 = Line(12, "   at App.Main()"); frame2.IsContinuation = true; frame2.GroupParent = multilineRoot;
+multilineRoot.Continuations.Add(frame1);
+multilineRoot.Continuations.Add(frame2);
+
+ErrorTimelineChartData groupData = chartService.BuildChartData([multilineRoot, frame1, frame2], "test.log");
+Check(groupData.TotalEvents == 1, $"Expected 1 total event for grouped exception, got {groupData.TotalEvents}");
+Check(groupData.TotalErrors == 1, $"Expected 1 error for grouped exception, got {groupData.TotalErrors}");
+
+// 3. Adaptive time bucketing and known bucket counts
+List<LogLine> timedSeries =
+[
+    Line(1, "2026-11-06T10:00:00Z [Error] Err 1"),
+    Line(2, "2026-11-06T10:00:15Z [Warning] Warn 1"),
+    Line(3, "2026-11-06T10:01:00Z [Info] Info 1"),
+    Line(4, "2026-11-06T10:01:45Z [Info] Info 2"),
+    Line(5, "2026-11-06T10:02:00Z [Error] Err 2")
+];
+ErrorTimelineChartData timedData = chartService.BuildChartData(timedSeries, "app.log");
+Check(timedData.TotalEvents == 5, "Total events count mismatch");
+Check(timedData.TotalErrors == 2, "Total errors count mismatch");
+Check(timedData.TotalWarnings == 1, "Total warnings count mismatch");
+Check(timedData.TotalInfos == 2, "Total info count mismatch");
+Check(timedData.UndatedCount == 0, "Undated count should be 0");
+Check(timedData.Buckets.Count > 0, "Buckets should not be empty");
+int sumAcrossBuckets = timedData.Buckets.Sum(b => b.TotalCount);
+Check(sumAcrossBuckets == 5, $"Sum across buckets ({sumAcrossBuckets}) should equal total dated events (5)");
+
+// 4. Undated events counted separately without invented dates
+List<LogLine> mixedDatedAndUndated =
+[
+    Line(1, "2026-11-06T10:00:00Z [Info] Valid timestamp"),
+    Line(2, "Undated plain text record without date"),
+    Line(3, "[Error] Undated error occurred")
+];
+ErrorTimelineChartData mixedData = chartService.BuildChartData(mixedDatedAndUndated, "mixed.log");
+Check(mixedData.TotalEvents == 3, "Total mixed events mismatch");
+Check(mixedData.UndatedCount == 2, "Undated count mismatch");
+Check(mixedData.UndatedErrors == 1, "Undated errors count mismatch");
+Check(mixedData.Buckets.Sum(b => b.TotalCount) == 1, "Only 1 event should be plotted on time axis");
+
+// 5. Large data time duration bounds bucket count
+TimeSpan hugeDuration = TimeSpan.FromDays(365);
+TimeSpan adaptiveInterval = ErrorTimelineChartService.CalculateBucketInterval(hugeDuration);
+int estimatedBuckets = (int)(hugeDuration.TotalSeconds / adaptiveInterval.TotalSeconds);
+Check(estimatedBuckets <= 120, $"Bucket count for 1-year duration should be bounded <= 120, got {estimatedBuckets}");
+
+// 6. Cancellation check
+using CancellationTokenSource chartCts = new();
+chartCts.Cancel();
+try
+{
+    chartService.BuildChartData(timedSeries, "app.log", chartCts.Token);
+    throw new Exception("BuildChartData did not respect cancellation token");
+}
+catch (OperationCanceledException) { }
+
+Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, Saved Workspaces, Multiline Exception Grouping, and Error Timeline Chart.");

@@ -184,6 +184,7 @@ public sealed partial class LogTabViewModel
 
             UpdateStatus();
             await ApplySearchAsync();
+            _ = UpdateChartAsync();
             if (!_disposed && selectedOriginal != null && !IsFollowTail)
                 SelectedLogLine = VisibleLines.FirstOrDefault(row => ReferenceEquals(row.OriginalLine, selectedOriginal));
             if (revision != _timelineRevision) _timelineDirty = true;

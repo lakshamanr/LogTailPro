@@ -10,7 +10,7 @@ the combined timeline, not the original core-viewer Phase 1. Later phases are pl
 | 3 | Request/Trace ID correlation | Completed | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
 | 4 | Saved workspaces | Completed | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
 | 5 | Multiline exceptions | Completed | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
-| 6 | Error timeline chart | Planned | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
+| 6 | Error timeline chart | Completed | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
 
 ## Shared rules
 
@@ -127,3 +127,24 @@ finalization upon arrival of subsequent normal records, and Property Inspector e
 - Copy commands ("Copy selected lines" and "Copy with Line Numbers") include all continuation lines when copying collapsed exceptions.
 - Line Details / Property Inspector displays complete formatted multiline stack traces in the exception viewer.
 - Live appending attaches incoming stack frames to the active group and finalizes the event upon arrival of subsequent normal log records.
+
+## Phase 6 detailed design
+
+Implemented in Phase 6. Local Release build: zero warnings/errors.
+Service checks in Timeline.Tests verify ErrorTimelineChartService (severity normalization for both Serilog CLEF and plain text,
+multiline grouping semantics preventing inflated event counts, adaptive time bucketing with known event distributions,
+separate counting for undated events without invented timestamps, large data duration bounding, and cancellation).
+Dispatcher-based integration checks in Timeline.IntegrationTests verify real-file chart loading, adaptive bucket generation,
+severity totals matching source events, single bucket click and drag selection activating time-range filters,
+time filter restricting visible lines, filter clearing restoring all lines, live append updating error counts in real time,
+and error timeline chart view layout and rendering without errors.
+
+- Model and view-model: TimeBucket.cs defines time intervals, normalized severity counts (Error, Warning, Info, Other), proportional bar heights, tooltips, and selection state. ErrorTimelineChartViewModel.cs binds data, supports range selection, filter clearing, drill-down navigation, and keyboard accessibility.
+- Aggregation service: ErrorTimelineChartService.cs normalizes severity levels across structured and plain text logs, calculates adaptive time bucket intervals, bounds bucket counts (<= 120) across any time span, and counts distinct root events (!line.IsContinuation) without inflating counts for multiline continuation frames.
+- Undated events: records without recognized timestamps are counted separately (UndatedCount, UndatedErrors, UndatedWarnings, etc.) and displayed in an informative badge rather than plotted with invented timestamps.
+- Interactive filtering: users can click an individual bucket or click-and-drag across buckets to select a time range. The selected time range filters VisibleLines in combination with existing search and filter rules (AND semantics).
+- Anti-feedback loop: the chart aggregates the source stream (_allLines), so filtering VisibleLines highlights the selected time range without shrinking or recalculating the chart itself. Clear / reset button restores the unfiltered view immediately.
+- Drill-down: double-clicking or selecting a bucket navigates directly to the first event at or after the bucket timestamp.
+- Incremental updates: background processing off the UI thread updates the chart on file loads, live appends, and retention trimming with cancellation tokens.
+- Native WPF vector rendering: ErrorTimelineChartCanvas uses high-performance direct drawing with design tokens (StatusRed, StatusYellow, Accent, BgSurface), selection marquee, hover tooltips, and keyboard navigation (Left/Right, Enter/Space, Escape).
+- AvalonDock & Toolbar integration: docked in the bottom pane alongside search and results, toggleable via Toolbar button ("ðŸ“Š  Chart") and View â–¸ Panels menu (Ctrl+Shift+T).
