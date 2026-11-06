@@ -2,7 +2,7 @@
 .SYNOPSIS
   Publishes LogTailPro (self-contained, single file) and builds the MSI installer.
 .DESCRIPTION
-  Requires the WiX Toolset v5 dotnet tool:  dotnet tool install -g wix
+  Requires the WiX Toolset v5 dotnet tool:  dotnet tool install -g wix --version 5.0.2
   and its UI + Util extensions:             wix extension add -g WixToolset.UI.wixext/5.0.2
                                             wix extension add -g WixToolset.Util.wixext/5.0.2
   Output: installer\out\LogTailPro-<version>-x64.msi
