@@ -161,7 +161,8 @@ public sealed class LogParserService
         ReadOnlySpan<char> span = chars.AsSpan(0, count);
         while (true)
         {
-            int nl = span.IndexOf('\n');
+            // '\0' is the IIS-style line terminator; '\n' (optionally preceded by '\r') is the normal one.
+            int nl = span.IndexOfAny('\n', '\0');
             if (nl < 0)
             {
                 pending.Append(span);

@@ -13,6 +13,7 @@ public sealed class FileWatcherService : IDisposable
 {
     private const int PollIntervalMs = 1000;
     private const int MaxReadPerPass = 16 * 1024 * 1024;
+    private static readonly char[] LineTerminators = { '\n', '\0' };
 
     private readonly object _gate = new();
     private FileSystemWatcher? _watcher;
@@ -104,7 +105,8 @@ public sealed class FileWatcherService : IDisposable
                     if (read <= 0) break;
 
                     string text = _encoding.GetString(bytes, 0, read);
-                    int lastNewline = text.LastIndexOf('\n');
+                    // '\0' is the IIS-style line terminator, '\n' the normal one.
+                    int lastNewline = text.LastIndexOfAny(LineTerminators);
 
                     string complete;
                     if (lastNewline >= 0)
@@ -117,7 +119,7 @@ public sealed class FileWatcherService : IDisposable
                     _lastReadPosition += _encoding.GetByteCount(text[..(lastNewline >= 0 ? lastNewline + 1 : text.Length)]);
 
                     batch ??= new List<string>();
-                    foreach (string raw in complete.Split('\n'))
+                    foreach (string raw in complete.Split(LineTerminators))
                         batch.Add(raw.TrimEnd('\r'));
                     // Split leaves one empty element after the final newline.
                     if (batch.Count > 0 && batch[^1].Length == 0) batch.RemoveAt(batch.Count - 1);
