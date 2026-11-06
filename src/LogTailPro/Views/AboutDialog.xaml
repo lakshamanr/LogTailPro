@@ -20,7 +20,7 @@
         <!-- Header: Logo + App Name + Version -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="LogTailPro" FontSize="26" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
-            <TextBlock Text="Version 1.4.0 — Windows x64" Foreground="{StaticResource TextSecondary}"
+            <TextBlock Text="Version 1.5.0 — Windows x64" Foreground="{StaticResource TextSecondary}"
                        FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeSmall}" Margin="0,2,0,0"/>
         </StackPanel>
 
