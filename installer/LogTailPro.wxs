@@ -38,6 +38,31 @@
       </Component>
     </ComponentGroup>
 
+    <!-- ── Explorer "Open with" ────────────────────────────────────────────────
+         Registers LogTailPro as an application so it is listed under right-click > Open with
+         for common log extensions (and under "Choose another app" for everything else).
+         The command passes the file as "%1"; a running instance receives it and adds a tab. -->
+    <Component Id="OpenWithRegistration" Directory="INSTALLFOLDER" Bitness="always64">
+      <RegistryKey Root="HKLM" Key="Software\Classes\Applications\LogTailPro.exe">
+        <RegistryValue Name="FriendlyAppName" Type="string" Value="LogTailPro" KeyPath="yes" />
+        <RegistryKey Key="DefaultIcon">
+          <RegistryValue Type="string" Value="[#LogTailProExe],0" />
+        </RegistryKey>
+        <RegistryKey Key="shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[#LogTailProExe]&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <RegistryKey Key="SupportedTypes">
+          <RegistryValue Name=".log"    Type="string" Value="" />
+          <RegistryValue Name=".txt"    Type="string" Value="" />
+          <RegistryValue Name=".out"    Type="string" Value="" />
+          <RegistryValue Name=".err"    Type="string" Value="" />
+          <RegistryValue Name=".trace"  Type="string" Value="" />
+          <RegistryValue Name=".jsonl"  Type="string" Value="" />
+          <RegistryValue Name=".ndjson" Type="string" Value="" />
+        </RegistryKey>
+      </RegistryKey>
+    </Component>
+
     <!-- ── Shortcuts ───────────────────────────────────────────────────────── -->
     <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Bitness="always64">
       <Shortcut Id="StartMenuLink" Name="LogTailPro"
@@ -61,6 +86,7 @@
 
     <Feature Id="Main" Title="LogTailPro" Level="1" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="OpenWithRegistration" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="DesktopShortcut" />
     </Feature>
