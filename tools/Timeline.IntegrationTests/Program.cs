@@ -474,6 +474,7 @@ internal static class Program
 
             // 5. Layout and render actual ErrorTimelineChartView
             ErrorTimelineChartView chartView = new() { DataContext = chartTab.TimelineChart };
+            LogTailPro.MainWindow mainWindow = new() { DataContext = mainVm };
             chartView.Measure(new Size(1000, 300));
             chartView.Arrange(new Rect(0, 0, 1000, 300));
         }

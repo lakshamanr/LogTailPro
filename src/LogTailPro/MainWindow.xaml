@@ -29,6 +29,7 @@
 
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:FileStatusColorConverter  x:Key="StatusColorConverter"/>
         <!-- Keyed button/combobox styles live in Themes/Theme.xaml
              so theme-switching works. Window.Resources only holds converters. -->
@@ -231,7 +232,7 @@
                     <ToggleButton Content="&#x25B6;  Group Exceptions" Style="{StaticResource ToolbarToggle}" Margin="0,0,6,0"
                                   IsChecked="{Binding SelectedTab.IsExceptionGroupingEnabled}"
                                   ToolTip="Group multiline exception stack traces into expandable rows"/>
-                    <ToggleButton Content="ðŸ“Š  Chart" Style="{StaticResource ToolbarToggle}"
+                    <ToggleButton Content="&#x1F4CA;  Chart" Style="{StaticResource ToolbarToggle}"
                                   IsChecked="{Binding SelectedTab.IsChartPanelVisible}"
                                   ToolTip="Toggle Error Timeline Chart (Ctrl+Shift+T)"/>
 

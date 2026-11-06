@@ -16,6 +16,7 @@ If the version here is newer than what you last built, re-read the affected phas
 - Integrated time-range filtering into LogTabViewModel.LinePassesFilter and ApplySearchAsync combining seamlessly with existing search text and filter rules (AND semantics) without feedback loops.
 - Added toolbar toggle button ("📊  Chart"), View ▸ Panels menu item, and AvalonDock dockable panel (ContentId="chart"), bound to Ctrl+Shift+T.
 - Hooked live append, source reconciliation, and retention trimming to update chart statistics asynchronously off the UI thread with background cancellation.
+- Fixed XamlParseException on application startup caused by missing BoolToVisibilityConverter resource key and malformed XML entity in MainWindow.xaml, and added startup exception diagnostics.
 - Added comprehensive unit checks in Timeline.Tests and real-file integration checks in Timeline.IntegrationTests.
 
 ---

@@ -19,66 +19,89 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        base.OnStartup(e);
+        AppDomain.CurrentDomain.UnhandledException += (s, args) => LogCrash(args.ExceptionObject);
+        DispatcherUnhandledException += (s, args) => LogCrash(args.Exception);
 
-        // One instance at a time: a second launch (e.g. Explorer "Open with") hands its files to the
-        // running window, which adds them as tabs, and exits. Explicit window placement/tiling switches
-        // (-wp, -ws, -tc, -ti) opt out because they exist to run several windows side by side.
-        if (!e.Args.Any(WindowPlacementSwitches.Contains))
+        try
         {
-            _singleInstance = new SingleInstanceService();
-            if (!_singleInstance.TryBecomePrimary())
+            base.OnStartup(e);
+
+            // One instance at a time: a second launch (e.g. Explorer "Open with") hands its files to the
+            // running window, which adds them as tabs, and exits. Explicit window placement/tiling switches
+            // (-wp, -ws, -tc, -ti) opt out because they exist to run several windows side by side.
+            if (!e.Args.Any(WindowPlacementSwitches.Contains))
             {
-                bool forwarded = _singleInstance.TrySendToPrimary(e.Args);
-                _singleInstance.Dispose();
-                _singleInstance = null;
-
-                if (forwarded)
+                _singleInstance = new SingleInstanceService();
+                if (!_singleInstance.TryBecomePrimary())
                 {
-                    Shutdown();
-                    return;
+                    bool forwarded = _singleInstance.TrySendToPrimary(e.Args);
+                    _singleInstance.Dispose();
+                    _singleInstance = null;
+
+                    if (forwarded)
+                    {
+                        Shutdown();
+                        return;
+                    }
+                    // The running instance could not be reached (hung or still starting): open normally
+                    // rather than silently dropping the user's file.
                 }
-                // The running instance could not be reached (hung or still starting): open normally
-                // rather than silently dropping the user's file.
             }
+
+            SettingsService settingsService = new();
+            MainViewModel mainVm = new(settingsService);
+
+            MainWindow window = new() { DataContext = mainVm };
+
+            // Restore window position from settings (unless CLI overrides it below)
+            if (!double.IsNaN(mainVm.Settings.WindowTop))  window.Top  = mainVm.Settings.WindowTop;
+            if (!double.IsNaN(mainVm.Settings.WindowLeft)) window.Left = mainVm.Settings.WindowLeft;
+            if (mainVm.Settings.WindowMaximized)
+                window.WindowState = WindowState.Maximized;
+
+            // Parse CLI arguments: -wp/-ws/-tc/-ti flags + file paths
+            ParseCliArgs(e.Args, window, mainVm, out List<string> filePaths);
+
+            window.Show();
+
+            // Open files specified on the command line
+            foreach (string path in filePaths)
+            {
+                if (File.Exists(path))
+                    _ = mainVm.OpenFileTabAsync(path);
+            }
+
+            // Auto-open last file when no CLI files were given and setting is enabled
+            if (filePaths.Count == 0
+                && mainVm.Settings.AutomaticallyOpenLastFileOnStartup
+                && mainVm.Settings.RecentFiles.Count > 0)
+            {
+                string lastFile = mainVm.Settings.RecentFiles[0];
+                if (File.Exists(lastFile))
+                    _ = mainVm.OpenFileTabAsync(lastFile);
+            }
+
+            // From now on, files forwarded by later launches arrive here.
+            _singleInstance?.SetHandler(args =>
+                Dispatcher.InvokeAsync(() => HandleForwardedArgs(args, window, mainVm)));
         }
-
-        SettingsService settingsService = new();
-        MainViewModel mainVm = new(settingsService);
-
-        MainWindow window = new() { DataContext = mainVm };
-
-        // Restore window position from settings (unless CLI overrides it below)
-        if (!double.IsNaN(mainVm.Settings.WindowTop))  window.Top  = mainVm.Settings.WindowTop;
-        if (!double.IsNaN(mainVm.Settings.WindowLeft)) window.Left = mainVm.Settings.WindowLeft;
-        if (mainVm.Settings.WindowMaximized)
-            window.WindowState = WindowState.Maximized;
-
-        // Parse CLI arguments: -wp/-ws/-tc/-ti flags + file paths
-        ParseCliArgs(e.Args, window, mainVm, out List<string> filePaths);
-
-        window.Show();
-
-        // Open files specified on the command line
-        foreach (string path in filePaths)
+        catch (Exception ex)
         {
-            if (File.Exists(path))
-                _ = mainVm.OpenFileTabAsync(path);
+            LogCrash(ex);
+            MessageBox.Show(ex.Message, "LogTailPro Fatal Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            throw;
         }
+    }
 
-        // Auto-open last file when no CLI files were given and setting is enabled
-        if (filePaths.Count == 0
-            && mainVm.Settings.AutomaticallyOpenLastFileOnStartup
-            && mainVm.Settings.RecentFiles.Count > 0)
+    private static void LogCrash(object? exception)
+    {
+        try
         {
-            string lastFile = mainVm.Settings.RecentFiles[0];
-            if (File.Exists(lastFile))
-                _ = mainVm.OpenFileTabAsync(lastFile);
+            string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LogTailPro");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "crash.log"), exception?.ToString());
         }
-
-        // From now on, files forwarded by later launches arrive here.
-        _singleInstance?.SetHandler(args =>
-            Dispatcher.InvokeAsync(() => HandleForwardedArgs(args, window, mainVm)));
+        catch { }
     }
 
     /// <summary>Opens files sent by another launch as new tabs and brings the window to the front.</summary>

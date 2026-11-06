@@ -514,6 +514,7 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
+        if (ViewModel?.Settings == null) return;
         ViewModel.Settings.WindowWidth  = ActualWidth;
         ViewModel.Settings.WindowHeight = ActualHeight;
         ViewModel.Settings.WindowMaximized = WindowState == WindowState.Maximized;
