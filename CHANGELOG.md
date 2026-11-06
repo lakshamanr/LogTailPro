@@ -5,7 +5,15 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.1 - 2026-11-06 (CURRENT) — PROCESS EXPLORER: LOG DISCOVERY + PATTERN SEARCH
+## v2.2 - 2026-11-06 (CURRENT) - LOG INVESTIGATION ROADMAP
+
+- Added prompts/ROADMAP.md with six prioritized phases and acceptance criteria.
+- Roadmap Phase 1 is the combined live timeline; existing Phases 1-7 retain their numbering.
+- Phases 2-6 remain planned. Application/MSI version is independent of this plan version.
+
+---
+
+## v2.1 - 2026-11-06 (previous plan) — PROCESS EXPLORER: LOG DISCOVERY + PATTERN SEARCH
 
 ### Changes
 - **Open Log Files:** right-click a process (or double-click / Enter) to locate its log files and open
