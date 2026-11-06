@@ -33,6 +33,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private readonly List<LogLine> _allLines = new();
     private Regex? _activePattern;
+    private TypedFieldFilter? _activeTypedFilter;
     private CancellationTokenSource? _searchCts;
     private long _nextLineNumber = 1;
     private DateTime? _lastTimestamp;
@@ -190,6 +191,102 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int _matchCount;
     [ObservableProperty] private int _currentMatchIndex = -1;
     [ObservableProperty] private LogLine? _selectedLogLine;
+    partial void OnSelectedLogLineChanged(LogLine? value) => UpdateInspectorDetails(value);
+
+    // ── Structured JSON viewer & inspector state ─────────────────────────────
+    [ObservableProperty] private bool _isStructuredViewEnabled = true;
+    [ObservableProperty] private bool _hasStructuredLogs;
+    [ObservableProperty] private bool _isSelectedLineStructured;
+    [ObservableProperty] private StructuredLogEvent? _selectedStructuredEvent;
+    [ObservableProperty] private string _selectedLineLevel = string.Empty;
+    [ObservableProperty] private string _selectedLineTimestamp = string.Empty;
+    [ObservableProperty] private string _selectedLineMessage = string.Empty;
+    [ObservableProperty] private string _selectedLineTemplate = string.Empty;
+    [ObservableProperty] private bool _hasSelectedLineTemplate;
+    [ObservableProperty] private string _selectedLineException = string.Empty;
+    [ObservableProperty] private bool _hasSelectedLineException;
+    [ObservableProperty] private string _selectedLineRawText = string.Empty;
+    [ObservableProperty] private ObservableCollection<LogPropertyNode> _selectedLineProperties = new();
+
+    public double StructuredLevelWidth => (IsStructuredViewEnabled && HasStructuredLogs) ? 70.0 : 0.0;
+    public double StructuredTimeWidth => (IsStructuredViewEnabled && HasStructuredLogs) ? 190.0 : 0.0;
+
+    partial void OnIsStructuredViewEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(StructuredLevelWidth));
+        OnPropertyChanged(nameof(StructuredTimeWidth));
+        OnPropertyChanged(nameof(StructuredViewLabel));
+        LayoutUpdateRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnHasStructuredLogsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(StructuredLevelWidth));
+        OnPropertyChanged(nameof(StructuredTimeWidth));
+        LayoutUpdateRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    public string StructuredViewLabel => IsStructuredViewEnabled ? "Raw View" : "Structured View";
+
+    [RelayCommand]
+    private void ToggleStructuredView() => IsStructuredViewEnabled = !IsStructuredViewEnabled;
+
+    public event EventHandler? LayoutUpdateRequested;
+
+    private void UpdateInspectorDetails(LogLine? line)
+    {
+        if (line == null)
+        {
+            IsSelectedLineStructured = false;
+            SelectedStructuredEvent = null;
+            SelectedLineLevel = string.Empty;
+            SelectedLineTimestamp = string.Empty;
+            SelectedLineMessage = string.Empty;
+            SelectedLineTemplate = string.Empty;
+            HasSelectedLineTemplate = false;
+            SelectedLineException = string.Empty;
+            HasSelectedLineException = false;
+            SelectedLineProperties.Clear();
+            SelectedLineRawText = string.Empty;
+            DetailText = string.Empty;
+            return;
+        }
+
+        SelectedLineRawText = line.Text;
+        if (line.StructuredEvent != null && line.StructuredEvent.IsValidJson)
+        {
+            IsSelectedLineStructured = true;
+            SelectedStructuredEvent = line.StructuredEvent;
+            SelectedLineLevel = line.StructuredEvent.Level ?? string.Empty;
+            SelectedLineTimestamp = line.StructuredEvent.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff zzz") ?? string.Empty;
+            SelectedLineMessage = line.StructuredEvent.Message ?? string.Empty;
+            SelectedLineTemplate = line.StructuredEvent.MessageTemplate ?? string.Empty;
+            HasSelectedLineTemplate = !string.IsNullOrEmpty(line.StructuredEvent.MessageTemplate);
+            SelectedLineException = line.StructuredEvent.Exception ?? string.Empty;
+            HasSelectedLineException = !string.IsNullOrEmpty(line.StructuredEvent.Exception);
+            SelectedLineProperties.Clear();
+            foreach (LogPropertyNode node in LogPropertyNode.FromEvent(line.StructuredEvent))
+                SelectedLineProperties.Add(node);
+
+            DetailText = TryPrettyPrintJson(line.Text) ?? line.Text;
+        }
+        else
+        {
+            IsSelectedLineStructured = false;
+            SelectedStructuredEvent = line.StructuredEvent;
+            SelectedLineLevel = string.Empty;
+            SelectedLineTimestamp = line.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? string.Empty;
+            SelectedLineMessage = line.Text;
+            SelectedLineTemplate = string.Empty;
+            HasSelectedLineTemplate = false;
+            SelectedLineException = string.Empty;
+            HasSelectedLineException = false;
+            SelectedLineProperties.Clear();
+            DetailText = line.StructuredEvent?.ParseError != null
+                ? $"[Malformed JSON: {line.StructuredEvent.ParseError}]{Environment.NewLine}{line.Text}"
+                : line.Text;
+        }
+    }
 
     // ── Highlighting enabled (toggled from toolbar) ───────────────────────────
     [ObservableProperty] private bool _isHighlightingEnabled = true;
@@ -320,9 +417,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     ? $"[{line.SourceFileName}] {line.Text}"
                     : line.Text,
                 Timestamp = line.Timestamp,
+                TimelineTimestamp = line.TimelineTimestamp,
+                StructuredEvent = line.StructuredEvent,
                 ElapsedSincePrevious = line.ElapsedSincePrevious,
                 ByteOffset = line.ByteOffset
             };
+            if (copy.HasStructuredEvent) HasStructuredLogs = true;
             _allLines.Add(copy);
         }
         VisibleLines.ReplaceAll(_allLines);
@@ -449,11 +549,30 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         List<LogLine> result = new(rawLines.Count);
         long lineNumber = _nextLineNumber;
         string tabExpansion = _settings.TabWidth > 0 ? new string(' ', _settings.TabWidth) : "\t";
+        bool foundStructured = false;
 
         foreach (string raw in rawLines)
         {
             string text = raw.Contains('\t') ? raw.Replace("\t", tabExpansion) : raw;
-            DateTime? ts = _timestampParser.TryParse(text);
+            StructuredLogEvent? jsonEvent = JsonLogParser.TryParse(text);
+            DateTime? ts = null;
+            DateTimeOffset? timelineTs = null;
+
+            if (jsonEvent != null && jsonEvent.IsValidJson)
+            {
+                foundStructured = true;
+                if (jsonEvent.Timestamp.HasValue)
+                {
+                    ts = jsonEvent.Timestamp.Value.LocalDateTime;
+                    timelineTs = jsonEvent.Timestamp.Value.ToUniversalTime();
+                }
+            }
+
+            if (!ts.HasValue)
+            {
+                ts = _timestampParser.TryParse(text);
+            }
+
             TimeSpan? elapsed = (ts.HasValue && _lastTimestamp.HasValue && ts > _lastTimestamp)
                 ? ts - _lastTimestamp : null;
 
@@ -462,6 +581,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 LineNumber = lineNumber++,
                 Text = text,
                 Timestamp = ts,
+                TimelineTimestamp = timelineTs,
+                StructuredEvent = jsonEvent,
                 ElapsedSincePrevious = elapsed,
                 MatchedRule = IsHighlightingEnabled
                     ? _highlightService.GetMatchingRule(text, _compiledHighlightRules)
@@ -471,6 +592,11 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             result.Add(line);
 
             if (ts.HasValue) _lastTimestamp = ts;
+        }
+
+        if (foundStructured && !HasStructuredLogs)
+        {
+            HasStructuredLogs = true;
         }
 
         _nextLineNumber = lineNumber;
@@ -565,17 +691,29 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         CancellationToken ct = _searchCts.Token;
 
         SearchError = string.Empty;
+        TypedFieldFilter? typedFilter = null;
 
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            (Regex? compiled, string? error) = _searchService.CompilePattern(
-                SearchText, IsRegexMode, IsCaseSensitive);
-            if (error != null) { SearchError = error; return; }
-            _activePattern = compiled;
+            if (TypedFieldFilter.TryParse(SearchText, out TypedFieldFilter? parsedTf))
+            {
+                typedFilter = parsedTf;
+                _activeTypedFilter = typedFilter;
+                _activePattern = null;
+            }
+            else
+            {
+                (Regex? compiled, string? error) = _searchService.CompilePattern(
+                    SearchText, IsRegexMode, IsCaseSensitive);
+                if (error != null) { SearchError = error; return; }
+                _activePattern = compiled;
+                _activeTypedFilter = null;
+            }
         }
         else
         {
             _activePattern = null;
+            _activeTypedFilter = null;
             SearchResults.ReplaceAll(Array.Empty<SearchResultRow>());
             HasSearchGroups = false;
             HasSearchTimestamps = false;
@@ -583,7 +721,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             IsSearchResultsVisible = false;
         }
 
-        IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> compiledChain =
+        IReadOnlyList<CompiledFilterRule> compiledChain =
             _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
 
         List<LogLine> snapshot = _allLines.ToList();
@@ -596,19 +734,49 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             List<LogLine> filtered = await Task.Run(() =>
             {
                 foreach (LogLine line in snapshot)
-                    line.IsSearchMatch = pattern != null && SafeIsMatch(pattern, line.Text);
+                {
+                    line.IsSearchMatch = typedFilter != null
+                        ? typedFilter.Matches(line)
+                        : (pattern != null && SafeIsMatch(pattern, line.Text));
+                }
 
-                IEnumerable<LogLine> result = (mode != FilterMode.None && pattern != null)
-                    ? _searchService.ApplyFilter(snapshot, pattern, mode)
-                    : snapshot;
+                IEnumerable<LogLine> result = snapshot;
+                if (mode != FilterMode.None)
+                {
+                    if (typedFilter != null)
+                        result = _searchService.ApplyTypedFilter(result, typedFilter, mode);
+                    else if (pattern != null)
+                        result = _searchService.ApplyFilter(result, pattern, mode);
+                }
 
                 if (compiledChain.Count > 0)
-                    result = result.Where(l => _searchService.LineMatchesChain(l.Text, compiledChain));
+                    result = result.Where(l => _searchService.LineMatchesChain(l, compiledChain));
 
                 List<LogLine> list = result.ToList();
 
-                // Build the grid rows here, off the UI thread (regex group extraction per match is not free).
-                if (pattern != null)
+                // Build the grid rows here, off the UI thread
+                if (typedFilter != null)
+                {
+                    foreach (LogLine line in list)
+                    {
+                        if (!line.IsSearchMatch) continue;
+                        if (rows.Count >= MaxSearchResultRows) break;
+                        rows.Add(new SearchResultRow
+                        {
+                            LineNumber = line.LineNumber,
+                            Timestamp = line.ArrivedAt != DateTime.MinValue
+                                ? line.ArrivedAt
+                                : line.Timestamp ?? DateTime.MinValue,
+                            Text = line.Text,
+                            Group1 = line.StructuredLevel ?? string.Empty,
+                            Group2 = line.StructuredEvent?.Message ?? string.Empty,
+                            Group3 = string.Empty,
+                            CapturingGroups = line.StructuredLevel != null ? [line.StructuredLevel] : [],
+                            Source = line
+                        });
+                    }
+                }
+                else if (pattern != null)
                 {
                     foreach (LogLine line in list)
                     {
@@ -637,7 +805,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
             VisibleLines.ReplaceAll(filtered);
 
-            MatchCount = pattern != null ? filtered.Count(l => l.IsSearchMatch) : 0;
+            MatchCount = (pattern != null || typedFilter != null) ? filtered.Count(l => l.IsSearchMatch) : 0;
             CurrentMatchIndex = -1;
             SelectedLogLine = null;
 
@@ -645,7 +813,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             SearchResults.ReplaceAll(rows);
             HasSearchGroups = rows.Any(r => r.CapturingGroups.Any(g => g.Length > 0));
             HasSearchTimestamps = rows.Any(r => r.Timestamp != DateTime.MinValue);
-            SearchResultsSummary = pattern == null ? string.Empty
+            SearchResultsSummary = (pattern == null && typedFilter == null) ? string.Empty
                 : MatchCount > rows.Count
                     ? $"Showing first {rows.Count:N0} of {MatchCount:N0} matches"
                     : $"{rows.Count:N0} match{(rows.Count == 1 ? "" : "es")}";
@@ -656,20 +824,31 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) { }
     }
 
-    private void MarkSearchMatch(LogLine line) =>
-        line.IsSearchMatch = _activePattern != null && SafeIsMatch(_activePattern, line.Text);
+    private void MarkSearchMatch(LogLine line)
+    {
+        if (_activeTypedFilter != null)
+            line.IsSearchMatch = _activeTypedFilter.Matches(line);
+        else if (_activePattern != null)
+            line.IsSearchMatch = SafeIsMatch(_activePattern, line.Text);
+        else
+            line.IsSearchMatch = false;
+    }
 
     private bool LinePassesFilter(LogLine line)
     {
-        if (FilterMode != FilterMode.None && _activePattern != null)
+        if (FilterMode != FilterMode.None)
         {
-            bool matches = SafeIsMatch(_activePattern, line.Text);
+            bool matches = false;
+            if (_activeTypedFilter != null) matches = _activeTypedFilter.Matches(line);
+            else if (_activePattern != null) matches = SafeIsMatch(_activePattern, line.Text);
+            else matches = true;
+
             if (FilterMode == FilterMode.IncludeMatching && !matches) return false;
             if (FilterMode == FilterMode.ExcludeMatching && matches) return false;
         }
-        IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> chain =
+        IReadOnlyList<CompiledFilterRule> chain =
             _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
-        return _searchService.LineMatchesChain(line.Text, chain);
+        return _searchService.LineMatchesChain(line, chain);
     }
 
     private static bool SafeIsMatch(Regex pattern, string text)
@@ -926,6 +1105,20 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         if (SelectedLogLines.Count == 0) return;
         string text = string.Join(Environment.NewLine, SelectedLogLines.Select(l => l.Text));
         System.Windows.Clipboard.SetText(text);
+    }
+
+    [RelayCommand]
+    private void CopyException()
+    {
+        if (!string.IsNullOrEmpty(SelectedLineException))
+            System.Windows.Clipboard.SetText(SelectedLineException);
+    }
+
+    [RelayCommand]
+    private void CopyDetailText()
+    {
+        if (!string.IsNullOrEmpty(DetailText))
+            System.Windows.Clipboard.SetText(DetailText);
     }
 
     [RelayCommand]

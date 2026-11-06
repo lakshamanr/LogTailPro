@@ -68,11 +68,30 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     public long SourceLineNumber => OriginalLine?.LineNumber ?? LineNumber;
 
     /// <summary>Timestamp in UTC for cross-file ordering; null means no full date was recognized.</summary>
-    public DateTimeOffset? TimelineTimestamp { get; init; }
+    public DateTimeOffset? TimelineTimestamp { get; set; }
 
     /// <summary>Explicit timestamp label, including the timezone.</summary>
     public string TimelineTimeDisplay => TimelineTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff 'UTC'") ?? "No dated timestamp";
 
     /// <summary>Wall-clock time when this line arrived from the file watcher. DateTime.MinValue for initial load.</summary>
     public DateTime ArrivedAt { get; set; } = DateTime.MinValue;
+
+    /// <summary>Structured event representation if this line was parsed from structured JSON, or null.</summary>
+    public StructuredLogEvent? StructuredEvent { get; set; }
+
+    /// <summary>Structured severity level (e.g. Information, Warning, Error), or null if not structured.</summary>
+    public string? StructuredLevel => StructuredEvent?.Level;
+
+    /// <summary>Formatted timestamp string preserving the original timezone offset, or null.</summary>
+    public string? StructuredTimeDisplay => StructuredEvent?.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff zzz");
+
+    /// <summary>Rendered message if structured JSON, or malformed notice, or fallback raw text.</summary>
+    public string StructuredMessage => StructuredEvent != null
+        ? (StructuredEvent.IsValidJson
+            ? (StructuredEvent.Message ?? StructuredEvent.MessageTemplate ?? Text)
+            : $"[Malformed JSON: {StructuredEvent.ParseError}] {Text}")
+        : Text;
+
+    /// <summary>True when this line represents a valid structured JSON event.</summary>
+    public bool HasStructuredEvent => StructuredEvent != null && StructuredEvent.IsValidJson;
 }

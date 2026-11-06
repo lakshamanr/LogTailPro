@@ -3,14 +3,14 @@
 Six new roadmap phases follow the existing Phases 1-7. Roadmap Phase 1 below means
 the combined timeline, not the original core-viewer Phase 1. Later phases are planned.
 
-| Phase | Feature | Scope and acceptance criteria |
-|---|---|---|
-| 1 | Combined log timeline | Select open file sources; merge loaded lines chronologically; show timestamp/source/original line; live updates; navigate to originals; deterministic ordering; handle truncation, retention and source closure. |
-| 2 | Structured JSON logs | Detect JSONL and Serilog-style events; timestamp/level/message/exception columns; nested property inspector; typed field filters; preserve raw and malformed input. Depends on Phase 1 source identity. |
-| 3 | Request/Trace ID correlation | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
-| 4 | Saved workspaces | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
-| 5 | Multiline exceptions | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
-| 6 | Error timeline chart | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
+| Phase | Feature | Status | Scope and acceptance criteria |
+|---|---|---|---|
+| 1 | Combined log timeline | Completed | Select open file sources; merge loaded lines chronologically; show timestamp/source/original line; live updates; navigate to originals; deterministic ordering; handle truncation, retention and source closure. |
+| 2 | Structured JSON logs | Completed | Detect JSONL and Serilog-style events; timestamp/level/message/exception columns; nested property inspector; typed field filters; preserve raw and malformed input. Depends on Phase 1 source identity. |
+| 3 | Request/Trace ID correlation | Planned | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
+| 4 | Saved workspaces | Planned | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
+| 5 | Multiline exceptions | Planned | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
+| 6 | Error timeline chart | Planned | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
 
 ## Shared rules
 
@@ -43,11 +43,24 @@ a live merged tab. **Open original line** returns to the source tab and line.
 - Include only loaded portions of files and surface source warnings. Preserve original raw text.
 - Navigation must handle closed sources and lines removed by rotation without jumping elsewhere.
 
-### Verification checklist
+## Phase 2 detailed design
 
-- Interleaved timestamps, equal timestamps, duplicate filenames and explicit offsets.
-- Missing/time-only timestamps, malformed dates and fractional seconds.
-- Late arrivals, append batches, truncation, retention and source closure.
-- Independent timeline search/filter/highlighting and original-line navigation.
-- Closing during background merges; bounded/coalesced work; virtualized rendering.
-- Release build and MSI build workflow pass. Record any manual UI checks still outstanding.
+Implemented in Phase 2. Local Release build: zero warnings/errors.
+Service checks in `Timeline.Tests` verify Serilog compact CLEF parsing (`@t`, `@l`, `@m`, `@mt`, `@x`),
+default level "Information" when `@l` is missing in CLEF, rendered message vs template distinction,
+nested object and array property preservation, malformed JSON handling, mixed plain text lines,
+UTC offset ordering in combined timeline, and typed field filters (`==`, `!=`, `>`, `<`, `>=`, `<=`,
+`exists`, `!exists`, nested dot-notation paths, and type-mismatch/missing semantics).
+Dispatcher-based integration checks in `Timeline.IntegrationTests` verify real-file JSON loading,
+structured Level/Timestamp columns layout, Property Inspector hierarchical tree, typed field filtering,
+toggle between Structured View and Raw View, and live appends of JSON records.
+
+- Parse line-delimited JSON (JSONL) and Serilog CLEF records off-thread in batches.
+- Structured event model (`StructuredLogEvent`) preserves raw text, parsed timestamps with timezone offsets,
+  normalized severity level, rendered message, template, exception, and native primitive types.
+- Distinguishes rendered message `@m` from message template `@mt`. Does not substitute one for the other.
+- Gracefully handles malformed JSON per line with error message, keeping tailing active without dropping records.
+- Seamlessly integrates with the combined timeline (`TimelineService.ParseTimestamp`), ensuring accurate UTC chronological order across sources.
+- Typed field filters (`TypedFieldFilter`) support syntax expressions (e.g. `StatusCode >= 400`, `exists(UserId)`, `Level == Error`) directly in the search bar or filter chain.
+- Line Details / Property Inspector panel (`DetailsPanel.xaml`) provides header summary, hierarchical property tree (`LogPropertyNode`), exception viewer with copy button, and raw/pretty-printed text tab.
+- Structured columns (`StructuredLevelColumn`, `StructuredTimeColumn`) and rendered message display toggleable via Toolbar toggle and context menu.

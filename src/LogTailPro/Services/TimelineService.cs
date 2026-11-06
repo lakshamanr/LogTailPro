@@ -17,6 +17,20 @@ public sealed class TimelineService
     /// <summary>Parses fully dated timestamps; offset-free input uses the local timezone.</summary>
     public static DateTimeOffset? ParseTimestamp(LogLine line)
     {
+        if (line.TimelineTimestamp.HasValue)
+            return line.TimelineTimestamp.Value;
+
+        if (line.StructuredEvent?.Timestamp.HasValue == true)
+            return line.StructuredEvent.Timestamp.Value.ToUniversalTime();
+
+        // Check structured JSON record if not already parsed
+        if (line.Text.AsSpan().TrimStart().StartsWith("{"))
+        {
+            StructuredLogEvent? ev = JsonLogParser.TryParse(line.Text);
+            if (ev?.Timestamp.HasValue == true)
+                return ev.Timestamp.Value.ToUniversalTime();
+        }
+
         string head = line.Text[..Math.Min(line.Text.Length, 100)];
         Match match = DatedTimestamp.Match(head);
         if (match.Success)
@@ -63,7 +77,8 @@ public sealed class TimelineService
                     OriginalLine = original,
                     ByteOffset = original.ByteOffset,
                     ArrivedAt = original.ArrivedAt,
-                    IsBookmarked = original.IsBookmarked
+                    IsBookmarked = original.IsBookmarked,
+                    StructuredEvent = original.StructuredEvent
                 }, sourceIndex, index));
             }
         }

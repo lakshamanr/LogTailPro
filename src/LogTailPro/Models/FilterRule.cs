@@ -3,7 +3,7 @@ namespace LogTailPro.Models;
 /// <summary>A single rule in a multi-condition filter chain.</summary>
 public sealed class FilterRule
 {
-    /// <summary>Text or regex pattern to evaluate.</summary>
+    /// <summary>Text, regex pattern, or typed field expression (e.g. "StatusCode >= 400") to evaluate.</summary>
     public string Pattern { get; set; } = string.Empty;
 
     /// <summary>True if <see cref="Pattern"/> is a regular expression.</summary>
@@ -20,6 +20,9 @@ public sealed class FilterRule
 
     /// <summary>Whether this rule participates in evaluation.</summary>
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>Parsed typed field filter if the pattern is a structured condition.</summary>
+    public TypedFieldFilter? TypedFilter { get; set; }
 }
 
 /// <summary>How a filter rule combines with the previous rule's result.</summary>

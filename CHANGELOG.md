@@ -5,7 +5,20 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.2 - 2026-11-06 (CURRENT) - LOG INVESTIGATION ROADMAP
+## v2.3 - 2026-11-06 (CURRENT) - ROADMAP PHASE 2: STRUCTURED JSON LOG VIEWER
+
+- Implemented roadmap Phase 2: structured JSON log viewer for line-delimited JSON and Serilog CLEF format.
+- Added StructuredLogEvent preserving raw text, exact timestamps with offsets, normalized levels, rendered message vs template distinction, exceptions, and typed properties (primitives, nested objects, and arrays).
+- Added JsonLogParser with safety limits (max length 2MB, max depth 32) and graceful per-line malformed JSON handling.
+- Added TypedFieldFilter with support for numeric comparisons (>, <, >=, <=), exact string equality (==, !=), existence (exists, !exists), dot-notation for nested fields, and defined type-mismatch/missing semantics.
+- Integrated structured timestamps into TimelineService for accurate UTC ordering across mixed JSON and plain-text files.
+- Upgraded DetailsPanel into a hierarchical Property Inspector with summary card, property tree (LogPropertyNode), exception viewer with copy button, and raw/pretty-printed text tab.
+- Added structured Level badge and Timestamp columns to LogTabView with a toggle for Structured View vs Raw Text View in Toolbar, View menu, and context menu.
+- Added unit checks to Timeline.Tests and real-file integration checks to Timeline.IntegrationTests.
+
+---
+
+## v2.2 - 2026-11-06 - LOG INVESTIGATION ROADMAP
 
 - Added prompts/ROADMAP.md with six prioritized phases and acceptance criteria.
 - Roadmap Phase 1 is the combined live timeline; existing Phases 1-7 retain their numbering.

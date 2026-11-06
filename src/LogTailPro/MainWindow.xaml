@@ -128,6 +128,10 @@
                           InputGestureText="Ctrl+G"/>
                 <MenuItem Header="Toggle Line Wrap"
                           Command="{Binding SelectedTab.ToggleLineWrapCommand}"/>
+                <MenuItem Header="Structured View"
+                          IsCheckable="True"
+                          IsChecked="{Binding SelectedTab.IsStructuredViewEnabled}"
+                          Visibility="{Binding SelectedTab.HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 <Separator/>
                 <MenuItem x:Name="PanelsMenu" Header="_Panels" SubmenuOpened="PanelsMenu_SubmenuOpened">
                     <MenuItem Header="Process Explorer" Tag="process" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+P"/>
@@ -210,6 +214,10 @@
                     <ToggleButton Content="↩  Wrap" Style="{StaticResource ToolbarToggle}"
                                   IsChecked="{Binding SelectedTab.IsLineWrapEnabled}"
                                   ToolTip="Wrap long lines"/>
+                    <ToggleButton Content="⛯  Structured" Style="{StaticResource ToolbarToggle}"
+                                  IsChecked="{Binding SelectedTab.IsStructuredViewEnabled}"
+                                  Visibility="{Binding SelectedTab.HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"
+                                  ToolTip="Toggle structured JSON event view vs raw text view"/>
 
                     <Rectangle Width="1" Height="22" Fill="{StaticResource BorderNormal}" Margin="10,0"/>
 

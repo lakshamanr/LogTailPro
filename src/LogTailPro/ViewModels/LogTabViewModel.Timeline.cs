@@ -106,6 +106,7 @@ public sealed partial class LogTabViewModel
             LogLine? selectedOriginal = SelectedLogLine?.OriginalLine;
             _allLines.Clear();
             _allLines.AddRange(rows);
+            if (rows.Any(r => r.HasStructuredEvent)) HasStructuredLogs = true;
             foreach (LogLine row in _allLines)
                 row.MatchedRule = IsHighlightingEnabled
                     ? _highlightService.GetMatchingRule(row.Text, _compiledHighlightRules) : null;

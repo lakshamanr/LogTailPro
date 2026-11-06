@@ -35,6 +35,18 @@
     <SolidColorBrush x:Key="StatusError"  Color="#CC3333"/>
     <SolidColorBrush x:Key="StatusWarn"   Color="#CC7A00"/>
 
+    <!-- Structured log level badges -->
+    <SolidColorBrush x:Key="BadgeInfoBg"  Color="#DBEAFE"/>
+    <SolidColorBrush x:Key="BadgeInfoFg"  Color="#1E40AF"/>
+    <SolidColorBrush x:Key="BadgeWarnBg"  Color="#FEF3C7"/>
+    <SolidColorBrush x:Key="BadgeWarnFg"  Color="#92400E"/>
+    <SolidColorBrush x:Key="BadgeErrorBg" Color="#FEE2E2"/>
+    <SolidColorBrush x:Key="BadgeErrorFg" Color="#991B1B"/>
+    <SolidColorBrush x:Key="BadgeFatalBg" Color="#FCE7F3"/>
+    <SolidColorBrush x:Key="BadgeFatalFg" Color="#831843"/>
+    <SolidColorBrush x:Key="BadgeDebugBg" Color="#F1F5F9"/>
+    <SolidColorBrush x:Key="BadgeDebugFg" Color="#475569"/>
+
     <!-- Search / highlight -->
     <SolidColorBrush x:Key="SearchMatchBg"   Color="#FFF3B0"/>
     <SolidColorBrush x:Key="SearchMatchFg"   Color="#5D4037"/>

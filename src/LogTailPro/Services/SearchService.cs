@@ -3,6 +3,9 @@ using LogTailPro.Models;
 
 namespace LogTailPro.Services;
 
+/// <summary>Compiled representation of a filter rule supporting regex or typed field evaluation.</summary>
+public sealed record CompiledFilterRule(FilterRule Rule, Regex? Pattern, TypedFieldFilter? TypedFilter);
+
 /// <summary>Compiles search patterns and applies them to log lines.</summary>
 public sealed class SearchService
 {
@@ -46,11 +49,61 @@ public sealed class SearchService
         };
     }
 
+    /// <summary>Filters <paramref name="lines"/> using a typed field filter and mode.</summary>
+    public IEnumerable<LogLine> ApplyTypedFilter(
+        IEnumerable<LogLine> lines,
+        TypedFieldFilter filter,
+        FilterMode mode)
+    {
+        return mode switch
+        {
+            FilterMode.IncludeMatching => lines.Where(l => filter.Matches(l)),
+            FilterMode.ExcludeMatching => lines.Where(l => !filter.Matches(l)),
+            _ => lines
+        };
+    }
+
     /// <summary>
-    /// Evaluates the AND/OR/NOT filter chain against a line.
-    /// Returns true if the line should be visible (pass the chain).
-    /// Returns true when the chain is empty or all rules are disabled.
+    /// Evaluates the AND/OR/NOT filter chain against a log line.
+    /// Supports both regex/text rules and typed structured field rules.
     /// </summary>
+    public bool LineMatchesChain(
+        LogLine line,
+        IReadOnlyList<CompiledFilterRule> compiledChain)
+    {
+        IEnumerable<CompiledFilterRule> active =
+            compiledChain.Where(c => c.Rule.IsEnabled && !string.IsNullOrEmpty(c.Rule.Pattern));
+
+        if (!active.Any()) return true;
+
+        bool result = true;
+        bool first = true;
+
+        foreach (CompiledFilterRule compiled in active)
+        {
+            bool matches = compiled.TypedFilter != null
+                ? compiled.TypedFilter.Matches(line)
+                : (compiled.Pattern != null && SafeIsMatch(compiled.Pattern, line.Text));
+
+            if (compiled.Rule.IsNegated) matches = !matches;
+
+            if (first)
+            {
+                result = matches;
+                first = false;
+            }
+            else
+            {
+                result = compiled.Rule.Operator == FilterOperator.AND
+                    ? result && matches
+                    : result || matches;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Overload for backward compatibility with raw text strings.</summary>
     public bool LineMatchesChain(
         string lineText,
         IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> compiledChain)
@@ -84,17 +137,29 @@ public sealed class SearchService
         return result;
     }
 
-    /// <summary>Compiles all rules in a chain, skipping invalid patterns.</summary>
-    public IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> CompileChain(
+    /// <summary>Compiles all rules in a chain, recognizing typed field filters or compiling regexes.</summary>
+    public IReadOnlyList<CompiledFilterRule> CompileChain(
         IEnumerable<FilterRule> rules)
     {
-        List<(FilterRule, Regex)> compiled = new();
+        List<CompiledFilterRule> compiled = new();
 
         foreach (FilterRule rule in rules.Where(r => r.IsEnabled && !string.IsNullOrEmpty(r.Pattern)))
         {
-            (Regex? pattern, _) = CompilePattern(rule.Pattern, rule.IsRegex, rule.IsCaseSensitive);
-            if (pattern != null)
-                compiled.Add((rule, pattern));
+            if (rule.TypedFilter != null)
+            {
+                compiled.Add(new CompiledFilterRule(rule, null, rule.TypedFilter));
+            }
+            else if (TypedFieldFilter.TryParse(rule.Pattern, out TypedFieldFilter? tf))
+            {
+                rule.TypedFilter = tf;
+                compiled.Add(new CompiledFilterRule(rule, null, tf));
+            }
+            else
+            {
+                (Regex? pattern, _) = CompilePattern(rule.Pattern, rule.IsRegex, rule.IsCaseSensitive);
+                if (pattern != null)
+                    compiled.Add(new CompiledFilterRule(rule, pattern, null));
+            }
         }
 
         return compiled;

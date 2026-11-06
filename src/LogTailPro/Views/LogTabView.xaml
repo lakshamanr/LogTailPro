@@ -54,6 +54,8 @@
                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                         <MenuItem Header="Open original line" Command="{Binding OpenOriginalLineCommand}"
                                   Visibility="{Binding IsTimeline, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <MenuItem Header="{Binding StructuredViewLabel}" Command="{Binding ToggleStructuredViewCommand}"
+                                  Visibility="{Binding HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <MenuItem Header="Copy selected lines" Command="{Binding CopySelectedLinesCommand}"/>
                     </ContextMenu>
                 </ListView.ContextMenu>
@@ -177,17 +179,94 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
+                        <GridViewColumn x:Name="StructuredLevelColumn" Width="0">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="3" Padding="4,1" Margin="0,1" HorizontalAlignment="Left"
+                                            Visibility="{Binding StructuredLevel, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource BadgeInfoBg}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Information">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeInfoBg}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Warning">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeWarnBg}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Error">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeErrorBg}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Fatal">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeFatalBg}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Debug">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeDebugBg}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StructuredLevel}" Value="Verbose">
+                                                        <Setter Property="Background" Value="{StaticResource BadgeDebugBg}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding StructuredLevel}"
+                                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource BadgeInfoFg}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Information">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeInfoFg}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Warning">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeWarnFg}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Error">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeErrorFg}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Fatal">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeFatalFg}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Debug">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeDebugFg}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding StructuredLevel}" Value="Verbose">
+                                                            <Setter Property="Foreground" Value="{StaticResource BadgeDebugFg}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn x:Name="StructuredTimeColumn" Width="0">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding StructuredTimeDisplay}"
+                                               Foreground="{StaticResource TextMuted}"
+                                               FontFamily="Consolas" FontSize="11"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <!-- Content column -->
                         <GridViewColumn Width="4000">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Text}"
-                                               FontFamily="Consolas"
-                                               FontSize="13">
+                                    <TextBlock FontFamily="Consolas" FontSize="13">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding Text}"/>
                                                 <Setter Property="TextWrapping" Value="NoWrap"/>
                                                 <Style.Triggers>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding DataContext.IsStructuredViewEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                                            <Condition Binding="{Binding HasStructuredEvent}" Value="True"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Text" Value="{Binding StructuredMessage}"/>
+                                                    </MultiDataTrigger>
                                                     <DataTrigger Binding="{Binding DataContext.IsLineWrapEnabled,
                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                  Value="True">

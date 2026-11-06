@@ -38,6 +38,8 @@ public partial class LogTabView : UserControl
         // reliably resolve the tab's DataContext. Keep column sizing in UI wiring.
         TimelineTimestampColumn.Width = _viewModel?.TimelineTimeWidth ?? 0;
         TimelineSourceColumn.Width = _viewModel?.TimelineSourceWidth ?? 0;
+        StructuredLevelColumn.Width = _viewModel?.StructuredLevelWidth ?? 0;
+        StructuredTimeColumn.Width = _viewModel?.StructuredTimeWidth ?? 0;
 
         GridViewColumn content = grid.Columns[^1];
         bool wrap = _viewModel?.IsLineWrapEnabled == true;
@@ -83,6 +85,7 @@ public partial class LogTabView : UserControl
             oldVm.PropertyChanged -= OnViewModelPropertyChanged;
             oldVm.ScrollToLineRequested -= OnScrollToLineRequested;
             oldVm.SelectAllRequested -= OnSelectAllRequested;
+            oldVm.LayoutUpdateRequested -= OnLayoutUpdateRequested;
         }
 
         _viewModel = e.NewValue as LogTabViewModel;
@@ -94,6 +97,7 @@ public partial class LogTabView : UserControl
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested += OnScrollToLineRequested;
             _viewModel.SelectAllRequested += OnSelectAllRequested;
+            _viewModel.LayoutUpdateRequested += OnLayoutUpdateRequested;
             Dispatcher.InvokeAsync(UpdateWrapLayout, DispatcherPriority.Loaded);
 
             // Restore scroll position after the new ItemsSource has bound and the ListView
@@ -137,7 +141,11 @@ public partial class LogTabView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(LogTabViewModel.IsLineWrapEnabled) or nameof(LogTabViewModel.ElapsedColumnWidth))
+        if (e.PropertyName is nameof(LogTabViewModel.IsLineWrapEnabled)
+            or nameof(LogTabViewModel.ElapsedColumnWidth)
+            or nameof(LogTabViewModel.StructuredLevelWidth)
+            or nameof(LogTabViewModel.StructuredTimeWidth)
+            or nameof(LogTabViewModel.IsStructuredViewEnabled))
             Dispatcher.InvokeAsync(UpdateWrapLayout, DispatcherPriority.Loaded);
 
         if (e.PropertyName == nameof(LogTabViewModel.SelectedLogLine) &&
@@ -165,6 +173,9 @@ public partial class LogTabView : UserControl
     {
         Dispatcher.InvokeAsync(() => LogListView.SelectAll(), DispatcherPriority.Input);
     }
+
+    private void OnLayoutUpdateRequested(object? sender, EventArgs e) =>
+        Dispatcher.InvokeAsync(UpdateWrapLayout, DispatcherPriority.Loaded);
 
     private static ScrollViewer? FindScrollViewer(DependencyObject root)
     {
