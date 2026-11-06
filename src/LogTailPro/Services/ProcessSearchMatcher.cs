@@ -85,6 +85,37 @@ public sealed class ProcessSearchMatcher
         return false;
     }
 
+    /// <summary>
+    /// Returns true when <paramref name="s"/> matches the pattern, tested against service name,
+    /// display name, hosting PID, binary path and account.
+    /// </summary>
+    public bool IsMatch(ServiceInfo s)
+    {
+        if (_regex == null && _plainTerms.Length == 0) return true;
+
+        string pid = s.Pid > 0 ? s.Pid.ToString() : string.Empty;
+        if (_regex != null)
+        {
+            try
+            {
+                return _regex.IsMatch(s.Name) || _regex.IsMatch(s.DisplayName) || _regex.IsMatch(pid) ||
+                       _regex.IsMatch(s.BinaryPath) || _regex.IsMatch(s.AccountName);
+            }
+            catch (RegexMatchTimeoutException) { return false; }
+        }
+
+        foreach (string term in _plainTerms)
+        {
+            if (s.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                s.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                pid.Contains(term, StringComparison.Ordinal) ||
+                s.BinaryPath.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                s.AccountName.Contains(term, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     private static Regex BuildRegex(string pattern) =>
         new(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout);
 

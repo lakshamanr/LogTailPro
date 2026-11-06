@@ -14,6 +14,8 @@ namespace LogTailPro.ViewModels;
 public sealed partial class ProcessExplorerViewModel : ObservableObject, IDisposable
 {
     private readonly ProcessSnapshotService _snapshot = new();
+    private readonly ServiceSnapshotService _serviceSnapshot = new();
+    private readonly object _snapshotLock = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly AppSettings _settings;
     private readonly HashSet<int> _expandedPids = new();
@@ -28,6 +30,7 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         _showDotNetOnly = settings.ProcessExplorerDotNetOnly;
         _showSystemProcesses = settings.ProcessExplorerShowSystem;
         _isRegexSearch = settings.ProcessExplorerRegexSearch;
+        _isServicesMode = settings.ProcessExplorerServicesMode;
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync();
@@ -68,6 +71,33 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
 
     /// <summary>Status line shown at the bottom of the panel.</summary>
     [ObservableProperty] private string _statusText = "Click Refresh to load processes";
+
+    /// <summary>True when the Windows Services list is shown instead of the process tree.</summary>
+    [ObservableProperty] private bool _isServicesMode;
+
+    /// <summary>Rows of the services list.</summary>
+    [ObservableProperty] private ObservableCollection<ServiceItemViewModel> _services = new();
+
+    /// <summary>Currently selected service row.</summary>
+    [ObservableProperty] private ServiceItemViewModel? _selectedService;
+
+    /// <summary>Services matching the current filter, for "open logs for all matches".</summary>
+    private IReadOnlyList<ServiceItemViewModel> _serviceMatches = Array.Empty<ServiceItemViewModel>();
+
+    /// <summary>Inverse of <see cref="IsServicesMode"/>; lets the "Processes" radio button bind two-way.</summary>
+    public bool IsProcessesMode
+    {
+        get => !IsServicesMode;
+        set => IsServicesMode = !value;
+    }
+
+    partial void OnIsServicesModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsProcessesMode));
+        _settings.ProcessExplorerServicesMode = value;
+        if (value) SelectedProcess = null;   // hides the process details strip
+        _ = RefreshAsync();
+    }
 
     partial void OnSearchTextChanged(string value)
     {
@@ -171,14 +201,23 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         SearchError = error ?? string.Empty;
         ProcessSearchMatcher matcher = _matcher;
 
+        if (IsServicesMode)
+        {
+            await RefreshServicesAsync(matcher, dotNetOnly);
+            return;
+        }
+
         (IReadOnlyList<ProcessInfo> roots, IReadOnlyList<ProcessInfo> matches, int total) = await Task.Run(() =>
         {
-            IReadOnlyList<ProcessInfo> flat = _snapshot.GetAll();
-            IEnumerable<ProcessInfo> filtered = flat;
-            if (!showSystem)  filtered = filtered.Where(p => !p.IsSystemProcess);
-            if (dotNetOnly)   filtered = filtered.Where(p => p.IsDotNet);
-            List<ProcessInfo> kept = filtered.Where(matcher.IsMatch).ToList();
-            return (_snapshot.BuildTree(kept), (IReadOnlyList<ProcessInfo>)kept, flat.Count);
+            lock (_snapshotLock)
+            {
+                IReadOnlyList<ProcessInfo> flat = _snapshot.GetAll();
+                IEnumerable<ProcessInfo> filtered = flat;
+                if (!showSystem)  filtered = filtered.Where(p => !p.IsSystemProcess);
+                if (dotNetOnly)   filtered = filtered.Where(p => p.IsDotNet);
+                List<ProcessInfo> kept = filtered.Where(matcher.IsMatch).ToList();
+                return (_snapshot.BuildTree(kept), (IReadOnlyList<ProcessInfo>)kept, flat.Count);
+            }
         });
 
         _matches = matches;
@@ -195,6 +234,81 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         else SelectedProcess = null;
 
         StatusText = $"{total} processes  •  {DateTime.Now:HH:mm:ss}";
+    }
+
+    /// <summary>Re-reads the Windows services list and applies the current filter.</summary>
+    private async Task RefreshServicesAsync(ProcessSearchMatcher matcher, bool dotNetOnly)
+    {
+        string? selectedName = SelectedService?.Name;
+
+        // Each service is joined with a live snapshot of its hosting process (CPU, memory, .NET, user, path),
+        // so the .NET filter and the details strip work the same as in the process tree.
+        (List<(ServiceInfo Service, ProcessInfo? Host)> kept, int total) = await Task.Run(() =>
+        {
+            lock (_snapshotLock)
+            {
+                IReadOnlyList<ServiceInfo> all = _serviceSnapshot.GetAll();
+                Dictionary<int, ProcessInfo> hosts = _snapshot.GetAll().ToDictionary(p => p.Pid);
+
+                List<(ServiceInfo, ProcessInfo?)> rows = all
+                    .Where(matcher.IsMatch)
+                    .Select(s => (s, s.IsRunning && hosts.TryGetValue(s.Pid, out ProcessInfo? h) ? h : null))
+                    .Where(r => !dotNetOnly || r.Item2?.IsDotNet == true)
+                    .ToList();
+                return (rows, all.Count);
+            }
+        });
+
+        ObservableCollection<ServiceItemViewModel> rowVms = new();
+        ServiceItemViewModel? reselect = null;
+        foreach ((ServiceInfo s, ProcessInfo? host) in kept)
+        {
+            ServiceItemViewModel row = new(s, host, OnOpenLogs, OnAttach, OnServiceControl, OnLaunch, OnKill);
+            row.PropertyChanged += OnServiceRowPropertyChanged;
+            if (s.Name == selectedName) reselect = row;
+            rowVms.Add(row);
+        }
+
+        _serviceMatches = rowVms.ToList();
+        MatchCount = rowVms.Count;
+
+        Services = rowVms;
+        if (reselect != null) reselect.IsSelected = true;
+        else SelectedService = null;
+
+        int running = kept.Count(r => r.Service.IsRunning);
+        StatusText = $"{kept.Count} of {total} services  •  {running} running  •  {DateTime.Now:HH:mm:ss}";
+    }
+
+    private void OnServiceRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is ServiceItemViewModel row && e.PropertyName == nameof(ServiceItemViewModel.IsSelected) && row.IsSelected)
+            SelectedService = row;
+    }
+
+    private async void OnServiceControl(ServiceInfo service, ServiceAction action)
+    {
+        StatusText = $"{action} {service.Name}…";
+        try
+        {
+            await Task.Run(() =>
+            {
+                lock (_snapshotLock)
+                {
+                    switch (action)
+                    {
+                        case ServiceAction.Start:   _serviceSnapshot.Start(service.Name);   break;
+                        case ServiceAction.Stop:    _serviceSnapshot.Stop(service.Name);    break;
+                        default:                    _serviceSnapshot.Restart(service.Name); break;
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, $"{action} Service", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        await RefreshAsync();
     }
 
     private ProcessItemViewModel BuildItemVm(ProcessInfo info, bool expandAll, int? selectedPid,
@@ -240,8 +354,27 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
 
     /// <summary>Finds and opens the logs of every process matching the current search (up to 25).</summary>
     [RelayCommand(CanExecute = nameof(CanOpenLogsForMatches))]
-    private void OpenLogsForMatches() =>
-        OpenLogsRequested?.Invoke(this, _matches.Take(MaxLogProcesses).ToList());
+    private void OpenLogsForMatches()
+    {
+        if (!IsServicesMode)
+        {
+            OpenLogsRequested?.Invoke(this, _matches.Take(MaxLogProcesses).ToList());
+            return;
+        }
+
+        // Services (running or stopped): several services can share one host (svchost), so a running
+        // host is searched once; stopped services are searched by their own executable.
+        List<ProcessInfo> targets = new();
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        foreach (ServiceItemViewModel s in _serviceMatches)
+        {
+            string key = s.Target.Pid > 0 ? $"pid:{s.Target.Pid}" : $"svc:{s.Name}";
+            if (!seen.Add(key)) continue;
+            targets.Add(s.Target);
+            if (targets.Count >= MaxLogProcesses) break;
+        }
+        if (targets.Count > 0) OpenLogsRequested?.Invoke(this, targets);
+    }
 
     private bool CanOpenLogsForMatches() => SearchText.Trim().Length > 0 && MatchCount > 0;
 

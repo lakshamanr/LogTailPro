@@ -44,6 +44,33 @@ public partial class ProcessExplorerPanel : UserControl
         }
     }
 
+    private void ServicesList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not ProcessExplorerViewModel vm) return;
+
+        if (e.Key == Key.F5)
+        {
+            _ = vm.RefreshAsync();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete && vm.SelectedService != null)
+        {
+            vm.SelectedService.KillProcessCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && vm.SelectedService != null)
+        {
+            vm.SelectedService.OpenLogsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void ServicesList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is ProcessExplorerViewModel { SelectedService: { } service })
+            service.OpenLogsCommand.Execute(null);
+    }
+
     /// <summary>
     /// Double-clicking a process opens its log files. Handled in the preview phase so the tree
     /// does not also toggle the node's expansion.

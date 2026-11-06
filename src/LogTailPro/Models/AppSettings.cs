@@ -101,4 +101,7 @@ public sealed class AppSettings
 
     /// <summary>Whether the Process Explorer search box treats its text as a regular expression.</summary>
     public bool ProcessExplorerRegexSearch { get; set; }
+
+    /// <summary>Whether the Process Explorer shows the Windows Services list instead of the process tree.</summary>
+    public bool ProcessExplorerServicesMode { get; set; }
 }
