@@ -49,6 +49,14 @@
                       SelectionMode="Extended"
                       SelectionChanged="LogListView_SelectionChanged">
 
+                <ListView.ContextMenu>
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="Open original line" Command="{Binding OpenOriginalLineCommand}"
+                                  Visibility="{Binding IsTimeline, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <MenuItem Header="Copy selected lines" Command="{Binding CopySelectedLinesCommand}"/>
+                    </ContextMenu>
+                </ListView.ContextMenu>
+
                 <ListView.Resources>
                     <!-- Completely hide column headers -->
                     <Style TargetType="GridViewColumnHeader">
@@ -150,6 +158,21 @@
                                                FontFamily="Consolas"
                                                FontSize="11"
                                                ToolTip="{Binding Timestamp}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Width="{Binding DataContext.TimelineTimeWidth, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding TimelineTimeDisplay}" Foreground="{StaticResource TextMuted}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Width="{Binding DataContext.TimelineSourceWidth, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding SourceFileName}" ToolTip="{Binding SourceFilePath}"
+                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextSecondary}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

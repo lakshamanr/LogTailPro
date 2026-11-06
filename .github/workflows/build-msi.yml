@@ -21,7 +21,16 @@ jobs:
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Verify timeline ordering and lifecycle
+        run: |
+          dotnet run --project tools/Timeline.Tests/Timeline.Tests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Timeline ordering checks failed.' }
+          dotnet run --project tools/Timeline.IntegrationTests/Timeline.IntegrationTests.csproj -c Release -r win-x64 --self-contained true
+          if ($LASTEXITCODE -ne 0) { throw 'Timeline integration checks failed.' }
 
       - name: Install WiX 5 and extensions
         run: |

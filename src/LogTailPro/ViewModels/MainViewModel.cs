@@ -370,35 +370,35 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task MergeTabsAsync()
+    private void MergeTabs()
     {
-        if (Tabs.Count < 2) { StatusMessage = "Need at least 2 tabs to merge"; return; }
-
-        List<LogLine> allLines = new();
-        foreach (LogTabViewModel tab in Tabs)
+        LogTabViewModel[] sources = Tabs.Where(tab => tab.IsTimelineSource).ToArray();
+        if (sources.Length < 2)
         {
-            allLines.AddRange(tab.AllLines.Select(l => new LogLine
-            {
-                LineNumber = l.LineNumber,
-                Text = l.Text,
-                Timestamp = l.Timestamp,
-                ElapsedSincePrevious = l.ElapsedSincePrevious,
-                ByteOffset = l.ByteOffset,
-                SourceFileName = tab.FileName
-            }));
+            StatusMessage = "Open at least two log files to create a combined timeline.";
+            return;
         }
-
-        List<LogLine> sorted = allLines
-            .OrderBy(l => l.Timestamp ?? DateTime.MaxValue)
-            .ThenBy(l => l.LineNumber)
-            .ToList();
-
-        LogTabViewModel mergedTab = new("Merged View", sorted, Settings);
-        Tabs.Add(mergedTab);
-        SelectedTab = mergedTab;
-        await Task.CompletedTask;
+        TimelineSourcesDialog picker = new(sources) { Owner = Application.Current.MainWindow };
+        if (picker.ShowDialog() != true) return;
+        LogTabViewModel timeline = new(picker.SelectedSources, Settings)
+        {
+            IsHighlightingEnabled = IsHighlightingEnabled
+        };
+        timeline.OriginalLineRequested += (_, line) =>
+        {
+            LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
+                string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+            if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+            {
+                StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
+                return;
+            }
+            SelectedTab = source;
+            source.NavigateToLine(line.OriginalLine);
+        };
+        Tabs.Add(timeline);
+        SelectedTab = timeline;
     }
-
     // ── Workspace ─────────────────────────────────────────────────────────────
 
     [RelayCommand]

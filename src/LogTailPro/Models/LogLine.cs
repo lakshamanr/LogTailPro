@@ -58,6 +58,21 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     /// <summary>Source file name (used in merged tabs to label lines from different files).</summary>
     public string? SourceFileName { get; set; }
 
+    /// <summary>Full source path for a timeline row, independent of its display name.</summary>
+    public string? SourceFilePath { get; init; }
+
+    /// <summary>Original loaded line for precise navigation, including after line-number reuse.</summary>
+    public LogLine? OriginalLine { get; init; }
+
+    /// <summary>Original source line number for timeline display.</summary>
+    public long SourceLineNumber => OriginalLine?.LineNumber ?? LineNumber;
+
+    /// <summary>Timestamp in UTC for cross-file ordering; null means no full date was recognized.</summary>
+    public DateTimeOffset? TimelineTimestamp { get; init; }
+
+    /// <summary>Explicit timestamp label, including the timezone.</summary>
+    public string TimelineTimeDisplay => TimelineTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff 'UTC'") ?? "No dated timestamp";
+
     /// <summary>Wall-clock time when this line arrived from the file watcher. DateTime.MinValue for initial load.</summary>
     public DateTime ArrivedAt { get; set; } = DateTime.MinValue;
 }

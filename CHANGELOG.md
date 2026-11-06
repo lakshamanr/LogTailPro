@@ -9,6 +9,7 @@ If the version here is newer than what you last built, re-read the affected phas
 
 - Added prompts/ROADMAP.md with six prioritized phases and acceptance criteria.
 - Roadmap Phase 1 is the combined live timeline; existing Phases 1-7 retain their numbering.
+- Implemented roadmap Phase 1 in app 1.4.0: selectable live combined timeline, UTC ordering, source columns, original navigation, source lifecycle and independent filters. Added service and real-file integration checks to CI.
 - Phases 2-6 remain planned. Application/MSI version is independent of this plan version.
 
 ---

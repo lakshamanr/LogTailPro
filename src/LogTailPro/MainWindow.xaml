@@ -115,7 +115,7 @@
                           Command="{Binding SelectedTab.SelectAllVisibleLinesCommand}"
                           InputGestureText="Ctrl+A"/>
                 <Separator/>
-                <MenuItem Header="_Merge All Tabs…"
+                <MenuItem Header="_Combined Timeline…"
                           Command="{Binding MergeTabsCommand}"/>
             </MenuItem>
 

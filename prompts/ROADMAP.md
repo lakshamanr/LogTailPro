@@ -21,6 +21,14 @@ Roadmap versions are independent of the MSI/application version.
 
 ## Phase 1 detailed design
 
+Implemented in application version 1.4.0. Local Release build: zero warnings/errors.
+Service checks cover ordering, offsets, unknown dates, duplicate filenames, reconciliation
+and cancellation. Dispatcher-based integration checks use real files to verify live
+appends, late timestamps, filters, pause/resume, retention, truncation, original navigation,
+source closure and disposal. Actual XAML views are loaded and laid out in the check.
+Manual desktop visual review and a large-file performance benchmark remain follow-ups.
+The MSI workflow runs both check suites before packaging. Phases 2-6 remain planned.
+
 Open at least two files, choose **Edit > Combined Timeline**, select sources, then view
 a live merged tab. **Open original line** returns to the source tab and line.
 

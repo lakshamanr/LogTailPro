@@ -411,6 +411,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 FileStatus = FileStatus.Watching;
                 UpdateStatus();
                 NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
+                LinesChanged?.Invoke(this, EventArgs.Empty);
             }, DispatcherPriority.Background, ct);
 
             // Continue exactly where the load stopped — never from the start of the loaded range, or the
@@ -482,6 +483,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            if (_disposed) return;
             List<LogLine> created = BuildLogLines(newLines, isFromWatcher: true);
             TotalLineCount += created.Count;
 
@@ -507,6 +509,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             CheckForNotifications(created);
             UpdateStatus();
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
+            LinesChanged?.Invoke(this, EventArgs.Empty);
         }, DispatcherPriority.Background);
     }
 
@@ -536,6 +539,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         {
             _allLines.Clear();
             VisibleLines.Clear();
+            LinesChanged?.Invoke(this, EventArgs.Empty);
             TotalLineCount = 0;
             _nextLineNumber = 1;
             _lastTimestamp = null;
@@ -686,6 +690,13 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void PauseSearch()
     {
+        if (IsTimeline)
+        {
+            IsWatchPaused = !IsWatchPaused;
+            if (!IsWatchPaused) MarkTimelineDirty();
+            UpdateStatus();
+            return;
+        }
         if (_isReadOnly) return;
         if (IsWatchPaused) { _watcher.Resume(); IsWatchPaused = false; }
         else               { _watcher.Pause();  IsWatchPaused = true;  }
@@ -1067,7 +1078,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         string state = IsLoaded ? (FileStatus == FileStatus.Watching ? "Watching" : FileStatus.ToString()) : "Loading";
         if (IsWatchPaused) state = "Paused";
-        string size = IsProcessTab
+        string size = IsProcessTab || IsTimeline
             ? "live"
             : FileSizeBytes >= 1_048_576
                 ? $"{FileSizeBytes / 1_048_576.0:F1} MB"
@@ -1085,6 +1096,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Closed?.Invoke(this, EventArgs.Empty);
+        DisposeTimeline();
         _searchCts?.Cancel();
         if (_captureService != null)
         {

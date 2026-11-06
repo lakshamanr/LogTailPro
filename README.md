@@ -39,6 +39,24 @@ dotnet run --project src/LogTailPro/LogTailPro.csproj
 dotnet publish src/LogTailPro/LogTailPro.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
 ```
 
+## Combined timeline (1.4.0)
+
+Open two or more log files, then choose **Edit > Combined Timeline**. Select the
+files to combine. The new tab follows loaded source records as the files change,
+ordered by UTC timestamp, with separate source and timestamp columns. Hover a source
+name to see its full path; right-click a selected row and choose **Open original line**
+to return to its file. Clear the source's filters first if that original line is hidden.
+
+Search and filters in the timeline are independent of each source tab. Pause freezes
+the timeline view; Resume catches up. Closing a source removes it from the timeline.
+Closing the timeline leaves its source file tabs running.
+
+Offset-free timestamps use the machine local timezone. Lines without a full date
+(including time-only records and stack-trace continuation lines) appear after dated
+records, in source/line order. The timeline includes only the loaded portions of files;
+it does not retrieve skipped history. For roadmap and upcoming phases, see
+[the log investigation plan](prompts/ROADMAP.md).
+
 ## MSI installer downloads
 
 For published versions, download the MSI directly from [Releases](https://github.com/lakshamanr/LogTailPro/releases).
