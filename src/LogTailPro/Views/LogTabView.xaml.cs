@@ -18,6 +18,46 @@ public partial class LogTabView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        LogListView.SizeChanged += (_, _) => UpdateWrapLayout();
+        LogListView.Loaded += (_, _) => UpdateWrapLayout();
+    }
+
+    /// <summary>Width of the content column when line wrap is off (long lines scroll horizontally).</summary>
+    private const double NoWrapContentWidth = 4000;
+
+    /// <summary>
+    /// Keeps the content column in step with the Wrap toggle. The column is a fixed-width GridViewColumn,
+    /// so wrapping needs it narrowed to the visible width (otherwise lines only wrap at 4000 px, i.e. never),
+    /// and the horizontal scrollbar is dropped while wrapping.
+    /// </summary>
+    private void UpdateWrapLayout()
+    {
+        if (LogListView.View is not GridView grid || grid.Columns.Count == 0) return;
+
+        GridViewColumn content = grid.Columns[^1];
+        bool wrap = _viewModel?.IsLineWrapEnabled == true;
+
+        if (!wrap)
+        {
+            ScrollViewer.SetHorizontalScrollBarVisibility(LogListView, ScrollBarVisibility.Auto);
+            if (content.Width != NoWrapContentWidth) content.Width = NoWrapContentWidth;
+            return;
+        }
+
+        ScrollViewer.SetHorizontalScrollBarVisibility(LogListView, ScrollBarVisibility.Disabled);
+
+        double gutters = 0;
+        for (int i = 0; i < grid.Columns.Count - 1; i++)
+            gutters += double.IsNaN(grid.Columns[i].Width) ? grid.Columns[i].ActualWidth : grid.Columns[i].Width;
+
+        ScrollViewer? sv = FindScrollViewer(LogListView);
+        double available = sv is { ViewportWidth: > 0 }
+            ? sv.ViewportWidth
+            : LogListView.ActualWidth - SystemParameters.VerticalScrollBarWidth;
+
+        // Leave room for the item padding / border so the text never touches the scrollbar.
+        double width = Math.Max(120, available - gutters - 16);
+        if (Math.Abs(content.Width - width) > 0.5) content.Width = width;
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -48,6 +88,7 @@ public partial class LogTabView : UserControl
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested += OnScrollToLineRequested;
             _viewModel.SelectAllRequested += OnSelectAllRequested;
+            Dispatcher.InvokeAsync(UpdateWrapLayout, DispatcherPriority.Loaded);
 
             // Restore scroll position after the new ItemsSource has bound and the ListView
             // has completed its first layout pass (Background priority runs after Render).
@@ -90,6 +131,9 @@ public partial class LogTabView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(LogTabViewModel.IsLineWrapEnabled) or nameof(LogTabViewModel.ElapsedColumnWidth))
+            Dispatcher.InvokeAsync(UpdateWrapLayout, DispatcherPriority.Loaded);
+
         if (e.PropertyName == nameof(LogTabViewModel.SelectedLogLine) &&
             _viewModel?.SelectedLogLine != null)
         {

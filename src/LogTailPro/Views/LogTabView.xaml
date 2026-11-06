@@ -68,6 +68,8 @@
                                         RelativeSource={RelativeSource AncestorType=Window},
                                         FallbackValue='13'}"/>
                         <Setter Property="Padding"         Value="4,1"/>
+                        <!-- Wrapped lines: keep line number / bookmark dot beside the first row of text -->
+                        <Setter Property="VerticalContentAlignment" Value="Top"/>
                         <Setter Property="Margin"          Value="0"/>
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
