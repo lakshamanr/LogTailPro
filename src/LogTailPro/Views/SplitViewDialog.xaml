@@ -1,0 +1,46 @@
+<Window x:Class="LogTailPro.Views.SplitViewDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Split View"
+        Width="420" Height="420" MinHeight="340"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Compare logs in one window" FontSize="{StaticResource FontSizeLarge}" FontWeight="SemiBold"/>
+            <TextBlock Margin="0,6,0,12" TextWrapping="Wrap" Foreground="{StaticResource TextSecondary}">
+                <Run Text="Stays in the first group:"/>
+                <Run Text="{Binding CurrentName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
+            </TextBlock>
+            <TextBlock Text="Show these tabs next to it:" Margin="0,0,0,6" FontWeight="SemiBold"/>
+        </StackPanel>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Choices}"
+                 Background="{StaticResource BgElevated}" BorderBrush="{StaticResource BorderNormal}" BorderThickness="1">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="4,3"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Margin="0,14,0,0">
+            <TextBlock Text="Layout" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <RadioButton Content="Side by side (left | right)" IsChecked="{Binding IsSideBySide}" Margin="0,0,0,4"/>
+            <RadioButton x:Name="StackedRadio" Content="Stacked (top / bottom)"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Split" Width="90" Margin="0,0,8,0" IsDefault="True" Style="{StaticResource PrimaryButton}" Click="OK_Click"/>
+            <Button Content="Cancel" Width="90" IsCancel="True" Style="{StaticResource SecondaryButton}"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -8,7 +8,18 @@
     </UserControl.Resources>
     <Grid>
         <TextBlock Text="No bookmarks yet. Select a line and press Ctrl+B."
-                   Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="12"/>
+                   Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="12" VerticalAlignment="Top">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedTab.Bookmarks.Count, FallbackValue=0}" Value="0">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <ListView ItemsSource="{Binding SelectedTab.Bookmarks}"
                   SelectedItem="{Binding SelectedTab.SelectedLogLine, Mode=TwoWay}"
                   Background="Transparent"

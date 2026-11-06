@@ -1,8 +1,13 @@
 namespace LogTailPro.Models;
 
 /// <summary>Represents a single line in the log file.</summary>
-public sealed class LogLine
+public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
 {
+    private bool _isBookmarked;
+
+    /// <inheritdoc/>
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     /// <summary>1-based line number within the loaded tail (not necessarily absolute file line).</summary>
     public long LineNumber { get; init; }
 
@@ -39,7 +44,16 @@ public sealed class LogLine
     public bool IsElapsedCritical => ElapsedSincePrevious?.TotalSeconds >= 5;
 
     /// <summary>Whether this line has been bookmarked by the user.</summary>
-    public bool IsBookmarked { get; set; }
+    public bool IsBookmarked
+    {
+        get => _isBookmarked;
+        set
+        {
+            if (_isBookmarked == value) return;
+            _isBookmarked = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBookmarked)));
+        }
+    }
 
     /// <summary>Source file name (used in merged tabs to label lines from different files).</summary>
     public string? SourceFileName { get; set; }

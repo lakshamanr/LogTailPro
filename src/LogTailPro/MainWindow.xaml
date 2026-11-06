@@ -137,6 +137,9 @@
                     <MenuItem Header="Line Details"     Tag="details"   IsCheckable="True" Click="PanelMenuItem_Click"/>
                     <MenuItem Header="Bookmarks"        Tag="bookmarks" IsCheckable="True" Click="PanelMenuItem_Click"/>
                 </MenuItem>
+                <MenuItem Header="Split View…" Click="SplitView_Click"/>
+                <MenuItem Header="Move Tab to Next Group" Click="MoveToNextGroup_Click"/>
+                <Separator/>
                 <MenuItem Header="_Reset Layout" Click="ResetLayout_Click"/>
             </MenuItem>
 
@@ -222,6 +225,9 @@
 
                     <Rectangle Width="1" Height="22" Fill="{StaticResource BorderNormal}" Margin="10,0"/>
 
+                    <Button Content="◫  Split View…" Style="{StaticResource FlatToolbarButton}" Margin="0,0,6,0" Padding="10,5"
+                            Click="SplitView_Click"
+                            ToolTip="Choose which logs to show side by side or stacked. You can also drag any tab to a window edge."/>
                     <Button Content="⟲  Reset Layout" Style="{StaticResource FlatToolbarButton}" Padding="10,5"
                             Click="ResetLayout_Click"
                             ToolTip="Restore all panels to their default positions"/>

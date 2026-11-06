@@ -4,7 +4,18 @@
              Background="{StaticResource BgElevated}">
     <Grid>
         <TextBlock Text="Run a search to see matching lines here."
-                   Foreground="{StaticResource TextMuted}" Margin="12" TextWrapping="Wrap"/>
+                   Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="12" VerticalAlignment="Top">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedTab.SearchResults.Count, FallbackValue=0}" Value="0">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <ListView ItemsSource="{Binding SelectedTab.SearchResults}"
                   SelectedItem="{Binding SelectedTab.SelectedSearchResult}"
                   Background="Transparent"

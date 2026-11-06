@@ -6,10 +6,12 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AvalonDock;
+using AvalonDock.Controls;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using LogTailPro.Services;
 using LogTailPro.ViewModels;
+using LogTailPro.Views;
 
 namespace LogTailPro;
 
@@ -191,9 +193,95 @@ public partial class MainWindow : Window
 
     private void WatchTab(LogTabViewModel? tab)
     {
-        if (_watchedTab != null) _watchedTab.PropertyChanged -= OnTabPropertyChanged;
+        if (_watchedTab != null)
+        {
+            _watchedTab.PropertyChanged -= OnTabPropertyChanged;
+            _watchedTab.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+        }
         _watchedTab = tab;
-        if (_watchedTab != null) _watchedTab.PropertyChanged += OnTabPropertyChanged;
+        if (_watchedTab != null)
+        {
+            _watchedTab.PropertyChanged += OnTabPropertyChanged;
+            _watchedTab.Bookmarks.CollectionChanged += OnBookmarksChanged;
+        }
+    }
+
+    /// <summary>Reveals the Bookmarks panel (without stealing focus) the first time a line is bookmarked.</summary>
+    private void OnBookmarksChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            SetAnchorableVisible("bookmarks", true, activate: false);
+    }
+
+    // ── Split view (side-by-side / stacked tab groups) ────────────────────────
+
+    /// <summary>Opens the Split View dialog so the user picks which tabs go beside the current one.</summary>
+    private void SplitView_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Tabs.Count < 2)
+        {
+            ViewModel.StatusMessage = "Open at least two logs to use Split View.";
+            return;
+        }
+
+        SplitViewDialog dialog = new(new SplitViewViewModel(ViewModel.Tabs, ViewModel.SelectedTab)) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        PreservePanelVisibility(() => ApplySplit(dialog.ViewModel.SelectedTabs, dialog.ViewModel.IsSideBySide));
+    }
+
+    /// <summary>
+    /// Moves the first chosen tab into a new tab group (vertical = side by side, horizontal = stacked),
+    /// then moves any further chosen tabs into that same group.
+    /// </summary>
+    private void ApplySplit(IReadOnlyList<LogTabViewModel> chosen, bool sideBySide)
+    {
+        bool first = true;
+        foreach (LogTabViewModel tab in chosen)
+        {
+            Dock.ActiveContent = tab;
+            ViewModel.SelectedTab = tab;
+            LayoutDocumentItem? item = GetActiveDocumentItem();
+            if (item == null) continue;
+
+            System.Windows.Input.ICommand cmd = first
+                ? (sideBySide ? item.NewVerticalTabGroupCommand : item.NewHorizontalTabGroupCommand)
+                : item.MoveToNextTabGroupCommand;
+            if (cmd.CanExecute(null)) cmd.Execute(null);
+            first = false;
+        }
+    }
+
+    private void MoveToNextGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetActiveDocumentItem() is { } item && item.MoveToNextTabGroupCommand.CanExecute(null))
+            PreservePanelVisibility(() => item.MoveToNextTabGroupCommand.Execute(null));
+    }
+
+    /// <summary>
+    /// AvalonDock re-opens hidden panels while restructuring document groups; remember which panels
+    /// were open before <paramref name="action"/> and put them back afterwards.
+    /// </summary>
+    private void PreservePanelVisibility(Action action)
+    {
+        Dictionary<string, bool> before = _anchorables.ToDictionary(kv => kv.Key, kv => kv.Value.IsVisible);
+        action();
+
+        void Restore()
+        {
+            foreach ((string id, bool visible) in before)
+                SetAnchorableVisible(id, visible, activate: false);
+        }
+
+        Restore();
+        Dispatcher.BeginInvoke(Restore, DispatcherPriority.Background);
+    }
+
+    private LayoutDocumentItem? GetActiveDocumentItem()
+    {
+        LayoutDocument? doc = Dock.Layout.Descendents().OfType<LayoutDocument>()
+            .FirstOrDefault(d => ReferenceEquals(d.Content, ViewModel.SelectedTab));
+        return doc == null ? null : Dock.GetLayoutItemFromModel(doc) as LayoutDocumentItem;
     }
 
     private void OnTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -216,7 +304,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Shows or hides a panel without echoing the change back to the view-model.</summary>
-    private void SetAnchorableVisible(string id, bool visible, bool focusSearch = false)
+    private void SetAnchorableVisible(string id, bool visible, bool focusSearch = false, bool activate = true)
     {
         if (!_anchorables.TryGetValue(id, out LayoutAnchorable? a)) return;
         if (a.IsVisible != visible)
@@ -229,7 +317,7 @@ public partial class MainWindow : Window
             finally { _syncing = false; }
         }
 
-        if (visible)
+        if (visible && activate)
         {
             a.IsActive = true;
             if (focusSearch)
