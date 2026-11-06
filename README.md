@@ -60,8 +60,20 @@ it does not retrieve skipped history. For roadmap and upcoming phases, see
 ## MSI installer downloads
 
 For published versions, download the MSI directly from [Releases](https://github.com/lakshamanr/LogTailPro/releases).
-Pushing a tag matching the project version (for example `v1.3.5`) builds and publishes
-that version with its MSI attached. Normal branch pushes continue to provide build artifacts.
+Every push to `master` runs the tests, builds the MSI and publishes a release automatically
+after all checks pass. No separate version-tag push is needed. A local commit must be
+pushed to GitHub before the workflow can run.
+
+Master builds use the project's major/minor version plus the workflow run number:
+for example, project `1.4.0` and run 12 produce release `v1.4.12` and
+`LogTailPro-1.4.12-x64.msi`. The EXE and MSI share that version; newer builds can upgrade
+older installed CI versions. Gaps in build numbers are expected. Rerunning a workflow
+keeps the same release and does not overwrite an existing MSI. An older build finishing
+late is not marked Latest when its commit is no longer the head of master.
+
+Other branch pushes provide build artifacts without publishing releases. Explicit version
+tags remain supported when their version matches the project version. Release tags created
+by the workflow's GitHub token do not trigger another build.
 
 Every push to any branch runs the [Build MSI workflow](https://github.com/lakshamanr/LogTailPro/actions/workflows/build-msi.yml).
 Open the successful run for your commit and download `LogTailPro-win-x64-<commit SHA>`

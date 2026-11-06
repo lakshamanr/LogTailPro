@@ -7,6 +7,9 @@
                                             wix extension add -g WixToolset.Util.wixext/5.0.2
   Output: installer\out\LogTailPro-<version>-x64.msi
 #>
+param(
+    [string]$Version
+)
 $ErrorActionPreference = 'Stop'
 $root    = Split-Path -Parent $PSScriptRoot
 $csproj  = Join-Path $root 'src\LogTailPro\LogTailPro.csproj'
@@ -14,11 +17,14 @@ $publish = Join-Path $root 'publish'
 $outDir  = Join-Path $PSScriptRoot 'out'
 
 # Version comes from the csproj so the MSI and the EXE always match.
-$version = ([xml](Get-Content $csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+if (-not $Version) {
+    $Version = ([xml](Get-Content $csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+}
 if (-not $version) { throw 'Could not read <Version> from the csproj.' }
 
 Write-Host "Publishing LogTailPro $version ..."
 dotnet publish $csproj -c Release -r win-x64 --self-contained true `
+    -p:Version=$Version -p:FileVersion="$Version.0" `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
 

@@ -44,8 +44,24 @@ jobs:
           & $wix extension add -g WixToolset.Util.wixext/5.0.2
           if ($LASTEXITCODE -ne 0) { throw 'WiX Util extension installation failed.' }
 
+      - name: Select installer and release version
+        run: |
+          $projectVersion = ([xml](Get-Content src/LogTailPro/LogTailPro.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          $version = [version]$projectVersion
+          if ($env:GITHUB_REF -eq 'refs/heads/master') {
+            # A unique, increasing MSI build component makes successive CI installers upgradeable.
+            $build = [int]$env:GITHUB_RUN_NUMBER
+            if ($build -gt 65535) { throw 'MSI build limit reached. Increase the minor version and revise build numbering.' }
+            $projectVersion = "$($version.Major).$($version.Minor).$build"
+          }
+          if ($env:GITHUB_REF.StartsWith('refs/tags/v') -and $env:GITHUB_REF_NAME -ne "v$projectVersion") {
+            throw 'Release tag must match the project version.'
+          }
+          "MSI_VERSION=$projectVersion" >> $env:GITHUB_ENV
+          "RELEASE_TAG=v$projectVersion" >> $env:GITHUB_ENV
+
       - name: Build installer
-        run: ./installer/build-msi.ps1
+        run: ./installer/build-msi.ps1 -Version $env:MSI_VERSION
 
       - name: Upload MSI
         id: upload
@@ -65,13 +81,26 @@ jobs:
           "" >> $env:GITHUB_STEP_SUMMARY
           "[Download MSI artifact]($env:ARTIFACT_URL) (retained for 30 days)." >> $env:GITHUB_STEP_SUMMARY
 
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish release
+        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = ([xml](Get-Content src/LogTailPro/LogTailPro.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-          if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag must match the project version.' }
-          $msi = Get-Item "installer/out/LogTailPro-$version-x64.msi"
-          gh release create $env:GITHUB_REF_NAME $msi.FullName --verify-tag --title "LogTailPro $version" --notes "Windows x64 MSI installer. Download the .msi asset below and run it to install LogTailPro. Built from commit $env:GITHUB_SHA."
+          $tag = $env:RELEASE_TAG
+          $msi = Get-Item "installer/out/LogTailPro-$env:MSI_VERSION-x64.msi"
+          $existingAssets = @(gh release view $tag --json assets --jq '.assets[].name' 2>$null)
+          if ($LASTEXITCODE -eq 0) {
+            $existingCommit = gh api "repos/$env:GITHUB_REPOSITORY/commits/$tag" --jq '.sha'
+            if ($LASTEXITCODE -ne 0 -or $existingCommit -ne $env:GITHUB_SHA) { throw 'Release tag already belongs to a different commit.' }
+            if ($existingAssets -notcontains $msi.Name) {
+              gh release upload $tag $msi.FullName
+              if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
+            }
+          } else {
+            $masterHead = gh api "repos/$env:GITHUB_REPOSITORY/commits/master" --jq '.sha'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read master head.' }
+            $latest = if ($masterHead -eq $env:GITHUB_SHA) { 'true' } else { 'false' }
+            gh release create $tag $msi.FullName --target $env:GITHUB_SHA --latest=$latest --title "LogTailPro $env:MSI_VERSION" --notes "Windows x64 MSI installer. Download the .msi asset below and run it to install LogTailPro. Built from commit $env:GITHUB_SHA."
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
+          "[Download release](https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag)" >> $env:GITHUB_STEP_SUMMARY
