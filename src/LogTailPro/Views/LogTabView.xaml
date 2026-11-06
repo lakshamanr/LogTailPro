@@ -30,66 +30,6 @@
                            FontWeight="Bold"/>
             </Border>
 
-            <!-- Stats panel (Ctrl+Shift+S) -->
-            <Border DockPanel.Dock="Bottom"
-                    Background="{StaticResource BgElevated}"
-                    BorderBrush="{StaticResource BorderSubtle}"
-                    BorderThickness="0,1,0,0"
-                    Height="24"
-                    Visibility="{Binding IsStatsPanelVisible,
-                                 Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel Orientation="Horizontal" Margin="10,0" VerticalAlignment="Center">
-                    <TextBlock Text="ERR" Foreground="{StaticResource StatusError}"  FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsErrorCount}" Foreground="{StaticResource StatusError}"  FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="WARN" Foreground="{StaticResource StatusWarn}"  FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsWarnCount}" Foreground="{StaticResource StatusWarn}"  FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="INFO" Foreground="{StaticResource TextSecondary}" FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsInfoCount}" Foreground="{StaticResource TextSecondary}" FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="lines/s" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource UiFont}" FontSize="11"/>
-                    <TextBlock Text="{Binding StatsLinesPerSecond}" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,0,0"/>
-                </StackPanel>
-            </Border>
-
-            <!-- Pretty-print / detail panel (Ctrl+P) -->
-            <Border DockPanel.Dock="Bottom"
-                    Background="{StaticResource BgElevated}"
-                    BorderBrush="{StaticResource BorderSubtle}"
-                    BorderThickness="0,1,0,0"
-                    MaxHeight="220"
-                    Visibility="{Binding IsDetailPanelVisible,
-                                 Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="6,4">
-                        <TextBlock DockPanel.Dock="Left"
-                                   Text="Detail View"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextPrimary}"/>
-                        <Button DockPanel.Dock="Right"
-                                Content="x"
-                                Command="{Binding CloseDetailPanelCommand}"
-                                Padding="6,1"
-                                Margin="4,0,0,0"
-                                ToolTip="Close detail panel"/>
-                    </DockPanel>
-                    <TextBox Grid.Row="1"
-                             Text="{Binding DetailText, Mode=OneWay}"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             FontFamily="Consolas"
-                             FontSize="11"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Margin="6,0,6,6"/>
-                </Grid>
-            </Border>
-
             <!-- ── Log ListView — colors driven by theme tokens ── -->
             <ListView x:Name="LogListView"
                       Background="{StaticResource BgLog}"

@@ -519,22 +519,6 @@ public sealed partial class MainViewModel : ObservableObject
             tab.RefreshHighlighting();
     }
 
-    // ── Tab strip placement ───────────────────────────────────────────────────
-
-    [RelayCommand]
-    private void SetTabPlacement(string side)
-    {
-        System.Windows.Controls.Dock dock = side switch
-        {
-            "Bottom" => System.Windows.Controls.Dock.Bottom,
-            "Left"   => System.Windows.Controls.Dock.Left,
-            "Right"  => System.Windows.Controls.Dock.Right,
-            _        => System.Windows.Controls.Dock.Top
-        };
-        Settings.TabStripPlacement = dock;
-        _settingsService.Save(Settings);
-    }
-
     // ── App exit ─────────────────────────────────────────────────────────────
 
     [RelayCommand]

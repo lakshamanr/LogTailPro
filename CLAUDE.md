@@ -85,6 +85,7 @@ Never commit broken code. Never commit bin/, obj/, or publish/.
   - `CommunityToolkit.Mvvm` — MVVM helpers
   - `Microsoft.Xaml.Behaviors.Wpf` — XAML behaviors
   - `Newtonsoft.Json` — settings serialization
+  - `Dirkster.AvalonDock` + `Dirkster.AvalonDock.Themes.VS2013` (4.72.1) — dockable panels / document tabs (single soft-light theme; no Dark/Light switch)
 
 ---
 

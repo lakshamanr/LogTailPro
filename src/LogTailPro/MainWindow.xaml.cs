@@ -1,48 +1,293 @@
+using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
+using AvalonDock;
+using AvalonDock.Layout;
+using AvalonDock.Layout.Serialization;
+using LogTailPro.Services;
 using LogTailPro.ViewModels;
 
 namespace LogTailPro;
 
-/// <summary>Code-behind for MainWindow — drag-drop (files + tabs), keyboard shortcuts, tab placement.</summary>
+/// <summary>
+/// Code-behind for MainWindow — UI wiring only: file drag-drop, keyboard shortcuts and the
+/// AvalonDock glue (panel visibility ↔ view-model flags, layout save/restore, document closing).
+/// </summary>
 public partial class MainWindow : Window
 {
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
-    // Tab drag state
-    private LogTabViewModel? _draggedTab;
-    private Point _dragStartPoint;
+    private readonly DockLayoutService _layoutService = new();
+
+    /// <summary>ContentId → panel content (the user controls defined in XAML).</summary>
+    private readonly Dictionary<string, object> _panelContents = new();
+
+    /// <summary>ContentId → the live anchorable model (re-resolved after every layout load).</summary>
+    private readonly Dictionary<string, LayoutAnchorable> _anchorables = new();
+
+    private string _defaultLayoutXml = string.Empty;
+    private bool _hadSavedLayout;
+    private bool _syncing;
+    private LogTabViewModel? _watchedTab;
 
     public MainWindow()
     {
         InitializeComponent();
-        Loaded += (_, _) =>
+
+        // Remember each panel's content, then capture the default layout before restoring a saved one.
+        foreach (LayoutAnchorable a in DockLayoutRoot.Descendents().OfType<LayoutAnchorable>())
+            if (!string.IsNullOrEmpty(a.ContentId) && a.Content != null)
+                _panelContents[a.ContentId] = a.Content;
+
+        using (StringWriter sw = new())
         {
-            ViewModel.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(MainViewModel.IsProcessExplorerVisible))
-                    ApplyProcessPanelWidth();
-            };
-            ApplyProcessPanelWidth();
+            new XmlLayoutSerializer(Dock).Serialize(sw);
+            _defaultLayoutXml = sw.ToString();
+        }
+
+        _hadSavedLayout = TryRestoreSavedLayout();
+        RefreshAnchorables();
+
+        DataContextChanged += (_, _) => AssignPanelDataContexts();
+        Loaded += OnLoaded;
+    }
+
+    /// <summary>
+    /// Panels live inside AvalonDock models (not in the window's logical tree), so they don't inherit
+    /// the window DataContext — hand it to them explicitly.
+    /// </summary>
+    private void AssignPanelDataContexts()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        foreach ((string id, object content) in _panelContents)
+        {
+            if (content is FrameworkElement fe)
+                fe.DataContext = id == "process" ? vm.ProcessExplorer : vm;
+        }
+    }
+
+    // ── Docking: layout save / restore ────────────────────────────────────────
+
+    private XmlLayoutSerializer CreateSerializer()
+    {
+        XmlLayoutSerializer serializer = new(Dock);
+        serializer.LayoutSerializationCallback += (_, e) =>
+        {
+            // Panels get their original content back; log documents are recreated from Tabs, never restored.
+            if (!string.IsNullOrEmpty(e.Model.ContentId) && _panelContents.TryGetValue(e.Model.ContentId, out object? content))
+                e.Content = content;
+            else
+                e.Cancel = true;
         };
+        return serializer;
     }
 
-    // ── Process Explorer panel layout ─────────────────────────────────────────
-
-    /// <summary>Shows the panel at its persisted width, or collapses its column to zero when hidden.</summary>
-    private void ApplyProcessPanelWidth()
+    private bool TryRestoreSavedLayout()
     {
-        ProcessPanelColumn.Width = ViewModel.IsProcessExplorerVisible
-            ? new GridLength(Math.Clamp(ViewModel.Settings.ProcessExplorerPanelWidth, 220, 600))
-            : new GridLength(0);
+        string? path = _layoutService.GetSavedLayoutPath();
+        if (path == null) return false;
+        try
+        {
+            CreateSerializer().Deserialize(path);
+            return true;
+        }
+        catch (Exception)
+        {
+            // Corrupt or incompatible layout: fall back to the default one.
+            _layoutService.Delete();
+            CreateSerializer().Deserialize(new StringReader(_defaultLayoutXml));
+            return false;
+        }
     }
 
-    private void ProcessSplitter_DragCompleted(object sender,
-        System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    private void ResetLayout_Click(object sender, RoutedEventArgs e)
     {
-        if (ProcessPanelColumn.ActualWidth >= 220)
-            ViewModel.Settings.ProcessExplorerPanelWidth = ProcessPanelColumn.ActualWidth;
+        _layoutService.Delete();
+        CreateSerializer().Deserialize(new StringReader(_defaultLayoutXml));
+
+        // Deserialising replaces the whole layout, so re-bind the document source to recreate the tabs.
+        Dock.DocumentsSource = null;
+        Dock.SetBinding(DockingManager.DocumentsSourceProperty, new Binding(nameof(MainViewModel.Tabs)));
+
+        _hadSavedLayout = false;
+        RefreshAnchorables();
+        ApplyAllPanelVisibility();
+        if (ViewModel.SelectedTab != null)
+            Dock.ActiveContent = ViewModel.SelectedTab;
+    }
+
+    // ── Docking: panel ↔ view-model wiring ───────────────────────────────────
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        WatchTab(ViewModel.SelectedTab);
+        ApplyAllPanelVisibility();
+    }
+
+    /// <summary>Re-resolves anchorables from the live layout and (re)hooks their visibility events.</summary>
+    private void RefreshAnchorables()
+    {
+        _anchorables.Clear();
+        foreach (LayoutAnchorable a in Dock.Layout.Descendents().OfType<LayoutAnchorable>())
+        {
+            if (string.IsNullOrEmpty(a.ContentId)) continue;
+            _anchorables[a.ContentId] = a;
+            a.PropertyChanged -= OnAnchorablePropertyChanged;
+            a.PropertyChanged += OnAnchorablePropertyChanged;
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(MainViewModel.SelectedTab):
+                WatchTab(ViewModel.SelectedTab);
+                if (!_syncing && ViewModel.SelectedTab != null && !ReferenceEquals(Dock.ActiveContent, ViewModel.SelectedTab))
+                {
+                    _syncing = true;
+                    try { Dock.ActiveContent = ViewModel.SelectedTab; }
+                    finally { _syncing = false; }
+                }
+                break;
+            case nameof(MainViewModel.IsProcessExplorerVisible):
+                SetAnchorableVisible("process", ViewModel.IsProcessExplorerVisible);
+                break;
+        }
+    }
+
+    private void WatchTab(LogTabViewModel? tab)
+    {
+        if (_watchedTab != null) _watchedTab.PropertyChanged -= OnTabPropertyChanged;
+        _watchedTab = tab;
+        if (_watchedTab != null) _watchedTab.PropertyChanged += OnTabPropertyChanged;
+    }
+
+    private void OnTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(LogTabViewModel.IsSearchPanelVisible):
+                SetAnchorableVisible("search", _watchedTab?.IsSearchPanelVisible == true, focusSearch: true);
+                break;
+            case nameof(LogTabViewModel.IsSearchResultsVisible):
+                SetAnchorableVisible("results", _watchedTab?.IsSearchResultsVisible == true);
+                break;
+            case nameof(LogTabViewModel.IsStatsPanelVisible):
+                SetAnchorableVisible("stats", _watchedTab?.IsStatsPanelVisible == true);
+                break;
+            case nameof(LogTabViewModel.IsDetailPanelVisible):
+                SetAnchorableVisible("details", _watchedTab?.IsDetailPanelVisible == true);
+                break;
+        }
+    }
+
+    /// <summary>Shows or hides a panel without echoing the change back to the view-model.</summary>
+    private void SetAnchorableVisible(string id, bool visible, bool focusSearch = false)
+    {
+        if (!_anchorables.TryGetValue(id, out LayoutAnchorable? a)) return;
+        if (a.IsVisible != visible)
+        {
+            _syncing = true;
+            try
+            {
+                if (visible) a.Show(); else a.Hide();
+            }
+            finally { _syncing = false; }
+        }
+
+        if (visible)
+        {
+            a.IsActive = true;
+            if (focusSearch)
+                Dispatcher.BeginInvoke(() => SearchView.FocusQuery(), DispatcherPriority.Input);
+        }
+    }
+
+    /// <summary>Pushes the user's show/hide (X button, drag) from an anchorable back to the view-model flag.</summary>
+    private void OnAnchorablePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_syncing || e.PropertyName != nameof(LayoutAnchorable.IsVisible)) return;
+        if (sender is not LayoutAnchorable a || a.ContentId == null) return;
+        bool visible = a.IsVisible;
+        LogTabViewModel? tab = ViewModel.SelectedTab;
+
+        switch (a.ContentId)
+        {
+            case "process": ViewModel.IsProcessExplorerVisible = visible; break;
+            case "search":  if (tab != null) tab.IsSearchPanelVisible = visible; break;
+            case "results": if (tab != null) tab.IsSearchResultsVisible = visible; break;
+            case "stats":   if (tab != null) tab.IsStatsPanelVisible = visible; break;
+            case "details": if (tab != null) tab.IsDetailPanelVisible = visible; break;
+        }
+    }
+
+    /// <summary>Applies the view-model flags to every panel (used at startup and after a layout reset).</summary>
+    private void ApplyAllPanelVisibility()
+    {
+        LogTabViewModel? tab = ViewModel.SelectedTab;
+        SetAnchorableVisible("process", ViewModel.IsProcessExplorerVisible);
+        SetAnchorableVisible("search",  tab?.IsSearchPanelVisible == true);
+        SetAnchorableVisible("results", tab?.IsSearchResultsVisible == true);
+        SetAnchorableVisible("stats",   tab?.IsStatsPanelVisible == true);
+        SetAnchorableVisible("details", tab?.IsDetailPanelVisible == true);
+        if (!_hadSavedLayout)
+            SetAnchorableVisible("bookmarks", false);
+    }
+
+    // ── Docking: documents ────────────────────────────────────────────────────
+
+    private void Dock_DocumentClosing(object? sender, DocumentClosingEventArgs e)
+    {
+        // Route closing through the view-model so the tab is disposed and removed from Tabs.
+        if (e.Document.Content is LogTabViewModel tab)
+        {
+            e.Cancel = true;
+            ViewModel.CloseTabCommand.Execute(tab);
+        }
+    }
+
+    private void Dock_ActiveContentChanged(object? sender, EventArgs e)
+    {
+        if (_syncing) return;
+        if (Dock.ActiveContent is LogTabViewModel tab && !ReferenceEquals(ViewModel.SelectedTab, tab))
+        {
+            _syncing = true;
+            try { ViewModel.SelectedTab = tab; }
+            finally { _syncing = false; }
+        }
+    }
+
+    // ── View ▸ Panels menu ────────────────────────────────────────────────────
+
+    private void PanelsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        foreach (MenuItem item in PanelsMenu.Items.OfType<MenuItem>())
+            if (item.Tag is string id && _anchorables.TryGetValue(id, out LayoutAnchorable? a))
+                item.IsChecked = a.IsVisible;
+    }
+
+    private void PanelMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string id } item) return;
+        bool visible = item.IsChecked;
+        LogTabViewModel? tab = ViewModel.SelectedTab;
+
+        // Flag-backed panels go through the view-model (which then drives the dock); others directly.
+        switch (id)
+        {
+            case "process": ViewModel.IsProcessExplorerVisible = visible; return;
+            case "search"  when tab != null: tab.IsSearchPanelVisible = visible; return;
+            case "results" when tab != null: tab.IsSearchResultsVisible = visible; return;
+            case "stats"   when tab != null: tab.IsStatsPanelVisible = visible; return;
+            case "details" when tab != null: tab.IsDetailPanelVisible = visible; return;
+        }
+        SetAnchorableVisible(id, visible);
     }
 
     // ── File drag-and-drop ────────────────────────────────────────────────────
@@ -61,41 +306,6 @@ public partial class MainWindow : Window
             ? DragDropEffects.Copy
             : DragDropEffects.None;
         e.Handled = true;
-    }
-
-    // ── Tab drag-to-reorder ───────────────────────────────────────────────────
-
-    private void TabItem_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        _dragStartPoint = e.GetPosition(null);
-    }
-
-    private void TabItem_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed) return;
-        if (sender is not FrameworkElement fe) return;
-        if (fe.DataContext is not LogTabViewModel tab) return;
-
-        Point pos = e.GetPosition(null);
-        if (Math.Abs(pos.X - _dragStartPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
-            Math.Abs(pos.Y - _dragStartPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
-        {
-            _draggedTab = tab;
-            DragDrop.DoDragDrop(fe, tab, DragDropEffects.Move);
-            _draggedTab = null;
-        }
-    }
-
-    private void TabItem_Drop(object sender, DragEventArgs e)
-    {
-        if (_draggedTab == null) return;
-        if (sender is not FrameworkElement fe) return;
-        if (fe.DataContext is not LogTabViewModel target || target == _draggedTab) return;
-
-        int from = ViewModel.Tabs.IndexOf(_draggedTab);
-        int to = ViewModel.Tabs.IndexOf(target);
-        if (from >= 0 && to >= 0)
-            ViewModel.Tabs.Move(from, to);
     }
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -126,20 +336,9 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Toolbar ───────────────────────────────────────────────────────────────
-
-    private void ToolBar_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ToolBar toolbar) return;
-        if (toolbar.Template.FindName("OverflowGrid", toolbar) is FrameworkElement overflow)
-            overflow.Visibility = Visibility.Collapsed;
-        if (toolbar.Template.FindName("MainPanelBorder", toolbar) is FrameworkElement mainPanel)
-            mainPanel.Margin = new Thickness(0);
-    }
-
     // ── Window lifecycle ──────────────────────────────────────────────────────
 
-    private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+    private void Window_Closing(object sender, CancelEventArgs e)
     {
         ViewModel.Settings.WindowWidth  = ActualWidth;
         ViewModel.Settings.WindowHeight = ActualHeight;
@@ -150,5 +349,15 @@ public partial class MainWindow : Window
             ViewModel.Settings.WindowLeft = Left;
         }
         ViewModel.SaveSettings();
+
+        try
+        {
+            _layoutService.EnsureDirectory();
+            new XmlLayoutSerializer(Dock).Serialize(_layoutService.LayoutPath);
+        }
+        catch (Exception)
+        {
+            // Layout persistence is best-effort; never block shutdown.
+        }
     }
 }

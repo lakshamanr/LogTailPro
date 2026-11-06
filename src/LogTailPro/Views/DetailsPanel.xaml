@@ -1,0 +1,24 @@
+<UserControl x:Class="LogTailPro.Views.DetailsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:LogTailPro.Converters"
+             Background="{StaticResource BgElevated}">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+    <Grid>
+        <TextBlock Text="Select a line and press Ctrl+P to pretty-print JSON/XML here."
+                   Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="12"
+                   Visibility="{Binding SelectedTab.IsDetailPanelVisible, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse, FallbackValue=Visible}"/>
+        <TextBox Text="{Binding SelectedTab.DetailText, Mode=OneWay}"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"
+                 FontFamily="{StaticResource MonoFont}"
+                 FontSize="{StaticResource FontSizeMonoSmall}"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 Background="{StaticResource BgLog}"
+                 BorderThickness="0"
+                 Padding="8"/>
+    </Grid>
+</UserControl>

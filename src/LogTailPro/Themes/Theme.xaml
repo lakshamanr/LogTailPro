@@ -115,36 +115,65 @@
     <Style TargetType="MenuItem">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-        <Setter Property="Padding"    Value="10,5"/>
+        <Setter Property="Padding"    Value="10,6"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            Padding="{TemplateBinding Padding}">
+                    <Border x:Name="border" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <Grid>
-                            <ContentPresenter ContentSource="Header"
-                                              RecognizesAccessKey="True"
-                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
-                            <Popup x:Name="popup" IsOpen="{TemplateBinding IsSubmenuOpen}"
-                                   Placement="Bottom" AllowsTransparency="True">
-                                <Border Background="{StaticResource BgSurface}"
-                                        BorderBrush="{StaticResource BorderNormal}"
-                                        BorderThickness="1"
-                                        Padding="0,4">
-                                    <ItemsPresenter/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="cCheck" Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition x:Name="cGesture" Width="Auto"/>
+                                <ColumnDefinition x:Name="cArrow" Width="16"/>
+                            </Grid.ColumnDefinitions>
+                            <Path x:Name="check" Data="M0,5 L3.5,8.5 L9,1" Stroke="{StaticResource Accent}"
+                                  StrokeThickness="2" Visibility="Collapsed"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True"
+                                              VerticalAlignment="Center"/>
+                            <TextBlock x:Name="gesture" Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                                       Foreground="{StaticResource TextMuted}" Margin="28,0,0,0" VerticalAlignment="Center"/>
+                            <Path x:Name="arrow" Grid.Column="3" Data="M0,0 L4,4 L0,8 Z" Fill="{StaticResource TextSecondary}"
+                                  Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Popup x:Name="popup" IsOpen="{TemplateBinding IsSubmenuOpen}" Placement="Right"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                                <Border Background="{StaticResource BgElevated}" BorderBrush="{StaticResource BorderNormal}"
+                                        BorderThickness="1" CornerRadius="4" Padding="0,4" MinWidth="200" Margin="0,0,6,6">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.2"/>
+                                    </Border.Effect>
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
                                 </Border>
                             </Popup>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="border" Property="Background"
-                                    Value="{StaticResource BgOverlay}"/>
+                        <Trigger Property="Role" Value="TopLevelHeader">
+                            <Setter TargetName="popup" Property="Placement" Value="Bottom"/>
+                            <Setter TargetName="cCheck" Property="Width" Value="0"/>
+                            <Setter TargetName="cGesture" Property="Width" Value="0"/>
+                            <Setter TargetName="cArrow" Property="Width" Value="0"/>
+                            <Setter TargetName="gesture" Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="Padding" Value="10,5"/>
                         </Trigger>
-                        <Trigger Property="IsSubmenuOpen" Value="True">
-                            <Setter TargetName="border" Property="Background"
-                                    Value="{StaticResource BgOverlay}"/>
+                        <Trigger Property="Role" Value="TopLevelItem">
+                            <Setter TargetName="cCheck" Property="Width" Value="0"/>
+                            <Setter TargetName="cGesture" Property="Width" Value="0"/>
+                            <Setter TargetName="cArrow" Property="Width" Value="0"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="SubmenuHeader">
+                            <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource BgOverlay}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

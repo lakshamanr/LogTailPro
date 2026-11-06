@@ -1,0 +1,62 @@
+<UserControl x:Class="LogTailPro.Views.SearchPanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:LogTailPro.Converters"
+             Background="{StaticResource BgElevated}">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+
+    <StackPanel Margin="12,10">
+        <!-- Row 1: mode, query, actions -->
+        <DockPanel LastChildFill="True">
+            <ComboBox DockPanel.Dock="Left" Width="76" Margin="0,0,8,0"
+                      SelectedIndex="{Binding SelectedTab.IsRegexModeIndex, Mode=TwoWay}"
+                      Style="{StaticResource DarkComboBox}" VerticalAlignment="Center">
+                <ComboBoxItem Content="Text"/>
+                <ComboBoxItem Content="Regex"/>
+            </ComboBox>
+            <Button DockPanel.Dock="Right" Content="◄" Margin="4,0,0,0" Padding="9,5"
+                    Command="{Binding SelectedTab.PreviousMatchCommand}"
+                    Style="{StaticResource FlatToolbarButton}" ToolTip="Previous match (Shift+F3)"/>
+            <Button DockPanel.Dock="Right" Content="►" Margin="4,0,0,0" Padding="9,5"
+                    Command="{Binding SelectedTab.NextMatchCommand}"
+                    Style="{StaticResource FlatToolbarButton}" ToolTip="Next match (F3)"/>
+            <Button DockPanel.Dock="Right" Content="Stop" Margin="8,0,0,0"
+                    Command="{Binding SelectedTab.StopSearchCommand}"
+                    Style="{StaticResource SecondaryButton}" Padding="12,5"/>
+            <Button DockPanel.Dock="Right" Content="🔍 Search" Margin="8,0,0,0"
+                    Command="{Binding SelectedTab.ExecuteSearchCommand}"
+                    Style="{StaticResource PrimaryButton}" Padding="12,5"/>
+            <TextBox x:Name="QueryBox"
+                     Text="{Binding SelectedTab.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource FontSizeMonoSmall}"
+                     Padding="8,5" VerticalContentAlignment="Center" VerticalAlignment="Center"
+                     ToolTip="Search text or regex — press Enter to search">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding SelectedTab.ExecuteSearchCommand}"/>
+                </TextBox.InputBindings>
+            </TextBox>
+        </DockPanel>
+
+        <!-- Row 2: options -->
+        <WrapPanel Margin="0,10,0,0">
+            <CheckBox Content="Ignore case"  IsChecked="{Binding SelectedTab.IsIgnoreCase}"     Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Regex syntax" IsChecked="{Binding SelectedTab.IsRegexMode}"      Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Invert match" IsChecked="{Binding SelectedTab.IsInvertMatch}"    Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Filter tail"  IsChecked="{Binding SelectedTab.IsFilterTailMode}" Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <Button Content="＋ Save pattern" Padding="10,3"
+                    Command="{Binding SelectedTab.AddSavedPatternCommand}"
+                    Style="{StaticResource SecondaryButton}"/>
+        </WrapPanel>
+
+        <!-- Row 3: result summary / error -->
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <TextBlock Text="{Binding SelectedTab.MatchCount, StringFormat='{}{0} matching lines', FallbackValue=''}"
+                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedTab.SearchError}" Margin="12,0,0,0"
+                       Foreground="{StaticResource StatusError}" VerticalAlignment="Center"
+                       Visibility="{Binding SelectedTab.HasSearchError, Converter={StaticResource BoolToVisibility}}"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

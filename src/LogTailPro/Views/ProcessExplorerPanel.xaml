@@ -31,20 +31,6 @@
 
     <DockPanel>
 
-        <!-- ── Header ──────────────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top"
-                Background="{StaticResource BgElevated}"
-                BorderBrush="{StaticResource BorderNormal}"
-                BorderThickness="0,0,0,1"
-                Padding="8,6">
-            <TextBlock Text="PROCESS EXPLORER"
-                       Foreground="{StaticResource TextSecondary}"
-                       FontFamily="{StaticResource UiFont}"
-                       FontSize="{StaticResource FontSizeSmall}"
-                       FontWeight="SemiBold"
-                       VerticalAlignment="Center"/>
-        </Border>
-
         <!-- ── Search box ──────────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
                 Background="{StaticResource BgElevated}"
