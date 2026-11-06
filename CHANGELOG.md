@@ -14,7 +14,7 @@ If the version here is newer than what you last built, re-read the affected phas
 - Created ErrorTimelineChartViewModel.cs supporting single bucket selection, click-and-drag range selection, filter clearing, drill-down navigation to source timestamps, and keyboard navigation.
 - Implemented ErrorTimelineChartView.xaml and high-performance native vector canvas ErrorTimelineChartCanvas rendering stacked severity bars (StatusRed, StatusYellow, Accent, Other), drag marquee overlay, hover tooltips, and keyboard accessibility.
 - Integrated time-range filtering into LogTabViewModel.LinePassesFilter and ApplySearchAsync combining seamlessly with existing search text and filter rules (AND semantics) without feedback loops.
-- Added toolbar toggle button ("ðŸ“Š  Chart"), View â–¸ Panels menu item, and AvalonDock dockable panel (ContentId="chart"), bound to Ctrl+Shift+T.
+- Added toolbar toggle button ("📊  Chart"), View ▸ Panels menu item, and AvalonDock dockable panel (ContentId="chart"), bound to Ctrl+Shift+T.
 - Hooked live append, source reconciliation, and retention trimming to update chart statistics asynchronously off the UI thread with background cancellation.
 - Added comprehensive unit checks in Timeline.Tests and real-file integration checks in Timeline.IntegrationTests.
 
@@ -24,7 +24,7 @@ If the version here is newer than what you last built, re-read the affected phas
 
 - Implemented roadmap Phase 5: expandable multiline exception grouping for .NET, Java, and Python stack traces.
 - Created MultilineGroupingService with regex detection for .NET stack frames, inner exceptions (--->), inner boundaries (--- End of ...), Java exception frames (Caused by:, ... common frames omitted), and Python tracebacks (File "...", During handling of..., Traceback), preserving blank lines within traces and avoiding misclassification of generic indented text.
-- Extended LogLine model with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (â–¶ / â–¼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
+- Extended LogLine model with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (▶ / ▼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
 - Updated LogTabView with interactive expander button and frame count badge for collapsed exception root rows.
 - Added toolbar toggle and View menu items ("Group Multiline Exceptions", "Expand All Exceptions", "Collapse All Exceptions") to toggle between Group Exceptions view and Plain Line View.
 - Updated SearchService and LogTabViewModel search and filter chain to evaluate continuation lines of collapsed exception roots, ensuring searches for terms in hidden stack traces find and surface the event.

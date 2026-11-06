@@ -114,12 +114,12 @@ inner exception boundaries --- End of ..., Java exceptions Caused by: / omitted 
 blank line preservation within traces, generic indented lines not misclassified, final event grouping,
 mid-stream start partial continuation marking, live appending via AttachLine, and correlation ID extraction across continuation frames).
 Dispatcher-based integration checks in Timeline.IntegrationTests verify real-file exception loading, collapsed view hiding
-continuation lines by default, expand/collapse toggling (â–¶ / â–¼), badge formatting (+N frames), search and filter
+continuation lines by default, expand/collapse toggling (▶ / ▼), badge formatting (+N frames), search and filter
 matching inside hidden continuation frames, plain line view toggling, live appending of stack frames to open exception roots,
 finalization upon arrival of subsequent normal records, and Property Inspector extraction.
 
 - MultilineGroupingService detects .NET stack frames (^\s+at\s+[\w\.\<\>\$]+\s*\(.*?\)), inner exceptions/boundaries (--- End of, ---> System.*Exception:), Java exception frames (Caused by:, ... common frames omitted), and Python tracebacks (File "...", During handling of..., Traceback), preserving blank lines within traces and avoiding misclassification of generic indented text.
-- LogLine model extended with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (â–¶ / â–¼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
+- LogLine model extended with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (▶ / ▼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
 - Virtualized list view renders collapsed exception roots with interactive expander button and frame count badge.
 - View menu and Toolbar toggle allow switching between Group Exceptions view and Plain Line View, with Expand All / Collapse All commands.
 - Search and typed filters evaluate continuation frames so searching for terms in hidden stack traces matches and reveals the root event.
@@ -147,4 +147,4 @@ and error timeline chart view layout and rendering without errors.
 - Drill-down: double-clicking or selecting a bucket navigates directly to the first event at or after the bucket timestamp.
 - Incremental updates: background processing off the UI thread updates the chart on file loads, live appends, and retention trimming with cancellation tokens.
 - Native WPF vector rendering: ErrorTimelineChartCanvas uses high-performance direct drawing with design tokens (StatusRed, StatusYellow, Accent, BgSurface), selection marquee, hover tooltips, and keyboard navigation (Left/Right, Enter/Space, Escape).
-- AvalonDock & Toolbar integration: docked in the bottom pane alongside search and results, toggleable via Toolbar button ("ðŸ“Š  Chart") and View â–¸ Panels menu (Ctrl+Shift+T).
+- AvalonDock & Toolbar integration: docked in the bottom pane alongside search and results, toggleable via Toolbar button ("📊  Chart") and View ▸ Panels menu (Ctrl+Shift+T).
