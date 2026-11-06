@@ -219,6 +219,12 @@
                     <Button Content="⚙  Processes" Style="{StaticResource FlatToolbarButton}" Padding="10,5"
                             Command="{Binding ToggleProcessExplorerCommand}"
                             ToolTip="Toggle Process Explorer (Ctrl+Shift+P)"/>
+
+                    <Rectangle Width="1" Height="22" Fill="{StaticResource BorderNormal}" Margin="10,0"/>
+
+                    <Button Content="⟲  Reset Layout" Style="{StaticResource FlatToolbarButton}" Padding="10,5"
+                            Click="ResetLayout_Click"
+                            ToolTip="Restore all panels to their default positions"/>
                 </StackPanel>
             </DockPanel>
         </Border>

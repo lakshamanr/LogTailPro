@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     /// <summary>ContentId → the live anchorable model (re-resolved after every layout load).</summary>
     private readonly Dictionary<string, LayoutAnchorable> _anchorables = new();
 
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromSeconds(1.5) };
+    private LayoutRoot? _hookedRoot;
     private string _defaultLayoutXml = string.Empty;
     private bool _hadSavedLayout;
     private bool _syncing;
@@ -52,6 +54,7 @@ public partial class MainWindow : Window
         _hadSavedLayout = TryRestoreSavedLayout();
         RefreshAnchorables();
 
+        _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SaveLayout(); };
         DataContextChanged += (_, _) => AssignPanelDataContexts();
         Loaded += OnLoaded;
     }
@@ -104,6 +107,25 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private void SaveLayout()
+    {
+        try
+        {
+            _layoutService.EnsureDirectory();
+            new XmlLayoutSerializer(Dock).Serialize(_layoutService.LayoutPath);
+        }
+        catch (Exception)
+        {
+            // Layout persistence is best-effort; never block the UI.
+        }
+    }
+
     private void ResetLayout_Click(object sender, RoutedEventArgs e)
     {
         _layoutService.Delete();
@@ -118,6 +140,7 @@ public partial class MainWindow : Window
         ApplyAllPanelVisibility();
         if (ViewModel.SelectedTab != null)
             Dock.ActiveContent = ViewModel.SelectedTab;
+        SaveLayout();
     }
 
     // ── Docking: panel ↔ view-model wiring ───────────────────────────────────
@@ -132,6 +155,11 @@ public partial class MainWindow : Window
     /// <summary>Re-resolves anchorables from the live layout and (re)hooks their visibility events.</summary>
     private void RefreshAnchorables()
     {
+        // Auto-save the layout shortly after any change so positions survive a crash or kill.
+        if (_hookedRoot != null) _hookedRoot.Updated -= OnLayoutUpdated;
+        _hookedRoot = Dock.Layout;
+        _hookedRoot.Updated += OnLayoutUpdated;
+
         _anchorables.Clear();
         foreach (LayoutAnchorable a in Dock.Layout.Descendents().OfType<LayoutAnchorable>())
         {
@@ -230,6 +258,14 @@ public partial class MainWindow : Window
     /// <summary>Applies the view-model flags to every panel (used at startup and after a layout reset).</summary>
     private void ApplyAllPanelVisibility()
     {
+        // A saved layout already remembers which panels were open: keep that, only sync the explorer flag.
+        if (_hadSavedLayout)
+        {
+            if (_anchorables.TryGetValue("process", out LayoutAnchorable? proc))
+                ViewModel.IsProcessExplorerVisible = proc.IsVisible;
+            return;
+        }
+
         LogTabViewModel? tab = ViewModel.SelectedTab;
         SetAnchorableVisible("process", ViewModel.IsProcessExplorerVisible);
         SetAnchorableVisible("search",  tab?.IsSearchPanelVisible == true);
@@ -350,14 +386,7 @@ public partial class MainWindow : Window
         }
         ViewModel.SaveSettings();
 
-        try
-        {
-            _layoutService.EnsureDirectory();
-            new XmlLayoutSerializer(Dock).Serialize(_layoutService.LayoutPath);
-        }
-        catch (Exception)
-        {
-            // Layout persistence is best-effort; never block shutdown.
-        }
+        _saveTimer.Stop();
+        SaveLayout();
     }
 }
