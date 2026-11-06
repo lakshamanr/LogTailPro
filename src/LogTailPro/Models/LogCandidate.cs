@@ -10,11 +10,17 @@ public enum LogSource
     /// <summary>The running process currently has the file open.</summary>
     OpenHandle = 1,
 
-    /// <summary>A configuration file next to the executable references the file.</summary>
+    /// <summary>
+    /// A configuration file that merely sits in the same folder as the executable references the file.
+    /// In shared folders (e.g. a common <c>bin</c> directory) this may belong to a different application.
+    /// </summary>
     Config = 2,
 
     /// <summary>Found by scanning the executable's usual log folders.</summary>
-    FolderScan = 4
+    FolderScan = 4,
+
+    /// <summary>The executable's <em>own</em> configuration file (<c>&lt;exe&gt;.config</c> etc.) references the file.</summary>
+    OwnConfig = 8
 }
 
 /// <summary>A log file that probably belongs to a process.</summary>
@@ -72,6 +78,7 @@ public sealed class LogCandidate
         {
             List<string> parts = new();
             if (Sources.HasFlag(LogSource.OpenHandle)) parts.Add("open handle");
+            if (Sources.HasFlag(LogSource.OwnConfig)) parts.Add("own config");
             if (Sources.HasFlag(LogSource.Config)) parts.Add("config");
             if (Sources.HasFlag(LogSource.FolderScan)) parts.Add("folder scan");
             return string.Join(" + ", parts);

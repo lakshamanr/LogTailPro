@@ -86,6 +86,17 @@ public sealed class ProcessLogDiscoveryService
                 CollectFromConfig(p, byPath, ct);
                 CollectFromFolders(p, byPath, ct);
 
+                // Shared folders hold many applications' configs. When this process has solid evidence of its
+                // own (open handle, or its own <exe>.config), logs that only a *sibling* config mentions
+                // belong to other applications — drop them instead of burying the real log in noise.
+                const LogSource strong = LogSource.OpenHandle | LogSource.OwnConfig;
+                if (byPath.Values.Any(c => (c.Sources & strong) != 0))
+                {
+                    foreach (string key in byPath.Where(kv => kv.Value.Sources == LogSource.Config)
+                                                 .Select(kv => kv.Key).ToList())
+                        byPath.Remove(key);
+                }
+
                 List<LogCandidate> ranked = byPath.Values.ToList();
                 foreach (LogCandidate c in ranked) c.Score = ComputeScore(c);
                 ranked = ranked.OrderByDescending(c => c.Score).ThenByDescending(c => c.LastWriteUtc).ToList();
@@ -134,7 +145,8 @@ public sealed class ProcessLogDiscoveryService
     {
         int score = 0;
         if (c.Sources.HasFlag(LogSource.OpenHandle)) score += 100;
-        if (c.Sources.HasFlag(LogSource.Config)) score += 60;
+        if (c.Sources.HasFlag(LogSource.OwnConfig)) score += 90;   // the process' own config: strong, specific
+        if (c.Sources.HasFlag(LogSource.Config)) score += 40;      // sibling config in a shared folder: weak
         if (c.Sources.HasFlag(LogSource.FolderScan)) score += 20;
 
         TimeSpan age = DateTime.UtcNow - c.LastWriteUtc;
@@ -162,6 +174,7 @@ public sealed class ProcessLogDiscoveryService
             catch { continue; }
 
             string configName = Path.GetFileName(configFile);
+            LogSource source = IsOwnConfig(configFile, p.ExecutablePath) ? LogSource.OwnConfig : LogSource.Config;
             foreach ((string raw, string key) in ExtractPaths(content, configFile))
             {
                 string? pattern = ExpandPattern(raw, Path.GetDirectoryName(configFile) ?? exeDir, exeName, exeDir);
@@ -169,9 +182,22 @@ public sealed class ProcessLogDiscoveryService
 
                 string detail = $"'{key}' in {configName}";
                 foreach (string file in ResolveFiles(pattern, MaxFilesPerGlob))
-                    Add(byPath, p, file, LogSource.Config, detail);
+                    Add(byPath, p, file, source, detail);
             }
         }
+    }
+
+    /// <summary>
+    /// True when <paramref name="configFile"/> belongs to the executable itself: <c>app.exe.config</c>,
+    /// <c>app.dll.config</c>, <c>app.json</c>, <c>app.runtimeconfig.json</c>… i.e. its name starts with the
+    /// executable's name followed by a dot. Other configs in the same folder belong to other applications.
+    /// </summary>
+    public static bool IsOwnConfig(string configFile, string exePath)
+    {
+        string exeName = Path.GetFileNameWithoutExtension(exePath);
+        if (exeName.Length == 0) return false;
+        string name = Path.GetFileName(configFile);
+        return name.StartsWith(exeName + ".", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Configuration files sitting next to the executable (and one level below).</summary>
