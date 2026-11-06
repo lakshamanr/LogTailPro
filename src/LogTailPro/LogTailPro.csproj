@@ -11,8 +11,8 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <Optimize>true</Optimize>
     <LangVersion>12</LangVersion>
-    <Version>1.2.0</Version>
-    <FileVersion>1.2.0.0</FileVersion>
+    <Version>1.3.0</Version>
+    <FileVersion>1.3.0.0</FileVersion>
     <Description>Real-time log file viewer for Windows</Description>
   </PropertyGroup>
 

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LogTailPro installer (WiX Toolset v5).
+  Build with installer\build-msi.ps1 — it publishes the app first, then runs `wix build`.
+  Version and publish folder are passed in by that script (-d Version=... -d PublishDir=...).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="LogTailPro"
+           Manufacturer="LogTailPro"
+           Version="$(Version)"
+           UpgradeCode="6E0B5C1F-3A7D-4C58-9B2E-5D1A7F40C9E3"
+           Scope="perMachine"
+           Language="1033">
+
+    <SummaryInformation Description="Real-time log file viewer for Windows" />
+
+    <!-- Installing a newer version replaces the old one in place. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of LogTailPro is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(ProjectDir)..\src\LogTailPro\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCOMMENTS" Value="Real-time log file viewer with dockable panels" />
+
+    <!-- ── Folders ─────────────────────────────────────────────────────────── -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="LogTailPro" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- ── Files ───────────────────────────────────────────────────────────── -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Bitness="always64">
+        <File Id="LogTailProExe" Source="$(PublishDir)LogTailPro.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ── Shortcuts ───────────────────────────────────────────────────────── -->
+    <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Bitness="always64">
+      <Shortcut Id="StartMenuLink" Name="LogTailPro"
+                Description="Real-time log file viewer"
+                Target="[INSTALLFOLDER]LogTailPro.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico" />
+      <RegistryValue Root="HKCU" Key="Software\LogTailPro" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64" Condition="INSTALLDESKTOPSHORTCUT = 1">
+      <Shortcut Id="DesktopLink" Name="LogTailPro"
+                Description="Real-time log file viewer"
+                Target="[INSTALLFOLDER]LogTailPro.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico" />
+      <RegistryValue Root="HKCU" Key="Software\LogTailPro" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+    <!-- Default: create a desktop shortcut. Override with  INSTALLDESKTOPSHORTCUT=0  on the command line. -->
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" />
+
+    <Feature Id="Main" Title="LogTailPro" Level="1" ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- ── Wizard: Welcome → Install folder → Install (no licence page) ───── -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" />
+    </UI>
+
+    <!-- Offer to launch the app on the final page. -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch LogTailPro" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#LogTailProExe]" />
+    <CustomAction Id="LaunchApplication" DllEntry="WixShellExec" Impersonate="yes" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+  </Package>
+</Wix>
