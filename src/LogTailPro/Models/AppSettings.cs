@@ -73,6 +73,9 @@ public sealed class AppSettings
     /// <summary>Active log parser preset name (empty = none).</summary>
     public string LogParserPreset { get; set; } = string.Empty;
 
+    /// <summary>Saved bookmarks per log file (key = upper-cased full path).</summary>
+    public Dictionary<string, List<BookmarkEntry>> Bookmarks { get; set; } = new();
+
     // ── Phase 7: Process Explorer ─────────────────────────────────────────────
 
     /// <summary>Whether the Process Explorer panel is open.</summary>

@@ -7,7 +7,7 @@ public sealed class DockLayoutService
 {
     private readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "LogTailPro", "layout.xml");
+        "LogTailPro", "layout.v2.xml"); // v2: Search and Results are separate stacked panes
 
     /// <summary>Returns the saved layout file path if it exists, otherwise null.</summary>
     public string? GetSavedLayoutPath() => File.Exists(_path) ? _path : null;

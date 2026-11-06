@@ -196,22 +196,19 @@ public partial class MainWindow : Window
         if (_watchedTab != null)
         {
             _watchedTab.PropertyChanged -= OnTabPropertyChanged;
-            _watchedTab.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _watchedTab.BookmarkAdded -= OnBookmarkAdded;
         }
         _watchedTab = tab;
         if (_watchedTab != null)
         {
             _watchedTab.PropertyChanged += OnTabPropertyChanged;
-            _watchedTab.Bookmarks.CollectionChanged += OnBookmarksChanged;
+            _watchedTab.BookmarkAdded += OnBookmarkAdded;
         }
     }
 
-    /// <summary>Reveals the Bookmarks panel (without stealing focus) the first time a line is bookmarked.</summary>
-    private void OnBookmarksChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
-            SetAnchorableVisible("bookmarks", true, activate: false);
-    }
+    /// <summary>Reveals the Bookmarks panel (without stealing focus) when the user bookmarks a line.</summary>
+    private void OnBookmarkAdded(object? sender, EventArgs e)
+        => SetAnchorableVisible("bookmarks", true, activate: false);
 
     // ── Split view (side-by-side / stacked tab groups) ────────────────────────
 
@@ -292,7 +289,7 @@ public partial class MainWindow : Window
                 SetAnchorableVisible("search", _watchedTab?.IsSearchPanelVisible == true, focusSearch: true);
                 break;
             case nameof(LogTabViewModel.IsSearchResultsVisible):
-                SetAnchorableVisible("results", _watchedTab?.IsSearchResultsVisible == true);
+                SetAnchorableVisible("results", _watchedTab?.IsSearchResultsVisible == true, activate: false);
                 break;
             case nameof(LogTabViewModel.IsStatsPanelVisible):
                 SetAnchorableVisible("stats", _watchedTab?.IsStatsPanelVisible == true);
@@ -307,6 +304,11 @@ public partial class MainWindow : Window
     private void SetAnchorableVisible(string id, bool visible, bool focusSearch = false, bool activate = true)
     {
         if (!_anchorables.TryGetValue(id, out LayoutAnchorable? a)) return;
+
+        // Live search shows/hides the results panel while the user is still typing: keep their focus and caret.
+        bool keepSearchFocus = id != "search" && !activate && SearchView.HasFocus;
+        int caret = keepSearchFocus ? SearchView.CaretIndex : 0;
+
         if (a.IsVisible != visible)
         {
             _syncing = true;
@@ -316,6 +318,9 @@ public partial class MainWindow : Window
             }
             finally { _syncing = false; }
         }
+
+        if (keepSearchFocus)
+            Dispatcher.BeginInvoke(() => SearchView.RestoreFocus(caret), DispatcherPriority.Input);
 
         if (visible && activate)
         {

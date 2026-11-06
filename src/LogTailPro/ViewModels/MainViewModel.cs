@@ -332,6 +332,8 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseTab(LogTabViewModel tab)
     {
+        CaptureBookmarks(tab);
+        _settingsService.Save(Settings);
         tab.Dispose();
         Tabs.Remove(tab);
         if (SelectedTab == tab)
@@ -525,10 +527,23 @@ public sealed partial class MainViewModel : ObservableObject
     private void Exit()
     {
         ProcessExplorer.Dispose();
-        _settingsService.Save(Settings);
+        SaveSettings();
         Application.Current.Shutdown();
     }
 
     /// <summary>Persists current settings (called on window close).</summary>
-    public void SaveSettings() => _settingsService.Save(Settings);
+    public void SaveSettings()
+    {
+        foreach (LogTabViewModel tab in Tabs) CaptureBookmarks(tab);
+        _settingsService.Save(Settings);
+    }
+
+    /// <summary>Copies a tab's bookmarks into settings (only for fully loaded, real files).</summary>
+    private void CaptureBookmarks(LogTabViewModel tab)
+    {
+        if (tab.IsProcessTab || !tab.IsLoaded || !System.IO.File.Exists(tab.FilePath)) return;
+        string key = LogTabViewModel.BookmarkKey(tab.FilePath);
+        if (tab.Bookmarks.Count > 0) Settings.Bookmarks[key] = tab.ExportBookmarks();
+        else Settings.Bookmarks.Remove(key);
+    }
 }

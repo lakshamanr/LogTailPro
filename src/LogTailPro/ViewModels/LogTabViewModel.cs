@@ -131,6 +131,40 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     // ── Bookmarks ─────────────────────────────────────────────────────────────
     public ObservableCollection<LogLine> Bookmarks { get; } = new();
 
+    /// <summary>Raised when the user adds a bookmark (not when bookmarks are restored from settings).</summary>
+    public event EventHandler? BookmarkAdded;
+
+    /// <summary>Settings key for a file's bookmarks.</summary>
+    public static string BookmarkKey(string filePath) => filePath.ToUpperInvariant();
+
+    private static string Truncate(string text)
+        => text.Length > BookmarkEntry.MaxTextLength ? text[..BookmarkEntry.MaxTextLength] : text;
+
+    /// <summary>Snapshot of this tab's bookmarks in a form that can be stored in settings.</summary>
+    public List<BookmarkEntry> ExportBookmarks()
+        => Bookmarks.Select(b => new BookmarkEntry { LineNumber = b.LineNumber, Text = Truncate(b.Text) }).ToList();
+
+    /// <summary>
+    /// Re-applies saved bookmarks to freshly loaded lines: first by line number + text, otherwise by
+    /// text alone (covers files whose tail window shifted since the bookmark was saved).
+    /// </summary>
+    private void RestoreBookmarks(IReadOnlyList<LogLine> lines)
+    {
+        if (IsProcessTab || _isReadOnly) return;
+        if (!_settings.Bookmarks.TryGetValue(BookmarkKey(FilePath), out List<BookmarkEntry>? saved) || saved.Count == 0)
+            return;
+
+        foreach (BookmarkEntry entry in saved)
+        {
+            LogLine? match =
+                lines.FirstOrDefault(l => !l.IsBookmarked && l.LineNumber == entry.LineNumber && Truncate(l.Text) == entry.Text)
+                ?? lines.FirstOrDefault(l => !l.IsBookmarked && Truncate(l.Text) == entry.Text);
+            if (match == null) continue;
+            match.IsBookmarked = true;
+            Bookmarks.Add(match);
+        }
+    }
+
     // ── Phase 6 features ─────────────────────────────────────────────────────
     [ObservableProperty] private bool _isLineWrapEnabled;
     [ObservableProperty] private bool _isStatsPanelVisible;
@@ -349,6 +383,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                RestoreBookmarks(lines);
                 _allLines.AddRange(lines);
                 foreach (LogLine line in lines) VisibleLines.Add(line);
                 TotalLineCount = _nextLineNumber - 1;
@@ -861,7 +896,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         if (SelectedLogLine == null) return;
         SelectedLogLine.IsBookmarked = !SelectedLogLine.IsBookmarked;
         if (SelectedLogLine.IsBookmarked)
+        {
             Bookmarks.Add(SelectedLogLine);
+            BookmarkAdded?.Invoke(this, EventArgs.Empty);
+        }
         else
             Bookmarks.Remove(SelectedLogLine);
         NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);

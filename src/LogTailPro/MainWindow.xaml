@@ -322,15 +322,19 @@
                             </xcad:LayoutAnchorablePane>
                         </xcad:LayoutPanel>
 
-                        <!-- Bottom: search + results -->
-                        <xcad:LayoutAnchorablePane DockHeight="210">
-                            <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search">
-                                <views:SearchPanelView x:Name="SearchView"/>
-                            </xcad:LayoutAnchorable>
-                            <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
-                                <views:SearchResultsPanel/>
-                            </xcad:LayoutAnchorable>
-                        </xcad:LayoutAnchorablePane>
+                        <!-- Bottom: search above results (separate panes so typing never swaps the Search tab away) -->
+                        <xcad:LayoutPanel Orientation="Vertical" DockHeight="330">
+                            <xcad:LayoutAnchorablePane DockHeight="150">
+                                <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search">
+                                    <views:SearchPanelView x:Name="SearchView"/>
+                                </xcad:LayoutAnchorable>
+                            </xcad:LayoutAnchorablePane>
+                            <xcad:LayoutAnchorablePane DockHeight="180">
+                                <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
+                                    <views:SearchResultsPanel/>
+                                </xcad:LayoutAnchorable>
+                            </xcad:LayoutAnchorablePane>
+                        </xcad:LayoutPanel>
 
                     </xcad:LayoutPanel>
                 </xcad:LayoutRoot>
