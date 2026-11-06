@@ -5,7 +5,24 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.5 - 2026-11-06 (CURRENT) - ROADMAP PHASE 4: SAVED WORKSPACES
+## v2.6 - 2026-11-06 (CURRENT) - ROADMAP PHASE 5: MULTILINE EXCEPTION GROUPING
+
+- Implemented roadmap Phase 5: expandable multiline exception grouping for .NET, Java, and Python stack traces.
+- Created MultilineGroupingService with regex detection for .NET stack frames, inner exceptions (--->), inner boundaries (--- End of ...), Java exception frames (Caused by:, ... common frames omitted), and Python tracebacks (File "...", During handling of..., Traceback), preserving blank lines within traces and avoiding misclassification of generic indented text.
+- Extended LogLine model with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (â–¶ / â–¼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
+- Updated LogTabView with interactive expander button and frame count badge for collapsed exception root rows.
+- Added toolbar toggle and View menu items ("Group Multiline Exceptions", "Expand All Exceptions", "Collapse All Exceptions") to toggle between Group Exceptions view and Plain Line View.
+- Updated SearchService and LogTabViewModel search and filter chain to evaluate continuation lines of collapsed exception roots, ensuring searches for terms in hidden stack traces find and surface the event.
+- Updated CorrelationService to extract suggested correlation IDs from continuation frames and match correlation queries across hidden lines.
+- Updated clipboard copy commands ("Copy selected lines" and "Copy with Line Numbers") to include full stack trace continuation lines when copying collapsed exceptions.
+- Updated Line Details / Property Inspector panel to display formatted multiline stack traces in the exception viewer.
+- Handled live append and rotation: new incoming stack frames attach dynamically to active exception groups, and incoming normal records finalize open groups.
+- Handled mid-stream loads and retention boundaries: marks orphaned stack frames with IsPartialContinuation = true and surfaces an [Incomplete trace] indicator.
+- Added comprehensive unit checks in Timeline.Tests and real-file integration checks in Timeline.IntegrationTests.
+
+---
+
+## v2.5 - 2026-11-06 - ROADMAP PHASE 4: SAVED WORKSPACES
 
 - Implemented roadmap Phase 4: complete saved workspaces with multi-file timelines, correlation tabs, layout, scroll, and filters.
 - Extended Workspace and WorkspaceTab models with schema versioning (v2), WorkspaceTabType (File, Timeline, Correlation), active tab document identity (ActiveTabId), source file paths for dependent views, vertical/horizontal scroll offsets, and AvalonDock layout XML.

@@ -20,7 +20,7 @@ internal static class Program
         });
         app.Run();
         if (failure != null) throw new InvalidOperationException("Timeline integration failed", failure);
-        Console.WriteLine("Timeline, structured JSON, Request/Trace ID correlation, and saved workspaces integration passed: real file tailing, multi-source correlation, workspaces round-trip, layout, filters, bookmarks, and disposal.");
+        Console.WriteLine("Timeline, structured JSON, Request/Trace ID correlation, saved workspaces, and multiline exception grouping integration passed: real file tailing, multi-source correlation, workspaces round-trip, layout, filters, bookmarks, exception collapsing/expanding, live append, and disposal.");
     }
 
     private static void Check(bool condition, string message)
@@ -360,6 +360,75 @@ internal static class Program
 
             foreach (var t in wsMainVm.Tabs.ToList()) t.Dispose();
             foreach (var t in restoredMainVm.Tabs.ToList()) t.Dispose();
+
+            // â”€â”€ Phase 5 Multiline Exception Grouping Integration â”€â”€â”€â”€â”€â”€â”€â”€
+            string excLog = Path.Combine(folder, "exceptions.log");
+            string excContent = "2026-11-06 10:00:00 [Info] Application initialized\n" +
+                                "2026-11-06 10:00:01 [Error] Failed to process database operation\n" +
+                                "System.InvalidOperationException: Database connection refused (TraceId: 777e8400-e29b-41d4-a716-446655447777)\n" +
+                                "   at App.Data.Database.Connect()\n" +
+                                "   at App.Services.OrderService.Process()\n";
+            await File.WriteAllTextAsync(excLog, excContent);
+
+            using LogTabViewModel excTab = new(excLog, new AppSettings { MaxLinesInMemory = 1000 });
+            await excTab.InitializeAsync();
+            Check(excTab.IsLoaded, "Exceptions tab failed to load");
+            Check(excTab.AllLines.Count == 5, "Exceptions total line count mismatch");
+
+            // 1. Verify exception grouped on load (collapsed by default)
+            Check(excTab.IsExceptionGroupingEnabled, "Exception grouping should be enabled by default");
+            Check(excTab.VisibleLines.Count == 2, $"Expected 2 visible lines when collapsed, got {excTab.VisibleLines.Count}");
+
+            LogLine excRoot = excTab.AllLines[1];
+            Check(excRoot.HasContinuations, "Root line should have continuations");
+            Check(excRoot.Continuations.Count == 3, $"Expected 3 continuations on root, got {excRoot.Continuations.Count}");
+            Check(excRoot.ExpanderGlyph == "\u25b6", "Expander glyph should be \\u25b6 when collapsed");
+            Check(excRoot.ContinuationBadge == "+3 frames", "Continuation badge mismatch");
+
+            // 2. Expand and verify all lines visible
+            excTab.ToggleGroupExpandedCommand.Execute(excRoot);
+            await UntilAsync(() => excTab.VisibleLines.Count == 5, "Expanding exception group");
+            Check(excRoot.ExpanderGlyph == "\u25bc", "Expander glyph should be \\u25bc when expanded");
+
+            // 3. Collapse and verify back to 2 lines
+            excTab.ToggleGroupExpandedCommand.Execute(excRoot);
+            await UntilAsync(() => excTab.VisibleLines.Count == 2, "Collapsing exception group");
+            Check(excRoot.ExpanderGlyph == "\u25b6", "Expander glyph should be \\u25b6 when collapsed");
+
+            // 4. Search matching inside collapsed continuation frames
+            excTab.FilterMode = FilterMode.IncludeMatching;
+            excTab.SearchText = "Database.Connect";
+            await UntilAsync(() => excRoot.IsSearchMatch && excTab.VisibleLines.Count == 1, "Search matching inside continuation");
+            Check(ReferenceEquals(excTab.VisibleLines[0], excRoot), "VisibleLines should show root matching search inside hidden continuation");
+            excTab.SearchText = string.Empty;
+            excTab.FilterMode = FilterMode.None;
+            await UntilAsync(() => excTab.VisibleLines.Count == 2, "Clearing search on exceptions");
+
+            // 5. Toggle grouping off (Plain Line View)
+            excTab.ToggleExceptionGroupingCommand.Execute(null);
+            await UntilAsync(() => excTab.VisibleLines.Count == 5, "Plain line view should show all lines");
+            Check(!excTab.IsExceptionGroupingEnabled, "Exception grouping should now be disabled");
+            excTab.ToggleExceptionGroupingCommand.Execute(null);
+            await UntilAsync(() => excTab.VisibleLines.Count == 2, "Re-enabling exception grouping");
+
+            // 6. Live append of additional stack frame
+            await File.AppendAllTextAsync(excLog, "   at App.Program.Main()\n");
+            await UntilAsync(() => excTab.AllLines.Count == 6, "Live append of stack frame");
+            Check(excRoot.Continuations.Count == 4, $"Expected 4 continuations after live append, got {excRoot.Continuations.Count}");
+            Check(excRoot.ContinuationBadge == "+4 frames", "Updated continuation badge mismatch");
+            Check(excTab.VisibleLines.Count == 2, "Visible lines should remain 2 after collapsed frame append");
+
+            // 7. Live append of normal log line closes the exception group
+            await File.AppendAllTextAsync(excLog, "2026-11-06 10:00:02 [Info] Continuing normal operation\n");
+            await UntilAsync(() => excTab.AllLines.Count == 7, "Live append of closing normal line");
+            Check(excTab.VisibleLines.Count == 3, "Visible lines should be 3 after normal line appended");
+            Check(excRoot.Continuations.Count == 4, "Root continuations count should remain 4");
+
+            // 7. Inspector details extraction from continuations
+            excTab.SelectedLogLine = excRoot;
+            Check(excTab.HasSelectedLineException, "HasSelectedLineException should be true for root with continuations");
+            Check(excTab.SelectedLineException.Contains("Database connection refused"), "SelectedLineException missing exception message");
+            Check(excTab.SelectedLineException.Contains("at App.Data.Database.Connect()"), "SelectedLineException missing stack frame");
         }
         finally
         {

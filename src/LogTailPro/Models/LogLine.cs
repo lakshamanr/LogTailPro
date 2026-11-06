@@ -94,4 +94,39 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
 
     /// <summary>True when this line represents a valid structured JSON event.</summary>
     public bool HasStructuredEvent => StructuredEvent != null && StructuredEvent.IsValidJson;
+
+    /// <summary>Continuation lines that belong to this multiline event (stack trace frames, inner exceptions).</summary>
+    public List<LogLine> Continuations { get; } = new();
+
+    /// <summary>True when this line is the root of a multiline event with continuations.</summary>
+    public bool HasContinuations => Continuations.Count > 0;
+
+    /// <summary>Whether this multiline exception group is expanded in the view.</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsExpanded)));
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(ExpanderGlyph)));
+        }
+    }
+    private bool _isExpanded;
+
+    /// <summary>Expander symbol for display in the viewer: '▼' when expanded, '▶' when collapsed.</summary>
+    public string ExpanderGlyph => HasContinuations ? (_isExpanded ? "\u25bc" : "\u25b6") : string.Empty;
+
+    /// <summary>Summary badge indicating the count of continuation lines (e.g. '+8 frames').</summary>
+    public string ContinuationBadge => HasContinuations ? $"+{Continuations.Count} frame{(Continuations.Count == 1 ? "" : "s")}" : string.Empty;
+
+    /// <summary>True when this line is a continuation line of a multiline event group.</summary>
+    public bool IsContinuation { get; set; }
+
+    /// <summary>Reference to the parent group header line if this line is a continuation line.</summary>
+    public LogLine? GroupParent { get; set; }
+
+    /// <summary>True when retention started in the middle of an event, so the beginning of the event was not loaded.</summary>
+    public bool IsPartialContinuation { get; set; }
 }

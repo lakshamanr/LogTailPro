@@ -22,5 +22,6 @@
     <Compile Include="../../src/LogTailPro/Services/TimelineService.cs" Link="TimelineService.cs"/>
     <Compile Include="../../src/LogTailPro/Services/CorrelationService.cs" Link="CorrelationService.cs"/>
     <Compile Include="../../src/LogTailPro/Services/WorkspaceService.cs" Link="WorkspaceService.cs"/>
+    <Compile Include="../../src/LogTailPro/Services/MultilineGroupingService.cs" Link="MultilineGroupingService.cs"/>
   </ItemGroup>
 </Project>

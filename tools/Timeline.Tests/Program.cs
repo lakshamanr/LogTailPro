@@ -339,4 +339,115 @@ finally
     try { Directory.Delete(testWsDir, true); } catch { }
 }
 
-Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, and Saved Workspaces.");
+// â”€â”€ Phase 5 Multiline Exception Grouping Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MultilineGroupingService groupingService = new();
+
+// 1. .NET Stack trace with nested exceptions, boundary markers, and blank lines
+List<LogLine> dotNetLines =
+[
+    Line(1, "2026-11-06 10:00:00 [Error] Failed processing request"),
+    Line(2, "System.NullReferenceException: Object reference not set to an instance of an object."),
+    Line(3, "   at System.Data.SqlClient.SqlConnection.Open()"),
+    Line(4, "   at LogTailPro.Data.Repository.GetData() in C:\\src\\Repo.cs:line 45"),
+    Line(5, ""),
+    Line(6, "---> System.InvalidOperationException: Connection string invalid."),
+    Line(7, "   at System.Data.ProviderBase.DbConnectionFactory.GetConnection()"),
+    Line(8, "--- End of inner exception stack trace ---"),
+    Line(9, "   at LogTailPro.App.Main()")
+];
+
+groupingService.GroupLines(dotNetLines);
+Check(!dotNetLines[0].IsContinuation && dotNetLines[0].Continuations.Count == 8, ".NET exception header did not collect all 8 continuations");
+Check(dotNetLines[0].HasContinuations, "HasContinuations should be true");
+Check(dotNetLines[0].ContinuationBadge == "+8 frames", "ContinuationBadge format mismatch");
+Check(dotNetLines.Skip(1).All(l => l.IsContinuation && ReferenceEquals(l.GroupParent, dotNetLines[0])), "Continuation lines must point to root header");
+Check(dotNetLines[4].IsContinuation, "Blank line inside stack trace was not preserved as continuation");
+
+// 2. Generic indented lines must NOT be grouped as exceptions
+List<LogLine> indentedLines =
+[
+    Line(1, "Configuration loaded:"),
+    Line(2, "  server: localhost"),
+    Line(3, "  port: 8080"),
+    Line(4, "    max_connections: 100")
+];
+groupingService.GroupLines(indentedLines);
+Check(indentedLines.All(l => !l.IsContinuation && !l.HasContinuations), "Generic indented lines were incorrectly classified as exception continuations");
+
+// 3. Java Exception frames with Caused by and omitted frames
+List<LogLine> javaLines =
+[
+    Line(1, "Exception in thread \"main\" java.lang.RuntimeException: Database failed"),
+    Line(2, "\tat org.example.Service.run(Service.java:42)"),
+    Line(3, "Caused by: java.io.IOException: Stream closed"),
+    Line(4, "\t... 24 common frames omitted")
+];
+groupingService.GroupLines(javaLines);
+Check(!javaLines[0].IsContinuation && javaLines[0].Continuations.Count == 3, "Java exception did not group 3 continuation frames");
+Check(javaLines[1].IsContinuation && javaLines[2].IsContinuation && javaLines[3].IsContinuation, "Java continuation frames not marked");
+
+// 4. Python Traceback frames
+List<LogLine> pyLines =
+[
+    Line(1, "Traceback (most recent call last):"),
+    Line(2, "  File \"app.py\", line 42, in process"),
+    Line(3, "    result = compute()"),
+    Line(4, "During handling of the above exception, another exception occurred:"),
+    Line(5, "  File \"db.py\", line 10, in connect")
+];
+groupingService.GroupLines(pyLines);
+Check(!pyLines[0].IsContinuation && pyLines[0].Continuations.Count == 4, "Python traceback did not group all frames");
+
+// 5. Final event without successor
+List<LogLine> finalLines =
+[
+    Line(1, "2026-11-06 10:00:00 [Info] Startup complete"),
+    Line(2, "2026-11-06 10:00:01 [Error] System.Exception: Crash"),
+    Line(3, "   at System.IO.File.Open()")
+];
+groupingService.GroupLines(finalLines);
+Check(!finalLines[0].HasContinuations, "First line should not have continuations");
+Check(!finalLines[1].IsContinuation && finalLines[1].Continuations.Count == 1, "Final event did not attach continuation frame");
+Check(finalLines[2].IsContinuation, "Final frame was not marked continuation");
+
+// 6. Partial continuation when tail starts mid-trace
+List<LogLine> partialLines =
+[
+    Line(100, "   at System.Data.SqlClient.SqlConnection.Open()"),
+    Line(101, "2026-11-06 10:00:02 [Info] Next event")
+];
+groupingService.GroupLines(partialLines, isLoadedFromBeginning: false);
+Check(partialLines[0].IsPartialContinuation, "Mid-trace line was not flagged as IsPartialContinuation");
+Check(!partialLines[0].IsContinuation, "Partial continuation without header is root");
+Check(!partialLines[1].IsContinuation, "Next event after partial continuation is separate root");
+
+// 7. Live append with AttachLine
+List<LogLine> liveLines =
+[
+    Line(1, "2026-11-06 10:00:00 [Error] System.Exception: Live failure")
+];
+groupingService.GroupLines(liveLines);
+LogLine newFrame1 = Line(2, "   at App.Service.DoWork()");
+groupingService.AttachLine(liveLines, newFrame1);
+Check(liveLines.Count == 2, "Live lines count mismatch");
+Check(liveLines[0].Continuations.Count == 1 && ReferenceEquals(liveLines[0].Continuations[0], newFrame1), "New frame not attached to header");
+Check(newFrame1.IsContinuation && ReferenceEquals(newFrame1.GroupParent, liveLines[0]), "New frame parent mismatch");
+
+LogLine normalLine = Line(3, "2026-11-06 10:00:01 [Info] Recovered");
+groupingService.AttachLine(liveLines, normalLine);
+Check(liveLines.Count == 3, "Normal line not added to list");
+Check(!normalLine.IsContinuation && normalLine.GroupParent == null, "Normal line incorrectly attached to exception group");
+Check(liveLines[0].Continuations.Count == 1, "Header continuations modified after closing group");
+
+// 8. Correlation ID matching on continuation frames
+LogLine corrHeader = Line(1, "2026-11-06 10:00:00 [Error] Unhandled exception occurred");
+LogLine corrFrame = Line(2, "   at App.Service.Execute(RequestId: 550e8400-e29b-41d4-a716-446655440000)");
+corrHeader.Continuations.Add(corrFrame);
+corrFrame.IsContinuation = true;
+corrFrame.GroupParent = corrHeader;
+
+string? extractedId = CorrelationService.ExtractSuggestedId(corrHeader);
+Check(extractedId == "550e8400-e29b-41d4-a716-446655440000", "ExtractSuggestedId did not find ID in continuation frame");
+Check(CorrelationService.MatchesCorrelationId(corrHeader, "550e8400-e29b-41d4-a716-446655440000"), "MatchesCorrelationId did not match ID in continuation frame");
+
+Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, Saved Workspaces, and Multiline Exception Grouping.");

@@ -43,8 +43,8 @@ public sealed class SearchService
     {
         return mode switch
         {
-            FilterMode.IncludeMatching => lines.Where(l => SafeIsMatch(pattern, l.Text)),
-            FilterMode.ExcludeMatching => lines.Where(l => !SafeIsMatch(pattern, l.Text)),
+            FilterMode.IncludeMatching => lines.Where(l => SafeLineOrContinuationsMatch(pattern, l)),
+            FilterMode.ExcludeMatching => lines.Where(l => !SafeLineOrContinuationsMatch(pattern, l)),
             _ => lines
         };
     }
@@ -83,7 +83,7 @@ public sealed class SearchService
         {
             bool matches = compiled.TypedFilter != null
                 ? compiled.TypedFilter.Matches(line)
-                : (compiled.Pattern != null && SafeIsMatch(compiled.Pattern, line.Text));
+                : (compiled.Pattern != null && SafeLineOrContinuationsMatch(compiled.Pattern, line));
 
             if (compiled.Rule.IsNegated) matches = !matches;
 
@@ -183,5 +183,18 @@ public sealed class SearchService
     {
         try { return pattern.IsMatch(text); }
         catch (RegexMatchTimeoutException) { return false; }
+    }
+
+    private static bool SafeLineOrContinuationsMatch(Regex pattern, LogLine line)
+    {
+        if (SafeIsMatch(pattern, line.Text)) return true;
+        if (line.HasContinuations)
+        {
+            foreach (LogLine cont in line.Continuations)
+            {
+                if (SafeIsMatch(pattern, cont.Text)) return true;
+            }
+        }
+        return false;
     }
 }

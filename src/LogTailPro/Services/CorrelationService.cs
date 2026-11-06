@@ -92,6 +92,15 @@ public sealed class CorrelationService
         if (w3c.Success)
             return w3c.Value;
 
+        if (line.HasContinuations)
+        {
+            foreach (LogLine cont in line.Continuations)
+            {
+                string? contId = ExtractSuggestedId(cont);
+                if (!string.IsNullOrEmpty(contId)) return contId;
+            }
+        }
+
         return null;
     }
 
@@ -135,15 +144,28 @@ public sealed class CorrelationService
 
         // 2. Plain text / raw line check with strict token boundary
         // Pattern matches id only when not preceded or followed by word characters or dashes
+        bool isMatch = false;
         try
         {
             string pattern = $@"(?<![\w\-]){Regex.Escape(id)}(?![\w\-])";
-            return Regex.IsMatch(line.Text, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
+            isMatch = Regex.IsMatch(line.Text, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
         }
         catch (RegexMatchTimeoutException)
         {
-            return false;
         }
+
+        if (isMatch) return true;
+
+        if (line.HasContinuations)
+        {
+            foreach (LogLine cont in line.Continuations)
+            {
+                if (MatchesCorrelationId(cont, id))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool CheckPropertiesMatch(IReadOnlyDictionary<string, object?> properties, string targetId)

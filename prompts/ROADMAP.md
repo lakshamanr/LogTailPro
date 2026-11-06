@@ -9,7 +9,7 @@ the combined timeline, not the original core-viewer Phase 1. Later phases are pl
 | 2 | Structured JSON logs | Completed | Detect JSONL and Serilog-style events; timestamp/level/message/exception columns; nested property inspector; typed field filters; preserve raw and malformed input. Depends on Phase 1 source identity. |
 | 3 | Request/Trace ID correlation | Completed | Right-click parsed or selected IDs; exact-value matching across chosen sources; chronological results and original navigation; cancellation and bounded results. Depends on Phases 1-2. |
 | 4 | Saved workspaces | Completed | Extend existing workspace commands with timeline sources, highlights, filters, layout, active tab and scroll positions; versioned, atomic saves; backward compatibility and missing-file recovery. Depends on Phases 1-3. |
-| 5 | Multiline exceptions | Planned | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
+| 5 | Multiline exceptions | Completed | Expandable stack traces; original line ranges; search/copy/export include continuations; handle partial live events and rotation. Depends on Phases 1-2. |
 | 6 | Error timeline chart | Planned | Severity counts in time buckets; click a range to filter; original navigation; unknown levels separate; bounded incremental aggregation. Depends on Phases 1-2 and 5 for final event-count semantics. |
 
 ## Shared rules
@@ -104,3 +104,26 @@ and non-destructive loading (corrupt workspaces do not clear or destroy open tab
 - Active tab selection prioritizes document identity rather than naive index to prevent misselection when sources are missing or reordered.
 - Missing file recovery: missing files are identified and surfaced in StatusMessage while valid files and remaining tabs load cleanly.
 - Non-destructive: corrupt JSON or completely missing workspaces cancel loading without wiping out current user work.
+
+
+## Phase 5 detailed design
+
+Implemented in Phase 5. Local Release build: zero warnings/errors.
+Service checks in Timeline.Tests verify MultilineGroupingService (.NET stack frames, nested exceptions --->,
+inner exception boundaries --- End of ..., Java exceptions Caused by: / omitted frames, Python tracebacks File "...",
+blank line preservation within traces, generic indented lines not misclassified, final event grouping,
+mid-stream start partial continuation marking, live appending via AttachLine, and correlation ID extraction across continuation frames).
+Dispatcher-based integration checks in Timeline.IntegrationTests verify real-file exception loading, collapsed view hiding
+continuation lines by default, expand/collapse toggling (â–¶ / â–¼), badge formatting (+N frames), search and filter
+matching inside hidden continuation frames, plain line view toggling, live appending of stack frames to open exception roots,
+finalization upon arrival of subsequent normal records, and Property Inspector extraction.
+
+- MultilineGroupingService detects .NET stack frames (^\s+at\s+[\w\.\<\>\$]+\s*\(.*?\)), inner exceptions/boundaries (--- End of, ---> System.*Exception:), Java exception frames (Caused by:, ... common frames omitted), and Python tracebacks (File "...", During handling of..., Traceback), preserving blank lines within traces and avoiding misclassification of generic indented text.
+- LogLine model extended with Continuations, HasContinuations, IsExpanded, ExpanderGlyph (â–¶ / â–¼), ContinuationBadge (+N frames), IsContinuation, GroupParent, and IsPartialContinuation.
+- Virtualized list view renders collapsed exception roots with interactive expander button and frame count badge.
+- View menu and Toolbar toggle allow switching between Group Exceptions view and Plain Line View, with Expand All / Collapse All commands.
+- Search and typed filters evaluate continuation frames so searching for terms in hidden stack traces matches and reveals the root event.
+- Correlation service inspects continuation frames for suggested trace IDs and matches correlation queries across hidden lines.
+- Copy commands ("Copy selected lines" and "Copy with Line Numbers") include all continuation lines when copying collapsed exceptions.
+- Line Details / Property Inspector displays complete formatted multiline stack traces in the exception viewer.
+- Live appending attaches incoming stack frames to the active group and finalizes the event upon arrival of subsequent normal log records.

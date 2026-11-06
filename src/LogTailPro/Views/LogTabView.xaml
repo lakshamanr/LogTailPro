@@ -57,6 +57,9 @@
                         <MenuItem Header="Correlate Request / Trace ID…" Command="{Binding RequestCorrelationCommand}"/>
                         <MenuItem Header="{Binding StructuredViewLabel}" Command="{Binding ToggleStructuredViewCommand}"
                                   Visibility="{Binding HasStructuredLogs, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <MenuItem Header="{Binding ExceptionGroupingLabel}" Command="{Binding ToggleExceptionGroupingCommand}"/>
+                        <MenuItem Header="Expand All Exceptions" Command="{Binding ExpandAllExceptionsCommand}"/>
+                        <MenuItem Header="Collapse All Exceptions" Command="{Binding CollapseAllExceptionsCommand}"/>
                         <MenuItem Header="Copy selected lines" Command="{Binding CopySelectedLinesCommand}"/>
                     </ContextMenu>
                 </ListView.ContextMenu>
@@ -252,31 +255,62 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <!-- Content column -->
+                        <!-- Content column -->
                         <GridViewColumn Width="4000">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock FontFamily="Consolas" FontSize="13">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="{Binding Text}"/>
-                                                <Setter Property="TextWrapping" Value="NoWrap"/>
-                                                <Style.Triggers>
-                                                    <MultiDataTrigger>
-                                                        <MultiDataTrigger.Conditions>
-                                                            <Condition Binding="{Binding DataContext.IsStructuredViewEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                                            <Condition Binding="{Binding HasStructuredEvent}" Value="True"/>
-                                                        </MultiDataTrigger.Conditions>
-                                                        <Setter Property="Text" Value="{Binding StructuredMessage}"/>
-                                                    </MultiDataTrigger>
-                                                    <DataTrigger Binding="{Binding DataContext.IsLineWrapEnabled,
-                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                 Value="True">
-                                                        <Setter Property="TextWrapping" Value="Wrap"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <DockPanel LastChildFill="True">
+                                        <!-- Expander glyph button for exception roots -->
+                                        <Button DockPanel.Dock="Left"
+                                                Content="{Binding ExpanderGlyph}"
+                                                Visibility="{Binding HasContinuations, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Command="{Binding DataContext.ToggleGroupExpandedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource FlatToolbarButton}"
+                                                Padding="4,0" Margin="0,0,4,0" FontSize="11" FontWeight="Bold"
+                                                VerticalAlignment="Center" Cursor="Hand"
+                                                ToolTip="Toggle expand/collapse exception stack trace"/>
+
+                                        <!-- Badge indicating continuation frame count when collapsed -->
+                                        <Border DockPanel.Dock="Left"
+                                                Visibility="{Binding HasContinuations, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Background="{StaticResource BgSurface}" CornerRadius="2"
+                                                Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ContinuationBadge}" Foreground="{StaticResource TextSecondary}" FontSize="10"/>
+                                        </Border>
+
+                                        <!-- Partial continuation notice if retention started mid-trace -->
+                                        <Border DockPanel.Dock="Left"
+                                                Visibility="{Binding IsPartialContinuation, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Background="{StaticResource BgWarningBanner}" CornerRadius="2"
+                                                Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <TextBlock Text="[Incomplete trace]" Foreground="{StaticResource TextWarningBanner}" FontSize="10"/>
+                                        </Border>
+
+                                        <!-- Main log line text -->
+                                        <TextBlock FontFamily="Consolas" FontSize="13">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding Text}"/>
+                                                    <Setter Property="TextWrapping" Value="NoWrap"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding DataContext.IsStructuredViewEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                                                <Condition Binding="{Binding HasStructuredEvent}" Value="True"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Text" Value="{Binding StructuredMessage}"/>
+                                                        </MultiDataTrigger>
+                                                        <DataTrigger Binding="{Binding DataContext.IsLineWrapEnabled,
+                                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                     Value="True">
+                                                            <Setter Property="TextWrapping" Value="Wrap"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DockPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

@@ -19,6 +19,45 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private readonly FileWatcherService _watcher = new();
     private readonly SearchService _searchService = new();
     private readonly HighlightService _highlightService = new();
+    private readonly MultilineGroupingService _groupingService = new();
+
+    /// <summary>Whether multiline exceptions are grouped into expandable events.</summary>
+    [ObservableProperty] private bool _isExceptionGroupingEnabled = true;
+
+    partial void OnIsExceptionGroupingEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ExceptionGroupingLabel));
+        _ = ApplySearchAsync();
+    }
+
+    public string ExceptionGroupingLabel => IsExceptionGroupingEnabled ? "Plain Line View" : "Group Exceptions";
+
+    [RelayCommand]
+    private void ToggleExceptionGrouping() => IsExceptionGroupingEnabled = !IsExceptionGroupingEnabled;
+
+    [RelayCommand]
+    public void ExpandAllExceptions()
+    {
+        foreach (LogLine l in _allLines) if (l.HasContinuations) l.IsExpanded = true;
+        _ = ApplySearchAsync();
+    }
+
+    [RelayCommand]
+    public void CollapseAllExceptions()
+    {
+        foreach (LogLine l in _allLines) if (l.HasContinuations) l.IsExpanded = false;
+        _ = ApplySearchAsync();
+    }
+
+    [RelayCommand]
+    public void ToggleGroupExpanded(LogLine? line)
+    {
+        if (line != null && line.HasContinuations)
+        {
+            line.IsExpanded = !line.IsExpanded;
+            _ = ApplySearchAsync();
+        }
+    }
     private readonly TimestampParser _timestampParser = new();
     private readonly AppSettings _settings;
     private readonly bool _isReadOnly;
@@ -311,12 +350,20 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             SelectedLineMessage = line.Text;
             SelectedLineTemplate = string.Empty;
             HasSelectedLineTemplate = false;
-            SelectedLineException = string.Empty;
-            HasSelectedLineException = false;
+            if (line.HasContinuations)
+            {
+                SelectedLineException = string.Join(Environment.NewLine, line.Continuations.Select(c => c.Text));
+                HasSelectedLineException = true;
+            }
+            else
+            {
+                SelectedLineException = string.Empty;
+                HasSelectedLineException = false;
+            }
             SelectedLineProperties.Clear();
             DetailText = line.StructuredEvent?.ParseError != null
                 ? $"[Malformed JSON: {line.StructuredEvent.ParseError}]{Environment.NewLine}{line.Text}"
-                : line.Text;
+                : (line.HasContinuations ? $"{line.Text}{Environment.NewLine}{SelectedLineException}" : line.Text);
         }
     }
 
@@ -531,8 +578,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 RestoreBookmarks(lines);
+                _groupingService.GroupLines(lines, isLoadedFromBeginning: result.SkippedBytes == 0 && result.FirstLineNumber == 1);
                 _allLines.AddRange(lines);
-                VisibleLines.ReplaceAll(lines);
+                List<LogLine> initialVisible = IsExceptionGroupingEnabled ? lines.Where(l => !l.IsContinuation).ToList() : lines;
+                VisibleLines.ReplaceAll(initialVisible);
                 TotalLineCount = _nextLineNumber - 1;
                 WarningMessage = string.Empty;
                 if (result.SkippedBytes > 0)
@@ -645,14 +694,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             List<LogLine> created = BuildLogLines(newLines, isFromWatcher: true);
             TotalLineCount += created.Count;
 
-            _allLines.AddRange(created);
+            foreach (LogLine line in created) _groupingService.AttachLine(_allLines, line);
             TrimOldLines();
 
             List<LogLine> toShow = new(created.Count);
             foreach (LogLine line in created)
             {
                 MarkSearchMatch(line);
-                if (LinePassesFilter(line)) toShow.Add(line);
+                if (LinePassesFilter(line)) { if (!IsExceptionGroupingEnabled || !line.IsContinuation || (line.GroupParent != null && line.GroupParent.IsExpanded)) toShow.Add(line); }
             }
             VisibleLines.AppendRange(toShow);
 
@@ -711,7 +760,15 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         if (!HasLineLimit) return;
         int toRemove = _allLines.Count - _settings.MaxLinesInMemory;
-        if (toRemove > 0) _allLines.RemoveRange(0, toRemove);
+        if (toRemove > 0)
+        {
+            _allLines.RemoveRange(0, toRemove);
+            if (_allLines.Count > 0 && _allLines[0].IsContinuation && _allLines[0].GroupParent is { } parent && !_allLines.Contains(parent))
+            {
+                _allLines[0].IsPartialContinuation = true;
+                _allLines[0].GroupParent = null;
+            }
+        }
     }
 
     // ── Search & filter ───────────────────────────────────────────────────────
@@ -767,9 +824,21 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             {
                 foreach (LogLine line in snapshot)
                 {
-                    line.IsSearchMatch = typedFilter != null
+                    bool m = typedFilter != null
                         ? typedFilter.Matches(line)
                         : (pattern != null && SafeIsMatch(pattern, line.Text));
+                    if (!m && line.HasContinuations)
+                    {
+                        foreach (LogLine cont in line.Continuations)
+                        {
+                            if (typedFilter != null ? typedFilter.Matches(cont) : (pattern != null && SafeIsMatch(pattern, cont.Text)))
+                            {
+                                m = true;
+                                break;
+                            }
+                        }
+                    }
+                    line.IsSearchMatch = m;
                 }
 
                 IEnumerable<LogLine> result = snapshot;
@@ -785,6 +854,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     result = result.Where(l => _searchService.LineMatchesChain(l, compiledChain));
 
                 List<LogLine> list = result.ToList();
+                if (IsExceptionGroupingEnabled) list = list.Where(l => !l.IsContinuation || (l.GroupParent != null && l.GroupParent.IsExpanded)).ToList();
 
                 // Build the grid rows here, off the UI thread
                 if (typedFilter != null)
@@ -923,8 +993,16 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             ? SelectedLogLines
             : SelectedLogLine != null ? [SelectedLogLine] : (IList<LogLine>)Array.Empty<LogLine>();
         if (toCopy.Count == 0) return;
-        string text = string.Join(Environment.NewLine,
-            toCopy.Select(l => $"{l.LineNumber,6}: {l.Text}"));
+        List<string> lines = new();
+        foreach (LogLine l in toCopy)
+        {
+            lines.Add($"{l.LineNumber,6}: {l.Text}");
+            if (l.HasContinuations && !l.IsExpanded)
+            {
+                foreach (LogLine cont in l.Continuations) lines.Add($"{cont.LineNumber,6}: {cont.Text}");
+            }
+        }
+        string text = string.Join(Environment.NewLine, lines);
         System.Windows.Clipboard.SetText(text);
     }
 
@@ -1129,13 +1207,21 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void CopySelectedLines()
     {
-        if (SelectedLogLines.Count == 0 && SelectedLogLine != null)
+        IList<LogLine> toCopy = SelectedLogLines.Count > 0
+            ? SelectedLogLines
+            : SelectedLogLine != null ? [SelectedLogLine] : (IList<LogLine>)Array.Empty<LogLine>();
+        if (toCopy.Count == 0) return;
+
+        List<string> lines = new();
+        foreach (LogLine l in toCopy)
         {
-            System.Windows.Clipboard.SetText(SelectedLogLine.Text);
-            return;
+            lines.Add(l.Text);
+            if (l.HasContinuations && !l.IsExpanded)
+            {
+                foreach (LogLine cont in l.Continuations) lines.Add(cont.Text);
+            }
         }
-        if (SelectedLogLines.Count == 0) return;
-        string text = string.Join(Environment.NewLine, SelectedLogLines.Select(l => l.Text));
+        string text = string.Join(Environment.NewLine, lines);
         System.Windows.Clipboard.SetText(text);
     }
 
