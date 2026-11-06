@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using LogTailPro.Models;
 using LogTailPro.ViewModels;
 using LogTailPro.Views;
@@ -65,6 +66,14 @@ internal static class Program
             LogTabView view = new() { DataContext = timeline };
             view.Measure(new Size(1000, 600));
             view.Arrange(new Rect(0, 0, 1000, 600));
+            ListView list = (ListView)view.FindName("LogListView");
+            GridView grid = (GridView)list.View;
+            Check(grid.Columns[3].Width == 245 && grid.Columns[4].Width == 180,
+                "Timeline timestamp/source columns did not bind their widths");
+            view.DataContext = sourceA;
+            Check(grid.Columns[3].Width == 0 && grid.Columns[4].Width == 0,
+                "Timeline columns leaked into an ordinary source tab");
+            view.DataContext = timeline;
             TimelineSourcesDialog picker = new(new[] { sourceA, sourceB });
             Check(picker.SelectedSources.Count == 2, "Source picker defaults");
             picker.Close();

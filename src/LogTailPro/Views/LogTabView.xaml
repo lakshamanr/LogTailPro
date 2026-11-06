@@ -26,6 +26,7 @@
                     Visibility="{Binding WarningMessage,
                                  Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
                 <TextBlock Text="{Binding WarningMessage}"
+                           TextWrapping="Wrap"
                            Foreground="{StaticResource TextWarningBanner}"
                            FontWeight="Bold"/>
             </Border>
@@ -161,14 +162,14 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Width="{Binding DataContext.TimelineTimeWidth, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <GridViewColumn x:Name="TimelineTimestampColumn" Width="0">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding TimelineTimeDisplay}" Foreground="{StaticResource TextMuted}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Width="{Binding DataContext.TimelineSourceWidth, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <GridViewColumn x:Name="TimelineSourceColumn" Width="0">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding SourceFileName}" ToolTip="{Binding SourceFilePath}"

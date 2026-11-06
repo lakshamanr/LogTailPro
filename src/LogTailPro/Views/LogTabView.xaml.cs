@@ -34,6 +34,11 @@ public partial class LogTabView : UserControl
     {
         if (LogListView.View is not GridView grid || grid.Columns.Count == 0) return;
 
+        // GridViewColumn is outside the visual tree, so ancestor bindings cannot
+        // reliably resolve the tab's DataContext. Keep column sizing in UI wiring.
+        TimelineTimestampColumn.Width = _viewModel?.TimelineTimeWidth ?? 0;
+        TimelineSourceColumn.Width = _viewModel?.TimelineSourceWidth ?? 0;
+
         GridViewColumn content = grid.Columns[^1];
         bool wrap = _viewModel?.IsLineWrapEnabled == true;
 
@@ -81,6 +86,7 @@ public partial class LogTabView : UserControl
         }
 
         _viewModel = e.NewValue as LogTabViewModel;
+        UpdateWrapLayout();
 
         if (_viewModel != null)
         {
