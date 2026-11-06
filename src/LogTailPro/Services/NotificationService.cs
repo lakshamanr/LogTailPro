@@ -25,7 +25,7 @@ internal sealed class ToastWindow : Window
         ShowInTaskbar = false;
         Width = 340;
         Height = 80;
-        Background = System.Windows.Media.Brushes.DimGray;
+        Background = System.Windows.Media.Brushes.SteelBlue;
         Opacity = 0.92;
 
         // Position bottom-right of primary screen

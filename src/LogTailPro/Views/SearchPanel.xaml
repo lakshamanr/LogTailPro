@@ -62,7 +62,7 @@
                                 <DataTrigger Binding="{Binding SearchError,
                                              Converter={StaticResource StringNotEmptyToVisibilityConverter}}"
                                              Value="Visible">
-                                    <Setter Property="BorderBrush" Value="#CC3333"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource StatusError}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -204,7 +204,7 @@
 
             <!-- Error text -->
             <TextBlock Text="{Binding SearchError}"
-                       Foreground="#CC3333"
+                       Foreground="{StaticResource StatusError}"
                        Margin="70,0,6,4"
                        FontSize="11"
                        Visibility="{Binding SearchError,

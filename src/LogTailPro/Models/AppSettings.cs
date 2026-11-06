@@ -6,7 +6,7 @@ namespace LogTailPro.Models;
 public sealed class AppSettings
 {
     /// <summary>"Dark" or "Light".</summary>
-    public string Theme { get; set; } = "Dark";
+    public string Theme { get; set; } = "Light"; // legacy; single soft-light theme is always used
 
     /// <summary>Maximum number of log lines kept in memory per tab.</summary>
     public int MaxLinesInMemory { get; set; } = 100_000;

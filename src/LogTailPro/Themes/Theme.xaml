@@ -3,30 +3,30 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
-    <!--  DESIGN TOKENS — LIGHT THEME                                            -->
+    <!--  DESIGN TOKENS — SOFT LIGHT (single theme)                                            -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
     <!-- Background layers -->
-    <SolidColorBrush x:Key="BgBase"     Color="#F5F5F5"/>
+    <SolidColorBrush x:Key="BgBase"     Color="#F3F6FB"/>
     <SolidColorBrush x:Key="BgElevated" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="BgSurface"  Color="#E8E8E8"/>
-    <SolidColorBrush x:Key="BgOverlay"  Color="#D8D8D8"/>
+    <SolidColorBrush x:Key="BgSurface"  Color="#E8EEF7"/>
+    <SolidColorBrush x:Key="BgOverlay"  Color="#D9E4F5"/>
     <SolidColorBrush x:Key="BgInput"    Color="#FFFFFF"/>
 
     <!-- Borders -->
-    <SolidColorBrush x:Key="BorderSubtle" Color="#E0E0E0"/>
-    <SolidColorBrush x:Key="BorderNormal" Color="#C8C8C8"/>
-    <SolidColorBrush x:Key="BorderFocus"  Color="#0078D4"/>
+    <SolidColorBrush x:Key="BorderSubtle" Color="#DCE4F0"/>
+    <SolidColorBrush x:Key="BorderNormal" Color="#C3CFE2"/>
+    <SolidColorBrush x:Key="BorderFocus"  Color="#2563EB"/>
 
     <!-- Text -->
-    <SolidColorBrush x:Key="TextPrimary"   Color="#1A1A1A"/>
-    <SolidColorBrush x:Key="TextSecondary" Color="#6A6A6A"/>
-    <SolidColorBrush x:Key="TextDisabled"  Color="#AAAAAA"/>
+    <SolidColorBrush x:Key="TextPrimary"   Color="#1E293B"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#5B6B82"/>
+    <SolidColorBrush x:Key="TextDisabled"  Color="#A3AEC2"/>
 
     <!-- Accent -->
-    <SolidColorBrush x:Key="Accent"      Color="#0078D4"/>
-    <SolidColorBrush x:Key="AccentHover" Color="#0066B3"/>
-    <SolidColorBrush x:Key="AccentMuted" Color="#200078D4"/>
+    <SolidColorBrush x:Key="Accent"      Color="#2563EB"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#1D4ED8"/>
+    <SolidColorBrush x:Key="AccentMuted" Color="#202563EB"/>
 
     <!-- Semantic status -->
     <SolidColorBrush x:Key="StatusGreen"  Color="#2E7D32"/>
@@ -41,19 +41,22 @@
     <SolidColorBrush x:Key="SearchCurrentBg" Color="#FFD54F"/>
 
     <!-- Text (additional) -->
-    <SolidColorBrush x:Key="TextMuted" Color="#888899"/>
+    <SolidColorBrush x:Key="TextMuted" Color="#7A8AA3"/>
+    <SolidColorBrush x:Key="BgWarningBanner"   Color="#FEF3C7"/>
+    <SolidColorBrush x:Key="TextWarningBanner" Color="#92400E"/>
+    <SolidColorBrush x:Key="BgOverlayScrim"    Color="#CCF3F6FB"/>
 
     <!-- Tab-specific tokens -->
     <SolidColorBrush x:Key="BgTabActive"   Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="BgTabInactive" Color="#E0E0E0"/>
-    <SolidColorBrush x:Key="BgTabHover"    Color="#EBEBEB"/>
+    <SolidColorBrush x:Key="BgTabInactive" Color="#DCE4F0"/>
+    <SolidColorBrush x:Key="BgTabHover"    Color="#EDF2FB"/>
 
     <!-- Log view specific -->
-    <SolidColorBrush x:Key="BgLog"         Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="TextLog"       Color="#1A1A1A"/>
-    <SolidColorBrush x:Key="TextResults"   Color="#0055AA"/>
-    <SolidColorBrush x:Key="BgLogSelected" Color="#CCE4FF"/>
-    <SolidColorBrush x:Key="BgLogHover"    Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="BgLog"         Color="#FBFCFE"/>
+    <SolidColorBrush x:Key="TextLog"       Color="#1E293B"/>
+    <SolidColorBrush x:Key="TextResults"   Color="#1D4ED8"/>
+    <SolidColorBrush x:Key="BgLogSelected" Color="#CFE0FF"/>
+    <SolidColorBrush x:Key="BgLogHover"    Color="#EEF3FB"/>
 
     <!-- Typography -->
     <FontFamily x:Key="MonoFont">Consolas, Courier New</FontFamily>
@@ -83,14 +86,14 @@
     <!--  BACKWARD-COMPAT ALIASES                                                -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
-    <SolidColorBrush x:Key="BackgroundBrush"    Color="#F5F5F5"/>
-    <SolidColorBrush x:Key="ForegroundBrush"    Color="#1A1A1A"/>
-    <SolidColorBrush x:Key="TabBackgroundBrush" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="BackgroundBrush"    Color="#F3F6FB"/>
+    <SolidColorBrush x:Key="ForegroundBrush"    Color="#1E293B"/>
+    <SolidColorBrush x:Key="TabBackgroundBrush" Color="#E8EEF7"/>
     <SolidColorBrush x:Key="SearchBarBrush"     Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="BorderBrush"        Color="#C8C8C8"/>
-    <SolidColorBrush x:Key="SelectionBrush"     Color="#D8D8D8"/>
-    <SolidColorBrush x:Key="AccentBrush"        Color="#0078D4"/>
-    <SolidColorBrush x:Key="StatusBarBrush"     Color="#0078D4"/>
+    <SolidColorBrush x:Key="BorderBrush"        Color="#C3CFE2"/>
+    <SolidColorBrush x:Key="SelectionBrush"     Color="#D9E4F5"/>
+    <SolidColorBrush x:Key="AccentBrush"        Color="#2563EB"/>
+    <SolidColorBrush x:Key="StatusBarBrush"     Color="#2563EB"/>
 
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!--  GLOBAL CONTROL STYLES                                                  -->
@@ -104,7 +107,7 @@
     </Style>
 
     <Style TargetType="Menu">
-        <Setter Property="Background"      Value="#FAFAFA"/>
+        <Setter Property="Background"      Value="#EAF0FA"/>
         <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtle}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
@@ -359,7 +362,7 @@
         <Setter Property="Padding"         Value="0"/>
     </Style>
 
-    <!-- Named styles — same keys as Dark.xaml so theme switching works -->
+    <!-- Named styles -->
     <Style x:Key="ToolbarButton"    TargetType="Button"       BasedOn="{StaticResource {x:Type Button}}"/>
     <Style x:Key="ToolbarToggle"    TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"/>
     <Style x:Key="PrimaryButton" TargetType="Button">
@@ -384,7 +387,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#106EBE"/>
+                            <Setter TargetName="border" Property="Background" Value="#1D4ED8"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="border" Property="Opacity" Value="0.85"/>

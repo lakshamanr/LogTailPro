@@ -21,12 +21,12 @@
 
             <!-- Warning banner (file deleted / truncated) -->
             <Border DockPanel.Dock="Top"
-                    Background="#8B0000"
+                    Background="{StaticResource BgWarningBanner}"
                     Padding="8,4"
                     Visibility="{Binding WarningMessage,
                                  Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
                 <TextBlock Text="{Binding WarningMessage}"
-                           Foreground="White"
+                           Foreground="{StaticResource TextWarningBanner}"
                            FontWeight="Bold"/>
             </Border>
 
@@ -39,14 +39,14 @@
                     Visibility="{Binding IsStatsPanelVisible,
                                  Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Margin="10,0" VerticalAlignment="Center">
-                    <TextBlock Text="ERR" Foreground="{StaticResource StatusError}"  FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsErrorCount}" Foreground="{StaticResource StatusError}"  FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="WARN" Foreground="{StaticResource StatusWarn}"  FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsWarnCount}" Foreground="{StaticResource StatusWarn}"  FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="INFO" Foreground="{StaticResource TextSecondary}" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatsInfoCount}" Foreground="{StaticResource TextSecondary}" FontFamily="Segoe UI" FontSize="11" Margin="3,0,12,0"/>
-                    <TextBlock Text="lines/s" Foreground="{StaticResource TextMuted}" FontFamily="Segoe UI" FontSize="11"/>
-                    <TextBlock Text="{Binding StatsLinesPerSecond}" Foreground="{StaticResource TextPrimary}" FontFamily="Segoe UI" FontSize="11" Margin="3,0,0,0"/>
+                    <TextBlock Text="ERR" Foreground="{StaticResource StatusError}"  FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsErrorCount}" Foreground="{StaticResource StatusError}"  FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="WARN" Foreground="{StaticResource StatusWarn}"  FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsWarnCount}" Foreground="{StaticResource StatusWarn}"  FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="INFO" Foreground="{StaticResource TextSecondary}" FontFamily="{StaticResource UiFont}" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatsInfoCount}" Foreground="{StaticResource TextSecondary}" FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,12,0"/>
+                    <TextBlock Text="lines/s" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource UiFont}" FontSize="11"/>
+                    <TextBlock Text="{Binding StatsLinesPerSecond}" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource UiFont}" FontSize="11" Margin="3,0,0,0"/>
                 </StackPanel>
             </Border>
 
@@ -242,14 +242,14 @@
         </DockPanel>
 
         <!-- Loading overlay — floats above everything -->
-        <Grid Background="#CC000000"
+        <Grid Background="{StaticResource BgOverlayScrim}"
               Visibility="{Binding IsLoading,
                            Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="Loading file..."
                            Foreground="{StaticResource TextSecondary}"
                            FontSize="14"
-                           FontFamily="Segoe UI"
+                           FontFamily="{StaticResource UiFont}"
                            HorizontalAlignment="Center"/>
                 <ProgressBar Value="{Binding LoadProgress}"
                              Maximum="100"
@@ -260,7 +260,7 @@
                              BorderThickness="0"/>
                 <TextBlock Text="{Binding LoadProgress, StringFormat='{}{0}%'}"
                            Foreground="{StaticResource TextSecondary}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{StaticResource UiFont}"
                            FontSize="11"
                            HorizontalAlignment="Center"
                            Margin="0,8,0,0"/>

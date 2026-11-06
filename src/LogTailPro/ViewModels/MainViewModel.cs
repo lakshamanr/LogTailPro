@@ -397,26 +397,6 @@ public sealed partial class MainViewModel : ObservableObject
         await Task.CompletedTask;
     }
 
-    // ── Theme ─────────────────────────────────────────────────────────────────
-
-    public bool IsThemeDark  => Settings.Theme == "Dark";
-    public bool IsThemeLight => Settings.Theme == "Light";
-
-    [RelayCommand]
-    private void SwitchTheme(string themeName)
-    {
-        ResourceDictionary dict = new()
-        {
-            Source = new Uri($"Themes/{themeName}.xaml", UriKind.Relative)
-        };
-        Application.Current.Resources.MergedDictionaries.Clear();
-        Application.Current.Resources.MergedDictionaries.Add(dict);
-        Settings.Theme = themeName;
-        _settingsService.Save(Settings);
-        OnPropertyChanged(nameof(IsThemeDark));
-        OnPropertyChanged(nameof(IsThemeLight));
-    }
-
     // ── Workspace ─────────────────────────────────────────────────────────────
 
     [RelayCommand]
@@ -531,13 +511,8 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true) return;
 
-        string previousTheme = Settings.Theme;
         dialog.ViewModel.ApplyTo(Settings);
         _settingsService.Save(Settings);
-
-        // Apply theme if it changed
-        if (Settings.Theme != previousTheme)
-            SwitchTheme(Settings.Theme);
 
         // Refresh all tabs to pick up font/highlight changes
         foreach (LogTabViewModel tab in Tabs)

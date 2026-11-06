@@ -12,7 +12,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         FontSize = settings.FontSize;
         MaxLinesInMemory = settings.MaxLinesInMemory;
         FollowTailOnOpen = settings.FollowTailOnOpen;
-        IsDarkTheme = settings.Theme == "Dark";
         TabWidth = settings.TabWidth;
         AutomaticallyOpenLastFileOnStartup = settings.AutomaticallyOpenLastFileOnStartup;
         NetworkPollingIntervalMs = settings.NetworkPollingIntervalMs;
@@ -24,17 +23,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     // ── Appearance ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _fontFamily = "Consolas";
     [ObservableProperty] private double _fontSize = 13.0;
-    [ObservableProperty] private bool _isDarkTheme = true;
     [ObservableProperty] private double _lineSpacingMultiplier = 1.0;
     [ObservableProperty] private int _fontCharacterOffsetPx = 0;
-
-    partial void OnIsDarkThemeChanged(bool value) => OnPropertyChanged(nameof(IsLightTheme));
-
-    public bool IsLightTheme
-    {
-        get => !IsDarkTheme;
-        set => IsDarkTheme = !value;
-    }
 
     // ── Behaviour ─────────────────────────────────────────────────────────────
     [ObservableProperty] private int _maxLinesInMemory = 100_000;
@@ -64,7 +54,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.FontSize = FontSize;
         settings.MaxLinesInMemory = MaxLinesInMemory;
         settings.FollowTailOnOpen = FollowTailOnOpen;
-        settings.Theme = IsDarkTheme ? "Dark" : "Light";
         settings.TabWidth = TabWidth;
         settings.AutomaticallyOpenLastFileOnStartup = AutomaticallyOpenLastFileOnStartup;
         settings.NetworkPollingIntervalMs = NetworkPollingIntervalMs;

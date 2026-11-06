@@ -15,14 +15,6 @@ public partial class App : Application
         SettingsService settingsService = new();
         MainViewModel mainVm = new(settingsService);
 
-        // Apply the persisted theme before showing the window
-        string theme = mainVm.Settings.Theme;
-        Resources.MergedDictionaries.Clear();
-        Resources.MergedDictionaries.Add(new ResourceDictionary
-        {
-            Source = new Uri($"Themes/{theme}.xaml", UriKind.Relative)
-        });
-
         MainWindow window = new() { DataContext = mainVm };
 
         // Restore window position from settings (unless CLI overrides it below)

@@ -76,12 +76,6 @@
                              ToolTip="Vertical pixel offset applied to the log font (-5 to 5)"/>
                 </Grid>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                    <Label Content="Theme:" Width="160" VerticalAlignment="Center" Padding="0"/>
-                    <RadioButton Content="Dark"  IsChecked="{Binding IsDarkTheme}"  Margin="0,0,16,0" VerticalAlignment="Center"/>
-                    <RadioButton Content="Light" IsChecked="{Binding IsLightTheme}" VerticalAlignment="Center"/>
-                </StackPanel>
-
                 <!-- ══ Behaviour ══ -->
                 <TextBlock Text="Behaviour" FontWeight="Bold" Margin="0,0,0,8"/>
 

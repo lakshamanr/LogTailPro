@@ -27,7 +27,7 @@
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <conv:FileStatusColorConverter  x:Key="StatusColorConverter"/>
-        <!-- Keyed button/combobox styles live in Themes/Dark.xaml and Themes/Light.xaml
+        <!-- Keyed button/combobox styles live in Themes/Theme.xaml
              so theme-switching works. Window.Resources only holds converters. -->
     </Window.Resources>
 
@@ -132,17 +132,6 @@
                     <MenuItem Header="Left"   Command="{Binding SetTabPlacementCommand}" CommandParameter="Left"/>
                     <MenuItem Header="Right"  Command="{Binding SetTabPlacementCommand}" CommandParameter="Right"/>
                 </MenuItem>
-                <Separator/>
-                <MenuItem Header="Dark Theme"
-                          Command="{Binding SwitchThemeCommand}"
-                          CommandParameter="Dark"
-                          IsCheckable="True"
-                          IsChecked="{Binding IsThemeDark, Mode=OneWay}"/>
-                <MenuItem Header="Light Theme"
-                          Command="{Binding SwitchThemeCommand}"
-                          CommandParameter="Light"
-                          IsCheckable="True"
-                          IsChecked="{Binding IsThemeLight, Mode=OneWay}"/>
                 <Separator/>
                 <MenuItem Header="Stats Panel"
                           Command="{Binding SelectedTab.ToggleStatsPanelCommand}"
@@ -427,7 +416,7 @@
                             <DataTemplate>
                                 <TextBlock Text="{Binding LineNumber}"
                                            TextAlignment="Right"
-                                           Foreground="#888899"
+                                           Foreground="{StaticResource TextSecondary}"
                                            FontFamily="Consolas"
                                            FontSize="12"/>
                             </DataTemplate>
