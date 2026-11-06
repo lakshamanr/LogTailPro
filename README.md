@@ -41,6 +41,10 @@ dotnet publish src/LogTailPro/LogTailPro.csproj -c Release -r win-x64 --self-con
 
 ## MSI installer downloads
 
+For published versions, download the MSI directly from [Releases](https://github.com/lakshamanr/LogTailPro/releases).
+Pushing a tag matching the project version (for example `v1.3.5`) builds and publishes
+that version with its MSI attached. Normal branch pushes continue to provide build artifacts.
+
 Every push to any branch runs the [Build MSI workflow](https://github.com/lakshamanr/LogTailPro/actions/workflows/build-msi.yml).
 Open the successful run for your commit and download `LogTailPro-win-x64-<commit SHA>`
 from **Artifacts** (or use the download link in the run summary). Extract the ZIP to

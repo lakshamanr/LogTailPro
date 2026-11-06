@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-msi:
@@ -55,3 +55,14 @@ jobs:
           "MSI built from commit $env:GITHUB_SHA" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
           "[Download MSI artifact]($env:ARTIFACT_URL) (retained for 30 days)." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = ([xml](Get-Content src/LogTailPro/LogTailPro.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag must match the project version.' }
+          $msi = Get-Item "installer/out/LogTailPro-$version-x64.msi"
+          gh release create $env:GITHUB_REF_NAME $msi.FullName --verify-tag --title "LogTailPro $version" --notes "Windows x64 MSI installer. Download the .msi asset below and run it to install LogTailPro. Built from commit $env:GITHUB_SHA."
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
