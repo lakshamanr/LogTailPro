@@ -100,7 +100,13 @@ public sealed class ErrorTimelineChartService
         if (line.StructuredEvent?.Timestamp.HasValue == true)
             return line.StructuredEvent.Timestamp.Value.ToUniversalTime();
 
-        return TimelineService.ParseTimestamp(line);
+        DateTimeOffset? parsed = TimelineService.ParseTimestamp(line);
+        if (parsed.HasValue) return parsed.Value;
+
+        if (line.Timestamp is DateTime dt && dt.Year > 1900)
+            return new DateTimeOffset(dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt.ToUniversalTime());
+
+        return null;
     }
 
     /// <summary>

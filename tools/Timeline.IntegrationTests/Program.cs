@@ -474,7 +474,20 @@ internal static class Program
 
             // 5. Layout and render actual ErrorTimelineChartView
             ErrorTimelineChartView chartView = new() { DataContext = chartTab.TimelineChart };
+            Check(ReferenceEquals(chartView.ActiveChartViewModel, chartTab.TimelineChart), "Direct DataContext did not set ActiveChartViewModel");
+            Check(ReferenceEquals(chartView.Canvas.DataContext, chartTab.TimelineChart), "Direct DataContext did not propagate to ChartCanvas");
+
             LogTailPro.MainWindow mainWindow = new() { DataContext = mainVm };
+            mainVm.Tabs.Add(chartTab);
+            mainVm.SelectedTab = chartTab;
+            Check(ReferenceEquals(mainWindow.ErrorChartView.ActiveChartViewModel, chartTab.TimelineChart), "MainViewModel.SelectedTab did not propagate ActiveChartViewModel to ChartView");
+            Check(ReferenceEquals(mainWindow.ErrorChartView.Canvas.DataContext, chartTab.TimelineChart), "MainViewModel.SelectedTab did not propagate to ChartCanvas.DataContext");
+
+            // Verify chart panel toggle on legacy layout (layout without chart content id)
+            mainVm.RestoreLayoutXml?.Invoke("<LayoutRoot><LayoutPanel Orientation=\"Vertical\"><LayoutPanel Orientation=\"Horizontal\"><LayoutAnchorablePane DockWidth=\"300\"><LayoutAnchorable ContentId=\"process\" Title=\"Process\"/></LayoutAnchorablePane><LayoutDocumentPane/></LayoutPanel></LayoutPanel></LayoutRoot>");
+            chartTab.IsChartPanelVisible = true;
+            chartTab.IsChartPanelVisible = false;
+
             chartView.Measure(new Size(1000, 300));
             chartView.Arrange(new Rect(0, 0, 1000, 300));
         }

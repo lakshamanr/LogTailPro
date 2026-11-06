@@ -5,7 +5,16 @@ If the version here is newer than what you last built, re-read the affected phas
 
 ---
 
-## v2.7 - 2026-11-06 (CURRENT) - ROADMAP PHASE 6: INTERACTIVE ERROR TIMELINE CHART
+## v2.8 - 2026-11-06 (CURRENT) - ERROR TIMELINE CHART PANEL BINDING & LEGACY LAYOUT FIX
+
+- Fixed ChartCanvas.DataContext disconnection: ErrorTimelineChartView now implements INotifyPropertyChanged, tracks MainViewModel.SelectedTab, and reactively updates ActiveChartViewModel and ChartCanvas.DataContext whenever tabs are opened or switched, ensuring the interactive vector chart canvas and metadata headers display loaded log events.
+- Fixed missing panel in restored layouts: When deserializing a legacy layout.xml from %APPDATA%\LogTailPro (from earlier versions that lacked the chart panel), MainWindow.RefreshAnchorables now detects any missing panels from _panelContents and dynamically injects a LayoutAnchorable into the bottom pane so the toolbar toggle ("📊 Chart"), Ctrl+Shift+T, and View ▸ Panels ▸ Error Timeline Chart reliably open the chart panel.
+- Added timestamp parsing fallback to line.Timestamp in ErrorTimelineChartService.ExtractTimestamp to ensure non-ISO dated logs are recognized and plotted on the timeline.
+- Added integration test assertions verifying chart canvas data context propagation upon tab selection and resilient legacy layout injection.
+
+---
+
+## v2.7 - 2026-11-06 - ROADMAP PHASE 6: INTERACTIVE ERROR TIMELINE CHART
 
 - Implemented roadmap Phase 6: interactive error timeline chart with time-range filtering and drill-down navigation.
 - Created TimeBucket.cs model for adaptive time intervals, tracking Error, Warning, Information, and Other event counts with proportional height ratios, tooltips, and selection states.

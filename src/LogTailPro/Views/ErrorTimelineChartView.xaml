@@ -1,4 +1,5 @@
 <UserControl x:Class="LogTailPro.Views.ErrorTimelineChartView"
+             x:Name="RootChartControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:LogTailPro.Views"
@@ -9,7 +10,8 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
 
-    <DockPanel LastChildFill="True" Margin="8,6">
+    <DockPanel LastChildFill="True" Margin="8,6"
+               DataContext="{Binding ElementName=RootChartControl, Path=ActiveChartViewModel}">
         <!-- ═══ 1. Summary Header ═══════════════════════════════════════════════ -->
         <Border DockPanel.Dock="Top" Background="{StaticResource BgSurface}"
                 BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1"
@@ -25,19 +27,19 @@
                     <!-- Scope & Time Metadata -->
                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Scope: " FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Text="{Binding SelectedTab.TimelineChart.SourceScope, FallbackValue='Log Stream'}"
+                        <TextBlock Text="{Binding SourceScope, FallbackValue='Log Stream'}"
                                    Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="11" Margin="0,0,14,0"/>
 
                         <TextBlock Text="Range: " FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Text="{Binding SelectedTab.TimelineChart.TimeRangeDescription, FallbackValue='No dated events'}"
+                        <TextBlock Text="{Binding TimeRangeDescription, FallbackValue='No dated events'}"
                                    Foreground="{StaticResource TextPrimary}" FontSize="11" Margin="0,0,14,0"/>
 
                         <TextBlock Text="Bucket: " FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Text="{Binding SelectedTab.TimelineChart.BucketSizeDescription, FallbackValue='Auto'}"
+                        <TextBlock Text="{Binding BucketSizeDescription, FallbackValue='Auto'}"
                                    Foreground="{StaticResource TextPrimary}" FontSize="11" Margin="0,0,14,0"/>
 
                         <TextBlock Text="Timezone: " FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Text="{Binding SelectedTab.TimelineChart.TimezoneDescription, FallbackValue='Local'}"
+                        <TextBlock Text="{Binding TimezoneDescription, FallbackValue='Local'}"
                                    Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                     </StackPanel>
 
@@ -45,31 +47,31 @@
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- Total count -->
                         <Border Background="{StaticResource BgOverlay}" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.TotalEventCount, StringFormat='{}{0:N0} events', FallbackValue='0 events'}"
+                            <TextBlock Text="{Binding TotalEventCount, StringFormat='{}{0:N0} events', FallbackValue='0 events'}"
                                        Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="11"/>
                         </Border>
 
                         <!-- Error count -->
                         <Border Background="{StaticResource BadgeErrorBg}" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.ErrorCount, StringFormat='{}{0:N0} errors', FallbackValue='0 errors'}"
+                            <TextBlock Text="{Binding ErrorCount, StringFormat='{}{0:N0} errors', FallbackValue='0 errors'}"
                                        Foreground="{StaticResource BadgeErrorFg}" FontWeight="Bold" FontSize="11"/>
                         </Border>
 
                         <!-- Warning count -->
                         <Border Background="{StaticResource BadgeWarnBg}" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.WarningCount, StringFormat='{}{0:N0} warnings', FallbackValue='0 warnings'}"
+                            <TextBlock Text="{Binding WarningCount, StringFormat='{}{0:N0} warnings', FallbackValue='0 warnings'}"
                                        Foreground="{StaticResource BadgeWarnFg}" FontWeight="SemiBold" FontSize="11"/>
                         </Border>
 
                         <!-- Information count -->
                         <Border Background="{StaticResource BadgeInfoBg}" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.InfoCount, StringFormat='{}{0:N0} info', FallbackValue='0 info'}"
+                            <TextBlock Text="{Binding InfoCount, StringFormat='{}{0:N0} info', FallbackValue='0 info'}"
                                        Foreground="{StaticResource BadgeInfoFg}" FontSize="11"/>
                         </Border>
 
                         <!-- Other count -->
                         <Border Background="{StaticResource BgOverlay}" CornerRadius="3" Padding="6,2">
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.OtherCount, StringFormat='{}{0:N0} other', FallbackValue='0 other'}"
+                            <TextBlock Text="{Binding OtherCount, StringFormat='{}{0:N0} other', FallbackValue='0 other'}"
                                        Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                         </Border>
                     </StackPanel>
@@ -79,15 +81,15 @@
                 <DockPanel Grid.Row="1" Margin="0,4,0,0" LastChildFill="False">
                     <!-- Active Time-Range Filter Banner -->
                     <Border DockPanel.Dock="Left"
-                            Visibility="{Binding SelectedTab.TimelineChart.HasTimeRangeFilter, Converter={StaticResource BoolToVisibility}}"
+                            Visibility="{Binding HasTimeRangeFilter, Converter={StaticResource BoolToVisibility}}"
                             Background="{StaticResource AccentMuted}" BorderBrush="{StaticResource Accent}" BorderThickness="1"
                             CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="⏱  " Foreground="{StaticResource Accent}" FontWeight="Bold" FontSize="11"/>
-                            <TextBlock Text="{Binding SelectedTab.TimelineChart.SelectionSummary}"
+                            <TextBlock Text="{Binding SelectionSummary}"
                                        Foreground="{StaticResource Accent}" FontWeight="SemiBold" FontSize="11" Margin="0,0,8,0"/>
                             <Button Content="✕ Clear Filter"
-                                    Command="{Binding SelectedTab.TimelineChart.ClearFilterCommand}"
+                                    Command="{Binding ClearFilterCommand}"
                                     Style="{StaticResource FlatToolbarButton}"
                                     Padding="4,0" FontSize="10" Cursor="Hand"/>
                         </StackPanel>
@@ -95,8 +97,8 @@
 
                     <!-- Undated events notice -->
                     <TextBlock DockPanel.Dock="Right"
-                               Visibility="{Binding SelectedTab.TimelineChart.HasUndatedEvents, Converter={StaticResource BoolToVisibility}}"
-                               Text="{Binding SelectedTab.TimelineChart.UndatedDescription}"
+                               Visibility="{Binding HasUndatedEvents, Converter={StaticResource BoolToVisibility}}"
+                               Text="{Binding UndatedDescription}"
                                Foreground="{StaticResource TextSecondary}" FontStyle="Italic" FontSize="11" VerticalAlignment="Center"/>
                 </DockPanel>
             </Grid>

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,8 +12,28 @@ namespace LogTailPro.Views;
 /// <summary>
 /// Interaction logic for ErrorTimelineChartView.xaml
 /// </summary>
-public partial class ErrorTimelineChartView : UserControl
+public partial class ErrorTimelineChartView : UserControl, INotifyPropertyChanged
 {
+    private MainViewModel? _hookedMainVm;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public ErrorTimelineChartViewModel? ActiveChartViewModel
+    {
+        get
+        {
+            if (DataContext is MainViewModel mainVm)
+                return mainVm.SelectedTab?.TimelineChart;
+            if (DataContext is LogTabViewModel tabVm)
+                return tabVm.TimelineChart;
+            if (DataContext is ErrorTimelineChartViewModel chartVm)
+                return chartVm;
+            return null;
+        }
+    }
+
+    public ErrorTimelineChartCanvas Canvas => ChartCanvas;
+
     public ErrorTimelineChartView()
     {
         InitializeComponent();
@@ -21,18 +42,33 @@ public partial class ErrorTimelineChartView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        if (_hookedMainVm != null)
+        {
+            _hookedMainVm.PropertyChanged -= OnMainViewModelPropertyChanged;
+            _hookedMainVm = null;
+        }
+
         if (DataContext is MainViewModel mainVm)
         {
-            ChartCanvas.DataContext = mainVm.SelectedTab?.TimelineChart;
+            _hookedMainVm = mainVm;
+            _hookedMainVm.PropertyChanged += OnMainViewModelPropertyChanged;
         }
-        else if (DataContext is LogTabViewModel tabVm)
+
+        UpdateActiveChart();
+    }
+
+    private void OnMainViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
         {
-            ChartCanvas.DataContext = tabVm.TimelineChart;
+            UpdateActiveChart();
         }
-        else if (DataContext is ErrorTimelineChartViewModel chartVm)
-        {
-            ChartCanvas.DataContext = chartVm;
-        }
+    }
+
+    private void UpdateActiveChart()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveChartViewModel)));
+        ChartCanvas.DataContext = ActiveChartViewModel;
     }
 }
 
@@ -360,7 +396,6 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         _dragCurrentIndex = -1;
         InvalidateVisual();
     }
-
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

@@ -61,6 +61,8 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
     }
 
+    public ErrorTimelineChartView ErrorChartView => ChartView;
+
     /// <summary>
     /// Panels live inside AvalonDock models (not in the window's logical tree), so they don't inherit
     /// the window DataContext — hand it to them explicitly.
@@ -201,7 +203,58 @@ public partial class MainWindow : Window
             a.PropertyChanged -= OnAnchorablePropertyChanged;
             a.PropertyChanged += OnAnchorablePropertyChanged;
         }
+
+        // If a saved layout from an older version lacked newer panels (e.g. "chart"),
+        // dynamically inject the missing panel into the live layout tree so it can be opened.
+        foreach (KeyValuePair<string, object> pair in _panelContents)
+        {
+            if (!_anchorables.ContainsKey(pair.Key))
+            {
+                LayoutAnchorable missing = new()
+                {
+                    ContentId = pair.Key,
+                    Title = GetDefaultPanelTitle(pair.Key),
+                    Content = pair.Value,
+                    IsVisible = false,
+                    CanClose = true,
+                    CanHide = true
+                };
+
+                LayoutAnchorablePane newPane = new(missing)
+                {
+                    DockHeight = new GridLength(pair.Key == "chart" ? 160 : 180)
+                };
+
+                if (Dock.Layout.RootPanel != null)
+                {
+                    Dock.Layout.RootPanel.Children.Add(newPane);
+                }
+                else
+                {
+                    LayoutAnchorablePane? existingPane = Dock.Layout.Descendents().OfType<LayoutAnchorablePane>().LastOrDefault();
+                    if (existingPane != null)
+                    {
+                        existingPane.Children.Add(missing);
+                    }
+                }
+
+                _anchorables[pair.Key] = missing;
+                missing.PropertyChanged += OnAnchorablePropertyChanged;
+            }
+        }
     }
+
+    private static string GetDefaultPanelTitle(string id) => id switch
+    {
+        "chart" => "Error Timeline Chart",
+        "process" => "Process Explorer",
+        "details" => "Line Details",
+        "stats" => "Stats",
+        "bookmarks" => "Bookmarks",
+        "search" => "Search",
+        "results" => "Search Results",
+        _ => id
+    };
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
