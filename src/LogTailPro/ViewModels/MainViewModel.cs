@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -85,7 +85,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (processes.Count == 0) return;
         string label = processes.Count == 1 ? processes[0].DisplayName : $"{processes.Count} processes";
-        StatusMessage = $"Looking for log files of {label}…";
+        StatusMessage = $"Looking for log files of {label}�";
 
         IReadOnlyList<LogCandidate> found;
         try
@@ -113,9 +113,9 @@ public sealed partial class MainViewModel : ObservableObject
             MessageBox.Show(
                 $"No log files were found for {label}.\n\n" +
                 "Searched: files the process has open, config files next to its executable " +
-                "(NLog, log4net, Serilog, appsettings, ini, yaml …) and its usual log folders.\n\n" +
-                (noPath ? "The executable path of some processes is not accessible — try running LogTailPro as administrator.\n\n" : "") +
-                "If the process logs elsewhere, use File ▸ Open to open the file directly.",
+                "(NLog, log4net, Serilog, appsettings, ini, yaml �) and its usual log folders.\n\n" +
+                (noPath ? "The executable path of some processes is not accessible � try running LogTailPro as administrator.\n\n" : "") +
+                "If the process logs elsewhere, use File ? Open to open the file directly.",
                 "Open Log Files", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -147,12 +147,12 @@ public sealed partial class MainViewModel : ObservableObject
         if (Application.Current.MainWindow != null)
         {
             Application.Current.MainWindow.Title = value != null
-                ? $"{value.FileName} — LogTailPro"
+                ? $"{value.FileName} � LogTailPro"
                 : "LogTailPro";
         }
     }
 
-    // ── File commands ─────────────────────────────────────────────────────────
+    // -- File commands ---------------------------------------------------------
 
     /// <summary>Shows the Open File dialog and opens each selected file in a new tab.</summary>
     [RelayCommand]
@@ -192,7 +192,7 @@ public sealed partial class MainViewModel : ObservableObject
         await tabVm.InitializeAsync();
     }
 
-    // ── Process Explorer ──────────────────────────────────────────────────────
+    // -- Process Explorer ------------------------------------------------------
 
     [RelayCommand]
     private void ToggleProcessExplorer() => IsProcessExplorerVisible = !IsProcessExplorerVisible;
@@ -344,7 +344,7 @@ public sealed partial class MainViewModel : ObservableObject
         StatusMessage = $"Watching directory: {dialog.FolderName}";
     }
 
-    // ── Tab commands ──────────────────────────────────────────────────────────
+    // -- Tab commands ----------------------------------------------------------
 
     [RelayCommand]
     private void CloseTab(LogTabViewModel tab)
@@ -405,7 +405,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
                 string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
-            if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+            if (source == null || line.OriginalLine == null || !source.ContainsLine(line.OriginalLine))
             {
                 StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
                 return;
@@ -443,7 +443,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
                 string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
-            if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+            if (source == null || line.OriginalLine == null || !source.ContainsLine(line.OriginalLine))
             {
                 StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
                 return;
@@ -454,7 +454,7 @@ public sealed partial class MainViewModel : ObservableObject
         Tabs.Add(correlationTab);
         SelectedTab = correlationTab;
     }
-    // ── Workspace ─────────────────────────────────────────────────────────────
+    // -- Workspace -------------------------------------------------------------
 
     [RelayCommand]
     public async Task SaveWorkspaceAsync(string? targetFilePath = null)
@@ -665,7 +665,7 @@ public sealed partial class MainViewModel : ObservableObject
                     {
                         LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
                             string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
-                        if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+                        if (source == null || line.OriginalLine == null || !source.ContainsLine(line.OriginalLine))
                         {
                             StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
                             return;
@@ -701,7 +701,7 @@ public sealed partial class MainViewModel : ObservableObject
                     {
                         LogTabViewModel? source = Tabs.FirstOrDefault(tab => tab.IsTimelineSource &&
                             string.Equals(tab.FilePath, line.SourceFilePath, StringComparison.OrdinalIgnoreCase));
-                        if (source == null || line.OriginalLine == null || !source.AllLines.Contains(line.OriginalLine))
+                        if (source == null || line.OriginalLine == null || !source.ContainsLine(line.OriginalLine))
                         {
                             StatusMessage = "Original line is no longer loaded (source closed, rotated or trimmed).";
                             return;
@@ -754,7 +754,7 @@ public sealed partial class MainViewModel : ObservableObject
             StatusMessage = $"Workspace loaded: {Path.GetFileName(openPath)}";
         }
     }
-    // ── Tools ─────────────────────────────────────────────────────────────────
+    // -- Tools -----------------------------------------------------------------
 
     [RelayCommand]
     private void OpenLogParser()
@@ -809,7 +809,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
 
-    // ── Help ──────────────────────────────────────────────────────────────────
+    // -- Help ------------------------------------------------------------------
 
     [ObservableProperty]
     private bool _isHelpPanelVisible;
@@ -875,7 +875,7 @@ public sealed partial class MainViewModel : ObservableObject
         };
         dialog.ShowDialog();
     }
-    // ── App exit ─────────────────────────────────────────────────────────────
+    // -- App exit -------------------------------------------------------------
 
     [RelayCommand]
     private void Exit()

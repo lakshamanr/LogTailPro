@@ -161,10 +161,20 @@ public sealed partial class LogTabViewModel
             LogLine? selectedOriginal = SelectedLogLine?.OriginalLine;
             _allLines.Clear();
             _allLines.AddRange(rows);
-            if (rows.Any(r => r.HasStructuredEvent)) HasStructuredLogs = true;
-            foreach (LogLine row in _allLines)
-                row.MatchedRule = IsHighlightingEnabled
-                    ? _highlightService.GetMatchingRule(row.Text, _compiledHighlightRules) : null;
+            if (!HasStructuredLogs && rows.Any(r => r.HasStructuredEvent)) HasStructuredLogs = true;
+            if (IsHighlightingEnabled)
+            {
+                foreach (LogLine row in _allLines)
+                {
+                    row.MatchedRule = row.OriginalLine?.MatchedRule
+                        ?? _highlightService.GetMatchingRule(row.Text, _compiledHighlightRules);
+                }
+            }
+            else
+            {
+                foreach (LogLine row in _allLines)
+                    row.MatchedRule = null;
+            }
             TotalLineCount = rows.Count;
             UpdateStatsAll();
             string warnings = string.Join(" | ", _timelineSources.Where(source => !string.IsNullOrEmpty(source.WarningMessage))
@@ -228,7 +238,7 @@ public sealed partial class LogTabViewModel
     /// <summary>Selects an original record and scrolls to it after activating its tab.</summary>
     public void NavigateToLine(LogLine line)
     {
-        if (!_allLines.Contains(line)) return;
+        if (!ContainsLine(line)) return;
         if (!VisibleLines.Contains(line))
         {
             WarningMessage = "The original line is hidden by this source's filters. Clear its filters to reveal it.";

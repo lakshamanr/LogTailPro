@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -9,19 +10,27 @@ namespace LogTailPro.Converters;
 public sealed class HexToColorConverter : IValueConverter
 {
     public static readonly HexToColorConverter Instance = new();
+    private static readonly ConcurrentDictionary<string, SolidColorBrush> BrushCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly SolidColorBrush TransparentBrush = Brushes.Transparent;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is string hex)
+        if (value is string hex && !string.IsNullOrWhiteSpace(hex))
         {
+            if (BrushCache.TryGetValue(hex, out SolidColorBrush? cached))
+                return cached;
+
             try
             {
                 Color color = (Color)ColorConverter.ConvertFromString(hex);
-                return new SolidColorBrush(color);
+                SolidColorBrush brush = new(color);
+                brush.Freeze();
+                BrushCache[hex] = brush;
+                return brush;
             }
             catch { }
         }
-        return new SolidColorBrush(Colors.Transparent);
+        return TransparentBrush;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

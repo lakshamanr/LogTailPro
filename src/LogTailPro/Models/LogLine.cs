@@ -3,6 +3,10 @@ namespace LogTailPro.Models;
 /// <summary>Represents a single line in the log file.</summary>
 public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
 {
+    private static readonly System.ComponentModel.PropertyChangedEventArgs IsBookmarkedArgs = new(nameof(IsBookmarked));
+    private static readonly System.ComponentModel.PropertyChangedEventArgs IsExpandedArgs = new(nameof(IsExpanded));
+    private static readonly System.ComponentModel.PropertyChangedEventArgs ExpanderGlyphArgs = new(nameof(ExpanderGlyph));
+
     private bool _isBookmarked;
 
     /// <inheritdoc/>
@@ -51,7 +55,7 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
         {
             if (_isBookmarked == value) return;
             _isBookmarked = value;
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBookmarked)));
+            PropertyChanged?.Invoke(this, IsBookmarkedArgs);
         }
     }
 
@@ -95,11 +99,13 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     /// <summary>True when this line represents a valid structured JSON event.</summary>
     public bool HasStructuredEvent => StructuredEvent != null && StructuredEvent.IsValidJson;
 
+    private List<LogLine>? _continuations;
+
     /// <summary>Continuation lines that belong to this multiline event (stack trace frames, inner exceptions).</summary>
-    public List<LogLine> Continuations { get; } = new();
+    public List<LogLine> Continuations => _continuations ??= new();
 
     /// <summary>True when this line is the root of a multiline event with continuations.</summary>
-    public bool HasContinuations => Continuations.Count > 0;
+    public bool HasContinuations => _continuations != null && _continuations.Count > 0;
 
     /// <summary>Whether this multiline exception group is expanded in the view.</summary>
     public bool IsExpanded
@@ -109,8 +115,8 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
         {
             if (_isExpanded == value) return;
             _isExpanded = value;
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsExpanded)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(ExpanderGlyph)));
+            PropertyChanged?.Invoke(this, IsExpandedArgs);
+            PropertyChanged?.Invoke(this, ExpanderGlyphArgs);
         }
     }
     private bool _isExpanded;

@@ -13,6 +13,8 @@ namespace LogTailPro.Views;
 public partial class LogTabView : UserControl
 {
     private LogTabViewModel? _viewModel;
+    private ScrollViewer? _cachedScrollViewer;
+    private ScrollViewer? GetScrollViewer() => _cachedScrollViewer ??= FindScrollViewer(LogListView);
 
     public LogTabView()
     {
@@ -57,7 +59,7 @@ public partial class LogTabView : UserControl
         for (int i = 0; i < grid.Columns.Count - 1; i++)
             gutters += double.IsNaN(grid.Columns[i].Width) ? grid.Columns[i].ActualWidth : grid.Columns[i].Width;
 
-        ScrollViewer? sv = FindScrollViewer(LogListView);
+        ScrollViewer? sv = GetScrollViewer();
         double available = sv is { ViewportWidth: > 0 }
             ? sv.ViewportWidth
             : LogListView.ActualWidth - SystemParameters.VerticalScrollBarWidth;
@@ -74,7 +76,7 @@ public partial class LogTabView : UserControl
         // so the ScrollViewer still holds the old tab's offset here.
         if (e.OldValue is LogTabViewModel oldVm)
         {
-            ScrollViewer? sv = FindScrollViewer(LogListView);
+            ScrollViewer? sv = GetScrollViewer();
             if (sv != null)
             {
                 oldVm.SavedScrollVertical   = sv.VerticalOffset;
@@ -108,7 +110,7 @@ public partial class LogTabView : UserControl
             {
                 Dispatcher.InvokeAsync(() =>
                 {
-                    ScrollViewer? sv = FindScrollViewer(LogListView);
+                    ScrollViewer? sv = GetScrollViewer();
                     sv?.ScrollToVerticalOffset(v);
                     sv?.ScrollToHorizontalOffset(h);
                 }, DispatcherPriority.Background);

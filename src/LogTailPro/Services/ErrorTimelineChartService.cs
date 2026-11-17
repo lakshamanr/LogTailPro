@@ -321,6 +321,9 @@ public sealed class ErrorTimelineChartService
                                  $"Total: {bucket.TotalCount:N0} events";
         }
 
+        TimeSpan localOffset = TimeZoneInfo.Local.GetUtcOffset(DateTime.Now);
+        string tzSign = localOffset >= TimeSpan.Zero ? "+" : "-";
+
         return new ErrorTimelineChartData
         {
             Buckets = buckets,
@@ -339,7 +342,7 @@ public sealed class ErrorTimelineChartService
             BucketInterval = interval,
             BucketIntervalDescription = FormatIntervalDescription(interval),
             SourceScope = sourceScope,
-            TimezoneDescription = $"{TimeZoneInfo.Local.DisplayName} (UTC{(TimeZoneInfo.Local.GetUtcOffset(DateTime.Now) >= TimeSpan.Zero ? "+" : "-")}{Math.Abs(TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).Hours):D2}:{Math.Abs(TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).Minutes):D2})"
+            TimezoneDescription = $"{TimeZoneInfo.Local.DisplayName} (UTC{tzSign}{Math.Abs(localOffset.Hours):D2}:{Math.Abs(localOffset.Minutes):D2})"
         };
     }
 }

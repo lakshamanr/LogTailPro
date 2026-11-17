@@ -43,7 +43,7 @@
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
                       VirtualizingPanel.CacheLengthUnit="Item"
-                      VirtualizingPanel.CacheLength="200,200"
+                      VirtualizingPanel.CacheLength="20,20"
                       ScrollViewer.CanContentScroll="True"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       ScrollViewer.VerticalScrollBarVisibility="Auto"

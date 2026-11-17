@@ -156,6 +156,7 @@
                       BorderThickness="0"
                       RowHeaderWidth="0"
                       EnableRowVirtualization="True"
+                      EnableColumnVirtualization="True"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
                       FontFamily="{StaticResource MonoFont}"

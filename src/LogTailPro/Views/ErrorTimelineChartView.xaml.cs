@@ -95,6 +95,16 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
     private static readonly Brush GridLineBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xC3, 0xCF, 0xE2));
     private static readonly Brush TextBrush = new SolidColorBrush(Color.FromRgb(0x5B, 0x6B, 0x82));
 
+    private static readonly Brush DimmedErrorBrush = MakeDimmed(ErrorBrush);
+    private static readonly Brush DimmedWarnBrush = MakeDimmed(WarnBrush);
+    private static readonly Brush DimmedInfoBrush = MakeDimmed(InfoBrush);
+    private static readonly Brush DimmedOtherBrush = MakeDimmed(OtherBrush);
+
+    private static readonly Pen BaselinePen = new(BaselineBrush, 1.0);
+    private static readonly Pen GridPen = new(GridLineBrush, 1.0);
+    private static readonly Pen SelectedBorderPen = new(SelectedBorderBrush, 1.5);
+    private static readonly Pen MarqueePen = new(SelectedBorderBrush, 1.0);
+
     static ErrorTimelineChartCanvas()
     {
         ErrorBrush.Freeze();
@@ -106,6 +116,11 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         BaselineBrush.Freeze();
         GridLineBrush.Freeze();
         TextBrush.Freeze();
+
+        BaselinePen.Freeze();
+        GridPen.Freeze();
+        SelectedBorderPen.Freeze();
+        MarqueePen.Freeze();
     }
 
     public ErrorTimelineChartCanvas()
@@ -134,7 +149,13 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        InvalidateVisual();
+        if (e.PropertyName is null or "" or nameof(ErrorTimelineChartViewModel.Buckets)
+            or nameof(ErrorTimelineChartViewModel.HasTimeRangeFilter)
+            or nameof(ErrorTimelineChartViewModel.SelectedStartTime)
+            or nameof(ErrorTimelineChartViewModel.SelectedEndTime))
+        {
+            InvalidateVisual();
+        }
     }
 
     private void OnBucketsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -155,14 +176,13 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         double baselineY = chartHeight + 2;
 
         // Draw baseline
-        dc.DrawLine(new Pen(BaselineBrush, 1.0), new Point(0, baselineY), new Point(width, baselineY));
+        dc.DrawLine(BaselinePen, new Point(0, baselineY), new Point(width, baselineY));
 
         // Draw background grid lines at 25%, 50%, 75%
-        Pen gridPen = new(GridLineBrush, 1.0);
         for (int step = 1; step <= 3; step++)
         {
             double y = baselineY - (chartHeight * step / 4.0);
-            dc.DrawLine(gridPen, new Point(0, y), new Point(width, y));
+            dc.DrawLine(GridPen, new Point(0, y), new Point(width, y));
         }
 
         ErrorTimelineChartViewModel? vm = ViewModel;
@@ -183,22 +203,22 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
 
         int count = vm.Buckets.Count;
         double barWidth = width / count;
-        double barGap = Math.Max(1.0, Math.Min(4.0, barWidth * 0.15));
-        double actualBarWidth = Math.Max(1.0, barWidth - barGap);
+        double barSpacing = Math.Max(0.5, Math.Min(2.0, barWidth * 0.1));
+        double actualBarWidth = Math.Max(1.0, barWidth - barSpacing);
 
         bool hasFilter = vm.HasTimeRangeFilter;
-        Typeface labelFont = new("Segoe UI");
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        Typeface labelFont = new("Segoe UI");
 
-        int labelStep = Math.Max(1, (int)Math.Ceiling(count / (width / 65.0)));
+        // Determine sensible step for drawing x-axis labels (minimum 65px per label)
+        int labelStep = Math.Max(1, (int)Math.Ceiling(65.0 / barWidth));
 
         for (int i = 0; i < count; i++)
         {
             TimeBucket b = vm.Buckets[i];
-            double x = i * barWidth + (barGap / 2.0);
+            double x = i * barWidth;
 
             bool isDimmed = hasFilter && !b.IsSelected;
-            double opacity = isDimmed ? 0.35 : 1.0;
 
             if (b.TotalCount > 0)
             {
@@ -215,7 +235,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 if (otherH > 0)
                 {
                     currentY -= otherH;
-                    Brush brush = isDimmed ? MakeDimmed(OtherBrush) : OtherBrush;
+                    Brush brush = isDimmed ? DimmedOtherBrush : OtherBrush;
                     dc.DrawRectangle(brush, null, new Rect(x, currentY, actualBarWidth, otherH));
                 }
 
@@ -223,7 +243,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 if (infoH > 0)
                 {
                     currentY -= infoH;
-                    Brush brush = isDimmed ? MakeDimmed(InfoBrush) : InfoBrush;
+                    Brush brush = isDimmed ? DimmedInfoBrush : InfoBrush;
                     dc.DrawRectangle(brush, null, new Rect(x, currentY, actualBarWidth, infoH));
                 }
 
@@ -231,7 +251,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 if (warnH > 0)
                 {
                     currentY -= warnH;
-                    Brush brush = isDimmed ? MakeDimmed(WarnBrush) : WarnBrush;
+                    Brush brush = isDimmed ? DimmedWarnBrush : WarnBrush;
                     dc.DrawRectangle(brush, null, new Rect(x, currentY, actualBarWidth, warnH));
                 }
 
@@ -239,15 +259,14 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 if (errorH > 0)
                 {
                     currentY -= errorH;
-                    Brush brush = isDimmed ? MakeDimmed(ErrorBrush) : ErrorBrush;
+                    Brush brush = isDimmed ? DimmedErrorBrush : ErrorBrush;
                     dc.DrawRectangle(brush, null, new Rect(x, currentY, actualBarWidth, errorH));
                 }
 
-                // If selected or hovered, draw highlight border
+                // If selected, draw highlight border
                 if (b.IsSelected)
                 {
-                    Pen selectPen = new(SelectedBorderBrush, 1.5);
-                    dc.DrawRectangle(null, selectPen, new Rect(x - 1, baselineY - totalBarH - 2, actualBarWidth + 2, totalBarH + 2));
+                    dc.DrawRectangle(null, SelectedBorderPen, new Rect(x - 1, baselineY - totalBarH - 2, actualBarWidth + 2, totalBarH + 2));
                 }
             }
 
@@ -276,7 +295,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
             double mX = minIdx * barWidth;
             double mW = (maxIdx - minIdx + 1) * barWidth;
 
-            dc.DrawRectangle(MarqueeBrush, new Pen(SelectedBorderBrush, 1.0), new Rect(mX, 2, mW, chartHeight));
+            dc.DrawRectangle(MarqueeBrush, MarqueePen, new Rect(mX, 2, mW, chartHeight));
         }
     }
 
@@ -324,7 +343,6 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
             {
                 ToolTip = vm.Buckets[idx].ToolTipText;
             }
-            InvalidateVisual();
         }
     }
 
@@ -332,7 +350,6 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
     {
         base.OnMouseLeave(e);
         _hoveredBucketIndex = -1;
-        if (!_isDragging) InvalidateVisual();
     }
 
     protected override void OnMouseDown(MouseButtonEventArgs e)

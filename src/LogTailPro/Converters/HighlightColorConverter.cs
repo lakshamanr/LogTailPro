@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -14,6 +15,8 @@ namespace LogTailPro.Converters;
 [ValueConversion(typeof(HighlightRule), typeof(Brush))]
 public sealed class HighlightColorConverter : IValueConverter
 {
+    private static readonly ConcurrentDictionary<string, Brush> BrushCache = new(StringComparer.OrdinalIgnoreCase);
+
     /// <inheritdoc/>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -24,10 +27,19 @@ public sealed class HighlightColorConverter : IValueConverter
             ? rule.ForegroundColor
             : rule.BackgroundColor;
 
+        if (string.IsNullOrEmpty(colorHex))
+            return System.Windows.DependencyProperty.UnsetValue;
+
+        if (BrushCache.TryGetValue(colorHex, out Brush? cached))
+            return cached;
+
         try
         {
             Color color = (Color)ColorConverter.ConvertFromString(colorHex);
-            return new SolidColorBrush(color);
+            SolidColorBrush brush = new(color);
+            brush.Freeze();
+            BrushCache[colorHex] = brush;
+            return brush;
         }
         catch
         {

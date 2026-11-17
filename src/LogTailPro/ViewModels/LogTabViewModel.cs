@@ -29,6 +29,48 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     /// <summary>Whether the Error Timeline Chart panel is currently visible.</summary>
     [ObservableProperty] private bool _isChartPanelVisible;
 
+    partial void OnIsChartPanelVisibleChanged(bool value)
+    {
+        if (value)
+        {
+            _ = UpdateChartAsync();
+        }
+    }
+
+    private DispatcherTimer? _chartThrottleTimer;
+    private bool _chartDirty;
+
+    public void RequestChartUpdate()
+    {
+        _chartDirty = true;
+        if (_chartThrottleTimer == null)
+        {
+            _chartThrottleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _chartThrottleTimer.Tick += (s, e) =>
+            {
+                _chartThrottleTimer.Stop();
+                if (_chartDirty)
+                {
+                    _chartDirty = false;
+                    _ = UpdateChartAsync();
+                }
+            };
+        }
+        if (!_chartThrottleTimer.IsEnabled)
+        {
+            _chartThrottleTimer.Start();
+        }
+    }
+
+    /// <summary>Fast O(1) check whether a line belongs to this tab's loaded tail.</summary>
+    public bool ContainsLine(LogLine? line)
+    {
+        if (line == null || _allLines.Count == 0) return false;
+        long firstNo = _allLines[0].LineNumber;
+        int idx = (int)(line.LineNumber - firstNo);
+        return idx >= 0 && idx < _allLines.Count && ReferenceEquals(_allLines[idx], line);
+    }
+
     [RelayCommand]
     private void ToggleChart() => IsChartPanelVisible = !IsChartPanelVisible;
 
@@ -55,10 +97,11 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public async Task UpdateChartAsync()
     {
         _chartCts?.Cancel();
+        _chartCts?.Dispose();
         _chartCts = new CancellationTokenSource();
         CancellationToken ct = _chartCts.Token;
 
-        List<LogLine> snapshot = _allLines.ToList();
+        LogLine[] snapshot = _allLines.ToArray();
         string scope = IsTimeline
             ? $"Combined Timeline ({TimelineSources.Count} sources)"
             : (!string.IsNullOrEmpty(FilePath) ? Path.GetFileName(FilePath) : "Log Stream");
@@ -465,6 +508,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     // ── Filter chain ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<FilterRuleViewModel> _filterRules = new();
+    private IReadOnlyList<CompiledFilterRule> _compiledFilterChain = Array.Empty<CompiledFilterRule>();
 
     // ── Detail / pretty-print panel ───────────────────────────────────────────
     [ObservableProperty] private bool _isDetailPanelVisible;
@@ -496,7 +540,29 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         if (value != null) LoadPatternCommand.Execute(value);
     }
 
-    partial void OnSearchTextChanged(string value) { _ = ApplySearchAsync(); }
+    private DispatcherTimer? _searchDebounceTimer;
+
+    partial void OnSearchTextChanged(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            _searchDebounceTimer?.Stop();
+            _ = ApplySearchAsync();
+            return;
+        }
+
+        if (_searchDebounceTimer == null)
+        {
+            _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _searchDebounceTimer.Tick += (s, e) =>
+            {
+                _searchDebounceTimer.Stop();
+                _ = ApplySearchAsync();
+            };
+        }
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
+    }
     partial void OnIsRegexModeChanged(bool value) { OnPropertyChanged(nameof(IsRegexModeIndex)); _ = ApplySearchAsync(); }
     partial void OnIsCaseSensitiveChanged(bool value) { _ = ApplySearchAsync(); }
     partial void OnIsIgnoreCaseChanged(bool value) { IsCaseSensitive = !value; }
@@ -689,6 +755,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         long lineNumber = _nextLineNumber;
         string tabExpansion = _settings.TabWidth > 0 ? new string(' ', _settings.TabWidth) : "\t";
         bool foundStructured = false;
+        DateTime arrived = isFromWatcher ? DateTime.Now : DateTime.MinValue;
 
         foreach (string raw in rawLines)
         {
@@ -726,7 +793,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 MatchedRule = IsHighlightingEnabled
                     ? _highlightService.GetMatchingRule(text, _compiledHighlightRules)
                     : null,
-                ArrivedAt = isFromWatcher ? DateTime.Now : DateTime.MinValue
+                ArrivedAt = arrived
             };
             result.Add(line);
 
@@ -775,7 +842,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             UpdateStatus();
             NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
             LinesChanged?.Invoke(this, EventArgs.Empty);
-            _ = UpdateChartAsync();
+            RequestChartUpdate();
         }, DispatcherPriority.Background);
     }
 
@@ -827,7 +894,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 _allLines[0].IsPartialContinuation = true;
                 _allLines[0].GroupParent = null;
             }
-            _ = UpdateChartAsync();
+            RequestChartUpdate();
         }
     }
 
@@ -836,6 +903,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private async Task ApplySearchAsync()
     {
         _searchCts?.Cancel();
+        _searchCts?.Dispose();
         _searchCts = new CancellationTokenSource();
         CancellationToken ct = _searchCts.Token;
 
@@ -870,10 +938,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             IsSearchResultsVisible = false;
         }
 
-        IReadOnlyList<CompiledFilterRule> compiledChain =
-            _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
+        _compiledFilterChain = _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
+        IReadOnlyList<CompiledFilterRule> compiledChain = _compiledFilterChain;
 
-        List<LogLine> snapshot = _allLines.ToList();
+        LogLine[] snapshot = _allLines.ToArray();
         Regex? pattern = _activePattern;
         FilterMode mode = FilterMode;
 
@@ -1031,9 +1099,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             if (FilterMode == FilterMode.IncludeMatching && !matches) return false;
             if (FilterMode == FilterMode.ExcludeMatching && matches) return false;
         }
-        IReadOnlyList<CompiledFilterRule> chain =
-            _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
-        return _searchService.LineMatchesChain(line, chain);
+        if (_compiledFilterChain.Count == 0) return true;
+        return _searchService.LineMatchesChain(line, _compiledFilterChain);
     }
 
     private static bool SafeIsMatch(Regex pattern, string text)
@@ -1157,8 +1224,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private void AddFilterRule()
     {
         FilterRules.Add(new FilterRuleViewModel(
-            onRemove: r => { FilterRules.Remove(r); _ = ApplySearchAsync(); },
-            onChanged: () => _ = ApplySearchAsync()));
+            onRemove: r => { FilterRules.Remove(r); _compiledFilterChain = _searchService.CompileChain(FilterRules.Select(rule => rule.ToModel()).ToList()); _ = ApplySearchAsync(); },
+            onChanged: () => { _compiledFilterChain = _searchService.CompileChain(FilterRules.Select(rule => rule.ToModel()).ToList()); _ = ApplySearchAsync(); }));
+        _compiledFilterChain = _searchService.CompileChain(FilterRules.Select(r => r.ToModel()).ToList());
     }
 
     [RelayCommand]
@@ -1406,8 +1474,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         Application.Current.Dispatcher.Invoke(() =>
         {
             List<LogLine> temp = VisibleLines.ToList();
-            VisibleLines.Clear();
-            foreach (LogLine l in temp) VisibleLines.Add(l);
+            VisibleLines.ReplaceAll(temp);
             UpdateStatsAll();
         });
     }
@@ -1420,7 +1487,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         foreach (HighlightRule rule in notifyRules)
         {
             LogLine? match = newLines.FirstOrDefault(l =>
-                _highlightService.GetMatchingRule(l.Text, _compiledHighlightRules) == rule);
+                l.MatchedRule == rule || (!IsHighlightingEnabled && _highlightService.GetMatchingRule(l.Text, _compiledHighlightRules) == rule));
             if (match != null)
                 NotificationService.Show(rule.NotifyTitle, $"[{FileName}] {match.Text}");
         }
@@ -1492,7 +1559,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         _disposed = true;
         Closed?.Invoke(this, EventArgs.Empty);
         DisposeTimeline();
+        _searchDebounceTimer?.Stop();
+        _chartThrottleTimer?.Stop();
         _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _chartCts?.Cancel();
+        _chartCts?.Dispose();
         if (_captureService != null)
         {
             _captureService.NewLinesAvailable -= OnNewLinesAvailable;
