@@ -98,6 +98,7 @@ public partial class MainWindow : Window
             using StringReader sr = new(layoutXml);
             CreateSerializer().Deserialize(sr);
             RefreshAnchorables();
+            AssignPanelDataContexts();
         }
         catch (Exception)
         {
@@ -105,6 +106,7 @@ public partial class MainWindow : Window
             {
                 CreateSerializer().Deserialize(new StringReader(_defaultLayoutXml));
                 RefreshAnchorables();
+                AssignPanelDataContexts();
             }
             catch { }
         }
@@ -172,6 +174,7 @@ public partial class MainWindow : Window
 
         _hadSavedLayout = false;
         RefreshAnchorables();
+        AssignPanelDataContexts();
         ApplyAllPanelVisibility();
         if (ViewModel.SelectedTab != null)
             Dock.ActiveContent = ViewModel.SelectedTab;
@@ -182,6 +185,7 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        AssignPanelDataContexts();
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         WatchTab(ViewModel.SelectedTab);
         ApplyAllPanelVisibility();
@@ -276,6 +280,7 @@ public partial class MainWindow : Window
         {
             case nameof(MainViewModel.SelectedTab):
                 WatchTab(ViewModel.SelectedTab);
+                if (_panelContents.TryGetValue("stats", out object? statsObj) && statsObj is StatsPanel sp) sp.UpdateActiveTab();
                 if (!_syncing && ViewModel.SelectedTab != null && !ReferenceEquals(Dock.ActiveContent, ViewModel.SelectedTab))
                 {
                     _syncing = true;

@@ -25,6 +25,21 @@ public sealed partial class ErrorTimelineChartViewModel : ObservableObject
     [ObservableProperty] private int _infoCount;
     [ObservableProperty] private int _otherCount;
 
+    [ObservableProperty] private bool _showErrors = true;
+    [ObservableProperty] private bool _showWarnings = true;
+    [ObservableProperty] private bool _showInfos = true;
+    [ObservableProperty] private bool _showOthers = true;
+
+    public double ErrorPercent => TotalEventCount > 0 ? (double)ErrorCount / TotalEventCount * 100.0 : 0.0;
+    public double WarningPercent => TotalEventCount > 0 ? (double)WarningCount / TotalEventCount * 100.0 : 0.0;
+    public double InfoPercent => TotalEventCount > 0 ? (double)InfoCount / TotalEventCount * 100.0 : 0.0;
+    public double OtherPercent => TotalEventCount > 0 ? (double)OtherCount / TotalEventCount * 100.0 : 0.0;
+
+    public string ErrorPercentText => TotalEventCount > 0 ? $"{ErrorPercent:F1}%" : "0%";
+    public string WarningPercentText => TotalEventCount > 0 ? $"{WarningPercent:F1}%" : "0%";
+    public string InfoPercentText => TotalEventCount > 0 ? $"{InfoPercent:F1}%" : "0%";
+    public string OtherPercentText => TotalEventCount > 0 ? $"{OtherPercent:F1}%" : "0%";
+
     [ObservableProperty] private int _undatedCount;
     [ObservableProperty] private bool _hasUndatedEvents;
     [ObservableProperty] private string _undatedDescription = string.Empty;
@@ -84,6 +99,41 @@ public sealed partial class ErrorTimelineChartViewModel : ObservableObject
         }
 
         Buckets.ReplaceAll(data.Buckets);
+
+        OnPropertyChanged(nameof(ErrorPercent));
+        OnPropertyChanged(nameof(WarningPercent));
+        OnPropertyChanged(nameof(InfoPercent));
+        OnPropertyChanged(nameof(OtherPercent));
+        OnPropertyChanged(nameof(ErrorPercentText));
+        OnPropertyChanged(nameof(WarningPercentText));
+        OnPropertyChanged(nameof(InfoPercentText));
+        OnPropertyChanged(nameof(OtherPercentText));
+    }
+
+    /// <summary>Toggles visibility of the Error layer on the chart.</summary>
+    [RelayCommand]
+    public void ToggleShowErrors() => ShowErrors = !ShowErrors;
+
+    /// <summary>Toggles visibility of the Warning layer on the chart.</summary>
+    [RelayCommand]
+    public void ToggleShowWarnings() => ShowWarnings = !ShowWarnings;
+
+    /// <summary>Toggles visibility of the Information layer on the chart.</summary>
+    [RelayCommand]
+    public void ToggleShowInfos() => ShowInfos = !ShowInfos;
+
+    /// <summary>Toggles visibility of the Other layer on the chart.</summary>
+    [RelayCommand]
+    public void ToggleShowOthers() => ShowOthers = !ShowOthers;
+
+    /// <summary>Resets all severity layers to visible.</summary>
+    [RelayCommand]
+    public void ResetLayers()
+    {
+        ShowErrors = true;
+        ShowWarnings = true;
+        ShowInfos = true;
+        ShowOthers = true;
     }
 
     /// <summary>Filters the view to events within the specified time bucket.</summary>

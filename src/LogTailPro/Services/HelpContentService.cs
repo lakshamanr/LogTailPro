@@ -51,13 +51,21 @@ public sealed class HelpContentService
         try
         {
             string? baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string guidePath = Path.Combine(baseDir, "HELP_GUIDE.md");
+            string guidePath = Path.Combine(baseDir, "docs", "HELP_GUIDE.md");
+            if (!File.Exists(guidePath))
+                guidePath = Path.Combine(baseDir, "HELP_GUIDE.md");
 
             if (!File.Exists(guidePath))
             {
-                // Fallback to project root if running from bin folder
-                string altPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "HELP_GUIDE.md"));
-                if (File.Exists(altPath)) guidePath = altPath;
+                // Fallback to project root/docs if running from bin folder
+                string altPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "docs", "HELP_GUIDE.md"));
+                if (File.Exists(altPath))
+                    guidePath = altPath;
+                else
+                {
+                    altPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "HELP_GUIDE.md"));
+                    if (File.Exists(altPath)) guidePath = altPath;
+                }
             }
 
             if (File.Exists(guidePath))

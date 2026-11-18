@@ -1,4 +1,3 @@
 @echo off
-rem Creates ..\LogTailPro-source.zip without bin, obj, .git, .vs, publish, installer\out
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0zip-source.ps1"
-pause
+REM Forwarding shim to scripts/zip-source.bat
+call "%~dp0scripts\zip-source.bat" %*

@@ -1,91 +1,171 @@
 # LogTailPro
 
-A full-featured real-time log file viewer for Windows — built in C# + WPF + .NET 10.
-Designed as a BareTailPro clone that goes beyond it.
+A full-featured real-time log file viewer and diagnostic workbench for Windows — built in C# 12, WPF, and .NET 9.
+Combines ultra-fast multi-file tailing with an IDE docking layout, structured JSON log parsing, cross-log correlation, multiline exception grouping, interactive error timeline analytics, and live process output capture.
 
-## Quick Start
+---
 
-```powershell
-.\start.ps1        # checks environment, shows instructions
-claude             # open Claude Code in this directory
-# then type: start
+## Key Features
+
+### 1. Real-Time File Tailing & Search
+- **Instant Live Tail**: Watches log files in real time with auto-scroll (`Follow Tail`), pause, and resume.
+- **Large File Support**: Handles multi-gigabyte log files efficiently with bounded memory consumption and fast seeking.
+- **Powerful Search & Filtering**: Plain text and regex search with match counters, case sensitivity, invert matching, and include/exclude filter modes.
+- **Highlight Rules**: Configurable regex-based text and row highlighting with custom foreground and background colors.
+
+### 2. IDE Docking Architecture (AvalonDock)
+- Fully customizable, dockable, floatable, and pinnable panels:
+  - **Error Timeline Chart**: Interactive chronological severity visualizer.
+  - **Stats Panel**: Live stream analytics dashboard, KPI metrics, and mini sparkline.
+  - **Line Details / Property Inspector**: Structured JSON tree, metadata inspection, and formatted exception viewer.
+  - **Bookmarks Panel**: Manage, label, and jump between bookmarked log rows (`Ctrl+B`, `F2` / `Shift+F2`).
+  - **Search & Search Results**: Paged search results list with timestamp and source headers.
+  - **Process Explorer**: Monitor active system processes and attach live console/debug output streams.
+  - **Help Guide**: Built-in searchable documentation panel (`F1`).
+- **Save & Restore Layout**: Preserves panel positions and layout between sessions with one-click **Reset Layout**.
+
+### 3. Interactive Error Timeline Chart (`Ctrl+Shift+T`)
+- **Adaptive Time Bucketing**: Automatically aggregates logs into clean human-friendly time intervals (1s to 7d, bounded to 120 buckets).
+- **Stacked Severity Bars**: Visualizes Error (red), Warning (amber), Info (blue), and Other (slate) event distributions.
+- **Y-Axis Numeric Scale Labels**: Calibrated left-gutter numeric tick labels (0, 25%, 50%, 75%, and peak max count with `k` notation).
+- **Severity Layer Toggles**: Click the header severity pills (Errors, Warnings, Info, Other) to toggle individual layers on/off and isolate rare error spikes.
+- **Click & Drag Time-Range Filtering**: Click a single bucket or click-and-drag a marquee range to filter visible log events (AND-combined with search).
+- **Right-Click Context Menu**:
+  - Filter to bucket
+  - Drill down to first event
+  - Copy formatted time range
+  - Clear time filter
+  - Toggle severity layers
+- **Rich Styled Tooltips**: Theme-aware tooltips with timestamp headers, colored severity indicator dots, aligned counts, and navigation hints.
+- **Undated Records Notice**: Explicitly tracks records without dates rather than plotting fabricated timestamps.
+
+### 4. Revamped Live Stream Stats Dashboard (`Ctrl+Shift+S`)
+- **KPI Metrics Cards**: Dedicated 2x2 grid for **Errors**, **Warnings**, **Info**, and **Lines / Sec**. Click the **Errors** or **Warnings** card to instantly filter the log view.
+- **Severity Ratio Bar**: Proportional multi-segment horizontal bar displaying exact event counts and percentages.
+- **Embedded Mini Timeline Sparkline**: Visualizes chronological event distribution directly inside the Stats panel without needing to open the bottom dock pane. Includes a one-click **View Full Chart** button.
+- **Stream Metrics**: Displays total lines, file size, active bookmarks, and undated events.
+- **Quick Action Pills**: One-click shortcuts to **Filter Errors**, **Filter Warnings**, and **Clear Filter**.
+- **Empty State**: Friendly placeholder when no log tab is open.
+
+### 5. Multi-Source Combined Timeline
+- Open two or more log files and choose **Edit ▸ Combined Timeline** (`Ctrl+Shift+M`).
+- Merges loaded source lines chronologically in UTC with deterministic tie-breaking.
+- Dedicated **Source** and **UTC Time** columns; right-click any line and choose **Open original line** to jump directly to the source file and line.
+- Live updates follow source file changes asynchronously without freezing the UI.
+
+### 6. Structured JSON Logs & Property Inspector
+- Detects line-delimited JSON (JSONL) and Serilog CLEF records (`@t`, `@l`, `@m`, `@mt`, `@x`).
+- Dedicated **Level** and **Timestamp** columns with color badges.
+- **Property Inspector**: Hierarchical tree viewer for nested properties, exception stack traces, and pretty-printed raw JSON.
+- **Typed Field Filters**: Direct syntax expressions (e.g. `StatusCode >= 400`, `exists(UserId)`, `Level == Error`).
+
+### 7. Cross-Log Request & Trace ID Correlation
+- Right-click any parsed or highlighted token (or select from Property Inspector) and choose **Correlate Request / Trace ID…**.
+- Performs exact-token matching (supporting W3C trace IDs, GUIDs, `RequestId`, `@tr`, etc.) across selected open logs.
+- Spawns a dedicated chronological correlation tab.
+
+### 8. Multiline Exception Grouping
+- Automatically groups .NET stack frames, inner exceptions (`--->`), Java stack traces (`Caused by:`), and Python tracebacks under their root error line.
+- Interactive expand/collapse buttons (`▶` / `▼`) and continuation frame count badges (`+N frames`).
+- Global toggles for **Group Exceptions** vs **Plain Line View**, plus **Expand All** and **Collapse All**.
+- Searches and filters seamlessly match against hidden stack trace lines.
+
+### 9. Saved Workspaces (`.ltpw`)
+- Save and restore entire multi-file investigation sessions (`File ▸ Save Workspace…`).
+- Restores all file sources, combined timelines, correlation tabs, search queries, filter modes, bookmarks, scroll positions, and custom docking layout XML.
+- Atomic, versioned saves with graceful recovery for missing files.
+
+### 10. Process Explorer & Live Capture
+- Inspect running Windows processes with search, PID, memory, and path details.
+- Attach to live console output (`stdout`/`stderr`), capture `OutputDebugString` debug output, or stream Windows Event Logs directly into tailing tabs.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+O` | Open log file(s) |
+| `Ctrl+F` | Open Search panel |
+| `F3` / `Shift+F3` | Next / Previous search match |
+| `Ctrl+B` | Toggle bookmark on selected line |
+| `F2` / `Shift+F2` | Next / Previous bookmark |
+| `Ctrl+Shift+T` | Toggle Error Timeline Chart panel |
+| `Ctrl+Shift+S` | Toggle Stats panel |
+| `Ctrl+Shift+M` | Open Combined Timeline dialog |
+| `Ctrl+Shift+C` | Correlate Request / Trace ID |
+| `Ctrl+Shift+P` | Toggle Process Explorer panel |
+| `Ctrl+P` | Pretty-print selected JSON line |
+| `Ctrl+G` | Go to line number |
+| `Ctrl+W` | Close active tab |
+| `F1` | Open dockable Help Guide |
+
+---
+
+## Repository Structure
+
+```text
+LogTailPro/
+├── docs/                     # Documentation & guides
+│   ├── CHANGELOG.md          # Release notes and version history
+│   ├── HELP_GUIDE.md         # In-depth application user guide
+│   ├── GEMINI_HANDOFF.md     # Architecture and handoff notes
+│   └── ROADMAP.md            # Feature roadmap & milestones
+├── installer/                # WiX Toolset v5 MSI installer package
+├── scripts/                  # Automation & build scripts
+│   ├── build-run.ps1         # Debug build and launch script
+│   ├── release.bat           # Self-contained single EXE publisher
+│   ├── start.ps1             # Developer quickstart script
+│   ├── zip-source.bat        # Clean source archive creator (CMD)
+│   └── zip-source.ps1        # Clean source archive creator (PowerShell)
+├── src/LogTailPro/           # Main WPF application
+│   ├── Converters/           # Value converters
+│   ├── Models/               # Data structures and domain models
+│   ├── Parsing/              # Log parsers (JSON, CLEF, Regex, Exception grouping)
+│   ├── Services/             # File watching, process streaming, timeline services
+│   ├── ViewModels/           # MVVM view models (CommunityToolkit.Mvvm)
+│   └── Views/                # WPF UI components
+│       ├── Controls/         # Vector canvases, selectors, and helpers
+│       ├── Dialogs/          # Modal windows and configuration dialogs
+│       └── Panels/           # AvalonDock dockable panels and tab views
+└── tools/                    # Test suites & CLI tools
+    ├── Timeline.Tests/       # Unit tests (ErrorTimelineChart & Stats)
+    └── Timeline.IntegrationTests/ # Integration tests (Real-file streaming)
 ```
 
-## Features (Target)
+---
 
-| Feature | Status |
-|---|---|
-| Real-time file tailing | Phase 1 |
-| Follow-tail mode | Phase 1 |
-| Files > 2GB | Phase 3 |
-| Regex + plain text search | Phase 2 |
-| Filter mode (include/exclude) | Phase 2 |
-| Color highlight rules | Phase 5 |
-| Multiple file tabs | Phase 4 |
-| Recent files | Phase 4 |
-| Desktop notifications | Phase 6 |
-| Export filtered lines | Phase 6 |
-| Log stats panel | Phase 6 |
-| Single EXE, no installer | Phase 6 |
+## Building from Source
 
-## Build Manually
+### Prerequisites
+- Windows 10/11
+- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (or later)
 
-```bash
-dotnet restore src/LogTailPro/LogTailPro.csproj
-dotnet build src/LogTailPro/LogTailPro.csproj
-dotnet run --project src/LogTailPro/LogTailPro.csproj
+### Quick Build & Run
 
-# Release EXE
+```powershell
+# Restore dependencies and build
+dotnet build src/LogTailPro/LogTailPro.csproj -c Release
+
+# Run the application
+dotnet run --project src/LogTailPro/LogTailPro.csproj -c Release
+```
+
+### Self-Contained Single EXE Publish
+
+```powershell
+# Publish as a standalone single-file EXE (win-x64) to .\publish\
 dotnet publish src/LogTailPro/LogTailPro.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
 ```
 
-## Combined timeline (1.4.0)
+Or run the included batch script:
+```cmd
+release.bat
+```
 
-Open two or more log files, then choose **Edit > Combined Timeline**. Select the
-files to combine. The new tab follows loaded source records as the files change,
-ordered by UTC timestamp, with separate source and timestamp columns. Hover a source
-name to see its full path; right-click a selected row and choose **Open original line**
-to return to its file. Clear the source's filters first if that original line is hidden.
+### Building the MSI Installer
 
-Search and filters in the timeline are independent of each source tab. Pause freezes
-the timeline view; Resume catches up. Closing a source removes it from the timeline.
-Closing the timeline leaves its source file tabs running.
-
-Offset-free timestamps use the machine local timezone. Lines without a full date
-(including time-only records and stack-trace continuation lines) appear after dated
-records, in source/line order. The timeline includes only the loaded portions of files;
-it does not retrieve skipped history. For roadmap and upcoming phases, see
-[the log investigation plan](prompts/ROADMAP.md).
-
-## MSI installer downloads
-
-For published versions, download the MSI directly from [Releases](https://github.com/lakshamanr/LogTailPro/releases).
-Every push to `master` runs the tests, builds the MSI and publishes a release automatically
-after all checks pass. No separate version-tag push is needed. A local commit must be
-pushed to GitHub before the workflow can run.
-
-Master builds use the project's major/minor version plus the workflow run number:
-for example, project `1.4.0` and run 12 produce release `v1.4.12` and
-`LogTailPro-1.4.12-x64.msi`. The EXE and MSI share that version; newer builds can upgrade
-older installed CI versions. Gaps in build numbers are expected. Rerunning a workflow
-keeps the same release and does not overwrite an existing MSI. An older build finishing
-late is not marked Latest when its commit is no longer the head of master.
-
-Other branch pushes provide build artifacts without publishing releases. Explicit version
-tags remain supported when their version matches the project version. Release tags created
-by the workflow's GitHub token do not trigger another build.
-
-Every push to any branch runs the [Build MSI workflow](https://github.com/lakshamanr/LogTailPro/actions/workflows/build-msi.yml).
-Open the successful run for your commit and download `LogTailPro-win-x64-<commit SHA>`
-from **Artifacts** (or use the download link in the run summary). Extract the ZIP to
-get the Windows x64 MSI. Sign in to GitHub to download artifacts; builds are kept for 30 days.
-You can also start a build with **Run workflow** on the workflow page.
-
-The MSI version comes from `src/LogTailPro/LogTailPro.csproj`; the artifact name
-identifies the exact commit. Increase the project version when shipping an upgrade
-over an installed version.
-
-To build locally, install the .NET 9 SDK and WiX 5.0.2:
+To build the Windows MSI installer locally, install WiX Toolset 5:
 
 ```powershell
 dotnet tool install -g wix --version 5.0.2
@@ -94,14 +174,26 @@ wix extension add -g WixToolset.Util.wixext/5.0.2
 .\installer\build-msi.ps1
 ```
 
-Output: `installer/out/LogTailPro-<version>-x64.msi`.
+The installer will be generated in `installer/out/LogTailPro-<version>-x64.msi`.
 
-## Project Structure
+---
 
-See `CLAUDE.md` for full project structure and architecture decisions.
+## Automated CI/CD & MSI Releases
+
+Pre-built MSI installers are available under GitHub [Releases](https://github.com/lakshamanr/LogTailPro/releases).
+Every commit pushed to `master` runs unit and integration test suites, builds a self-contained MSI installer, and publishes an automated release.
+
+---
 
 ## Tech Stack
-- C# 12 / .NET 10 / WPF
-- MVVM via CommunityToolkit.Mvvm
-- Settings via Newtonsoft.Json
-- No external UI libraries
+- **Language & Runtime**: C# 12 / .NET 9 (`net9.0-windows7.0`) / WPF
+- **MVVM Framework**: [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) (8.3.2)
+- **Docking Manager**: [Dirkster.AvalonDock](https://github.com/Dirkster99/AvalonDock) (4.72.1) + VS2013 Light Theme
+- **Serialization**: Newtonsoft.Json (13.0.3)
+- **Installer**: WiX Toolset v5
+
+---
+
+## License
+
+This project is licensed under the MIT License — see the repository files for details.

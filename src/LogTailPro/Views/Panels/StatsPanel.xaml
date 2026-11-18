@@ -1,0 +1,282 @@
+<UserControl x:Class="LogTailPro.Views.StatsPanel"
+             x:Name="RootStatsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:LogTailPro.Converters"
+             xmlns:views="clr-namespace:LogTailPro.Views"
+             Background="{StaticResource BgElevated}">
+
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility"/>
+    </UserControl.Resources>
+
+    <Grid DataContext="{Binding ElementName=RootStatsControl, Path=ActiveTab}">
+        <!-- ═══ State A: No Log Tab Open ═══════════════════════════════════════ -->
+        <Border Visibility="{Binding Path=., Converter={StaticResource NullToVisibility}, ConverterParameter=Inverse, FallbackValue=Visible}"
+                VerticalAlignment="Center" HorizontalAlignment="Center" Padding="24">
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="📊" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                <TextBlock Text="No Log Stream Selected" FontWeight="SemiBold" FontSize="14"
+                           Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Open a log file, combined timeline, or process capture to view live error statistics and activity analytics."
+                           TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource TextSecondary}"
+                           TextAlignment="Center" Margin="0,6,0,0" MaxWidth="220"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ State B: Active Tab Analytics Dashboard ═════════════════════════ -->
+        <ScrollViewer Visibility="{Binding Path=., Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="12,10" Orientation="Vertical">
+
+                <!-- ── 1. Stream Identity Header ──────────────────────────────── -->
+                <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                        BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,10">
+                    <DockPanel LastChildFill="True">
+                        <Border DockPanel.Dock="Right" Background="{StaticResource BgElevated}" BorderBrush="{StaticResource BorderSubtle}"
+                                BorderThickness="1" CornerRadius="3" Padding="6,2" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding FileStatusIcon}" FontSize="11" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding FileStatusText}" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextSecondary}"/>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="LOG STREAM" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                                       Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- ── 2. Primary KPI Cards (2x2 Grid) ────────────────────────── -->
+                <Grid Margin="0,0,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ERRORS Card -->
+                    <Button Grid.Row="0" Grid.Column="0" Margin="0,0,4,8"
+                            Command="{Binding FilterToErrorsCommand}"
+                            ToolTip="Click to filter log view to errors"
+                            Style="{StaticResource FlatToolbarButton}" Padding="0" Cursor="Hand">
+                        <Border Background="{StaticResource BadgeErrorBg}" BorderBrush="{StaticResource StatusError}"
+                                BorderThickness="1" CornerRadius="4" Padding="10,8">
+                            <StackPanel>
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock DockPanel.Dock="Left" Text="ERRORS" Foreground="{StaticResource BadgeErrorFg}"
+                                               FontSize="10" FontWeight="SemiBold"/>
+                                    <TextBlock DockPanel.Dock="Right" Text="❌" FontSize="10"/>
+                                </DockPanel>
+                                <TextBlock Text="{Binding StatsErrorCount, FallbackValue=0, StringFormat='{}{0:N0}'}"
+                                           Foreground="{StaticResource StatusError}" FontSize="24" FontWeight="Bold" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <!-- WARNINGS Card -->
+                    <Button Grid.Row="0" Grid.Column="1" Margin="4,0,0,8"
+                            Command="{Binding FilterToWarningsCommand}"
+                            ToolTip="Click to filter log view to warnings"
+                            Style="{StaticResource FlatToolbarButton}" Padding="0" Cursor="Hand">
+                        <Border Background="{StaticResource BadgeWarnBg}" BorderBrush="{StaticResource StatusWarn}"
+                                BorderThickness="1" CornerRadius="4" Padding="10,8">
+                            <StackPanel>
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock DockPanel.Dock="Left" Text="WARNINGS" Foreground="{StaticResource BadgeWarnFg}"
+                                               FontSize="10" FontWeight="SemiBold"/>
+                                    <TextBlock DockPanel.Dock="Right" Text="⚠️" FontSize="10"/>
+                                </DockPanel>
+                                <TextBlock Text="{Binding StatsWarnCount, FallbackValue=0, StringFormat='{}{0:N0}'}"
+                                           Foreground="{StaticResource StatusWarn}" FontSize="24" FontWeight="Bold" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <!-- INFO Card -->
+                    <Border Grid.Row="1" Grid.Column="0" Margin="0,0,4,0"
+                            Background="{StaticResource BadgeInfoBg}" BorderBrush="{StaticResource Accent}"
+                            BorderThickness="1" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <DockPanel LastChildFill="False">
+                                <TextBlock DockPanel.Dock="Left" Text="INFO" Foreground="{StaticResource BadgeInfoFg}"
+                                           FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock DockPanel.Dock="Right" Text="ℹ️" FontSize="10"/>
+                            </DockPanel>
+                            <TextBlock Text="{Binding StatsInfoCount, FallbackValue=0, StringFormat='{}{0:N0}'}"
+                                       Foreground="{StaticResource Accent}" FontSize="24" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- LINES / SEC Card -->
+                    <Border Grid.Row="1" Grid.Column="1" Margin="4,0,0,0"
+                            Background="{StaticResource BgSurface}" BorderBrush="{StaticResource StatusGreen}"
+                            BorderThickness="1" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <DockPanel LastChildFill="False">
+                                <TextBlock DockPanel.Dock="Left" Text="LINES / SEC" Foreground="{StaticResource TextSecondary}"
+                                           FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock DockPanel.Dock="Right" Text="⚡" FontSize="10"/>
+                            </DockPanel>
+                            <TextBlock Text="{Binding StatsLinesPerSecond, FallbackValue='0'}"
+                                       Foreground="{StaticResource StatusGreen}" FontSize="24" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ── 3. Severity Distribution Breakdown ────────────────────── -->
+                <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                        BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Left" Text="SEVERITY RATIO" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding TimelineChart.TotalEventCount, FallbackValue='0 events', StringFormat='{}{0:N0} total'}"
+                                       FontSize="10" Foreground="{StaticResource TextMuted}"/>
+                        </DockPanel>
+
+                        <!-- Proportional colored bar -->
+                        <views:SeverityDistributionCanvas DataContext="{Binding TimelineChart}" Margin="0,0,0,8"/>
+
+                        <!-- Breakdown stats breakdown grid -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Error % -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <Border Width="8" Height="8" Background="{StaticResource StatusRed}" CornerRadius="4" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Errors: " FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                <TextBlock Text="{Binding TimelineChart.ErrorPercentText, FallbackValue='0%'}"
+                                           FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource StatusError}"/>
+                            </StackPanel>
+
+                            <!-- Warning % -->
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <Border Width="8" Height="8" Background="{StaticResource StatusYellow}" CornerRadius="4" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Warnings: " FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                <TextBlock Text="{Binding TimelineChart.WarningPercentText, FallbackValue='0%'}"
+                                           FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource StatusWarn}"/>
+                            </StackPanel>
+
+                            <!-- Info % -->
+                            <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <Border Width="8" Height="8" Background="{StaticResource Accent}" CornerRadius="4" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Info: " FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                <TextBlock Text="{Binding TimelineChart.InfoPercentText, FallbackValue='0%'}"
+                                           FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
+                            </StackPanel>
+
+                            <!-- Other % -->
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <Border Width="8" Height="8" Background="{StaticResource TextDisabled}" CornerRadius="4" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Other: " FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                <TextBlock Text="{Binding TimelineChart.OtherPercentText, FallbackValue='0%'}"
+                                           FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── 4. Timeline Activity Sparkline ────────────────────────── -->
+                <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                        BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Left" Text="TIMELINE ACTIVITY" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding TimelineChart.BucketSizeDescription, FallbackValue='Auto'}"
+                                       FontSize="10" Foreground="{StaticResource TextMuted}"/>
+                        </DockPanel>
+
+                        <!-- Mini timeline canvas -->
+                        <Border Background="{StaticResource BgBase}" BorderBrush="{StaticResource BorderNormal}"
+                                BorderThickness="1" CornerRadius="3" Padding="4,2" Margin="0,0,0,6">
+                            <views:MiniTimelineSparklineCanvas DataContext="{Binding TimelineChart}"/>
+                        </Border>
+
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding TimelineChart.TimeRangeDescription, FallbackValue='No dated events'}"
+                                       FontSize="9" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                            <Button DockPanel.Dock="Right" Content="📊 View Full Chart"
+                                    Command="{Binding ToggleChartCommand}"
+                                    Style="{StaticResource FlatToolbarButton}"
+                                    Padding="4,2" FontSize="10" FontWeight="SemiBold" Cursor="Hand"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── 5. Stream Metrics Details Table ────────────────────────── -->
+                <Border Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                        BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="STREAM METRICS" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
+
+                        <!-- Total Lines -->
+                        <DockPanel LastChildFill="False" Margin="0,2">
+                            <TextBlock DockPanel.Dock="Left" Text="Total Lines" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding TotalLineCount, FallbackValue=0, StringFormat='{}{0:N0}'}"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        </DockPanel>
+
+                        <!-- File Size -->
+                        <DockPanel LastChildFill="False" Margin="0,2">
+                            <TextBlock DockPanel.Dock="Left" Text="File Size" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding FileSizeText, FallbackValue='Live stream'}"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        </DockPanel>
+
+                        <!-- Bookmarks -->
+                        <DockPanel LastChildFill="False" Margin="0,2">
+                            <TextBlock DockPanel.Dock="Left" Text="Bookmarks" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding Bookmarks.Count, FallbackValue=0}"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        </DockPanel>
+
+                        <!-- Undated records (if any) -->
+                        <DockPanel LastChildFill="False" Margin="0,2"
+                                   Visibility="{Binding TimelineChart.HasUndatedEvents, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock DockPanel.Dock="Left" Text="Undated Events" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding TimelineChart.UndatedCount, FallbackValue=0, StringFormat='{}{0:N0}'}"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource StatusWarn}"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── 6. Quick Action Buttons ────────────────────────────────── -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                    <Button Content="🔴 Filter Errors"
+                            Command="{Binding FilterToErrorsCommand}"
+                            Style="{StaticResource FlatToolbarButton}"
+                            Padding="8,4" FontSize="10" FontWeight="SemiBold" Margin="0,0,6,0" Cursor="Hand"/>
+
+                    <Button Content="🟡 Filter Warnings"
+                            Command="{Binding FilterToWarningsCommand}"
+                            Style="{StaticResource FlatToolbarButton}"
+                            Padding="8,4" FontSize="10" FontWeight="SemiBold" Margin="0,0,6,0" Cursor="Hand"/>
+
+                    <Button Content="✕ Clear Filter"
+                            Command="{Binding ClearAllFiltersCommand}"
+                            Style="{StaticResource FlatToolbarButton}"
+                            Padding="8,4" FontSize="10" FontWeight="SemiBold" Cursor="Hand"/>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -152,7 +152,11 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         if (e.PropertyName is null or "" or nameof(ErrorTimelineChartViewModel.Buckets)
             or nameof(ErrorTimelineChartViewModel.HasTimeRangeFilter)
             or nameof(ErrorTimelineChartViewModel.SelectedStartTime)
-            or nameof(ErrorTimelineChartViewModel.SelectedEndTime))
+            or nameof(ErrorTimelineChartViewModel.SelectedEndTime)
+            or nameof(ErrorTimelineChartViewModel.ShowErrors)
+            or nameof(ErrorTimelineChartViewModel.ShowWarnings)
+            or nameof(ErrorTimelineChartViewModel.ShowInfos)
+            or nameof(ErrorTimelineChartViewModel.ShowOthers))
         {
             InvalidateVisual();
         }
@@ -174,15 +178,19 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         double bottomMargin = 22.0;
         double chartHeight = Math.Max(10, height - bottomMargin - 4);
         double baselineY = chartHeight + 2;
+        double leftMargin = 38.0;
+        double availableWidth = Math.Max(10, width - leftMargin);
+        double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        Typeface labelFont = new("Segoe UI");
 
-        // Draw baseline
-        dc.DrawLine(BaselinePen, new Point(0, baselineY), new Point(width, baselineY));
+        // Draw baseline from leftMargin to width
+        dc.DrawLine(BaselinePen, new Point(leftMargin, baselineY), new Point(width, baselineY));
 
         // Draw background grid lines at 25%, 50%, 75%
         for (int step = 1; step <= 3; step++)
         {
             double y = baselineY - (chartHeight * step / 4.0);
-            dc.DrawLine(GridPen, new Point(0, y), new Point(width, y));
+            dc.DrawLine(GridPen, new Point(leftMargin, y), new Point(width, y));
         }
 
         ErrorTimelineChartViewModel? vm = ViewModel;
@@ -192,23 +200,48 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 "No dated log events to display in the chart",
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
-                new Typeface("Segoe UI"),
+                labelFont,
                 12,
                 TextBrush,
-                VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                dpi);
 
             dc.DrawText(emptyText, new Point((width - emptyText.Width) / 2, (height - emptyText.Height) / 2));
             return;
         }
 
+        // Draw Y-axis scale labels along leftMargin
+        int maxTotal = vm.Buckets[0].MaxBucketTotal;
+        if (maxTotal > 0)
+        {
+            FormattedText zeroLabel = new("0", CultureInfo.CurrentCulture, FlowDirection.LeftToRight, labelFont, 9, TextBrush, dpi);
+            dc.DrawText(zeroLabel, new Point(Math.Max(0, leftMargin - zeroLabel.Width - 6), baselineY - (zeroLabel.Height / 2.0)));
+
+            for (int step = 1; step <= 3; step++)
+            {
+                double y = baselineY - (chartHeight * step / 4.0);
+                int val = (int)Math.Round(maxTotal * step / 4.0);
+                string txt = val >= 1000 ? $"{val / 1000.0:0.#}k" : val.ToString("N0", CultureInfo.InvariantCulture);
+                FormattedText stepLabel = new(txt, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, labelFont, 9, TextBrush, dpi);
+                dc.DrawText(stepLabel, new Point(Math.Max(0, leftMargin - stepLabel.Width - 6), y - (stepLabel.Height / 2.0)));
+            }
+
+            // Top peak label
+            double topY = baselineY - chartHeight;
+            string topTxt = maxTotal >= 1000 ? $"{maxTotal / 1000.0:0.#}k" : maxTotal.ToString("N0", CultureInfo.InvariantCulture);
+            FormattedText topLabel = new(topTxt, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, labelFont, 9, TextBrush, dpi);
+            dc.DrawText(topLabel, new Point(Math.Max(0, leftMargin - topLabel.Width - 6), topY - (topLabel.Height / 2.0)));
+        }
+
         int count = vm.Buckets.Count;
-        double barWidth = width / count;
+        double barWidth = availableWidth / count;
         double barSpacing = Math.Max(0.5, Math.Min(2.0, barWidth * 0.1));
         double actualBarWidth = Math.Max(1.0, barWidth - barSpacing);
 
         bool hasFilter = vm.HasTimeRangeFilter;
-        double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        Typeface labelFont = new("Segoe UI");
+        bool showOther = vm.ShowOthers;
+        bool showInfo = vm.ShowInfos;
+        bool showWarn = vm.ShowWarnings;
+        bool showError = vm.ShowErrors;
 
         // Determine sensible step for drawing x-axis labels (minimum 65px per label)
         int labelStep = Math.Max(1, (int)Math.Ceiling(65.0 / barWidth));
@@ -216,7 +249,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         for (int i = 0; i < count; i++)
         {
             TimeBucket b = vm.Buckets[i];
-            double x = i * barWidth;
+            double x = leftMargin + (i * barWidth);
 
             bool isDimmed = hasFilter && !b.IsSelected;
 
@@ -226,10 +259,10 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                 double currentY = baselineY;
 
                 // Stack order: Other, Info, Warning, Error (Errors on top for visibility)
-                double otherH = totalBarH * ((double)b.OtherCount / b.TotalCount);
-                double infoH  = totalBarH * ((double)b.InfoCount / b.TotalCount);
-                double warnH  = totalBarH * ((double)b.WarningCount / b.TotalCount);
-                double errorH = totalBarH * ((double)b.ErrorCount / b.TotalCount);
+                double otherH = showOther ? totalBarH * ((double)b.OtherCount / b.TotalCount) : 0;
+                double infoH  = showInfo  ? totalBarH * ((double)b.InfoCount / b.TotalCount) : 0;
+                double warnH  = showWarn  ? totalBarH * ((double)b.WarningCount / b.TotalCount) : 0;
+                double errorH = showError ? totalBarH * ((double)b.ErrorCount / b.TotalCount) : 0;
 
                 // Draw Other
                 if (otherH > 0)
@@ -282,7 +315,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
                     TextBrush,
                     dpi);
 
-                double labelX = Math.Min(width - label.Width, Math.Max(0, x + (actualBarWidth / 2.0) - (label.Width / 2.0)));
+                double labelX = Math.Min(width - label.Width, Math.Max(leftMargin, x + (actualBarWidth / 2.0) - (label.Width / 2.0)));
                 dc.DrawText(label, new Point(labelX, baselineY + 4));
             }
         }
@@ -292,7 +325,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         {
             int minIdx = Math.Min(_dragStartIndex, _dragCurrentIndex);
             int maxIdx = Math.Max(_dragStartIndex, _dragCurrentIndex);
-            double mX = minIdx * barWidth;
+            double mX = leftMargin + (minIdx * barWidth);
             double mW = (maxIdx - minIdx + 1) * barWidth;
 
             dc.DrawRectangle(MarqueeBrush, MarqueePen, new Rect(mX, 2, mW, chartHeight));
@@ -315,8 +348,13 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
     {
         ErrorTimelineChartViewModel? vm = ViewModel;
         if (vm == null || vm.Buckets.Count == 0) return -1;
-        double barWidth = ActualWidth / vm.Buckets.Count;
-        int idx = (int)(x / barWidth);
+        double leftMargin = 38.0;
+        double availableWidth = ActualWidth - leftMargin;
+        if (availableWidth <= 0) return -1;
+        double relX = x - leftMargin;
+        if (relX < 0) relX = 0;
+        double barWidth = availableWidth / vm.Buckets.Count;
+        int idx = (int)(relX / barWidth);
         if (idx < 0) idx = 0;
         if (idx >= vm.Buckets.Count) idx = vm.Buckets.Count - 1;
         return idx;
@@ -341,9 +379,205 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
             ErrorTimelineChartViewModel? vm = ViewModel;
             if (vm != null && idx >= 0 && idx < vm.Buckets.Count)
             {
-                ToolTip = vm.Buckets[idx].ToolTipText;
+                UpdateRichToolTip(vm.Buckets[idx]);
             }
         }
+    }
+
+    private void UpdateRichToolTip(TimeBucket bucket)
+    {
+        ToolTip tip = new()
+        {
+            Background = Application.Current.TryFindResource("BgElevated") as Brush ?? Brushes.White,
+            BorderBrush = Application.Current.TryFindResource("BorderNormal") as Brush ?? Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 8, 10, 8),
+            Foreground = Application.Current.TryFindResource("TextPrimary") as Brush ?? Brushes.Black
+        };
+
+        StackPanel sp = new() { Orientation = Orientation.Vertical };
+
+        // Header: Time Range
+        string sTime = bucket.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        string eTime = bucket.EndTime.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+        TextBlock header = new()
+        {
+            Text = $"⏱  {sTime} – {eTime}",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 11,
+            Foreground = Application.Current.TryFindResource("TextPrimary") as Brush ?? Brushes.Black,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        sp.Children.Add(header);
+
+        // Grid with 4 rows for severities
+        Grid grid = new() { Margin = new Thickness(0, 0, 0, 6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        void AddRow(int row, Brush dotBrush, string label, int count, Brush fgBrush, bool isBold = false)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            System.Windows.Shapes.Ellipse dot = new()
+            {
+                Width = 8,
+                Height = 8,
+                Fill = dotBrush,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            Grid.SetRow(dot, row);
+            Grid.SetColumn(dot, 0);
+            grid.Children.Add(dot);
+
+            TextBlock lbl = new()
+            {
+                Text = label,
+                FontSize = 11,
+                Foreground = Application.Current.TryFindResource("TextSecondary") as Brush ?? Brushes.DarkGray,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetRow(lbl, row);
+            Grid.SetColumn(lbl, 1);
+            grid.Children.Add(lbl);
+
+            TextBlock val = new()
+            {
+                Text = count.ToString("N0", CultureInfo.InvariantCulture),
+                FontSize = 11,
+                FontWeight = isBold ? FontWeights.Bold : FontWeights.SemiBold,
+                Foreground = fgBrush,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetRow(val, row);
+            Grid.SetColumn(val, 2);
+            grid.Children.Add(val);
+        }
+
+        Brush statusError = Application.Current.TryFindResource("StatusError") as Brush ?? ErrorBrush;
+        Brush statusWarn = Application.Current.TryFindResource("StatusWarn") as Brush ?? WarnBrush;
+        Brush accentBrush = Application.Current.TryFindResource("Accent") as Brush ?? InfoBrush;
+        Brush textSec = Application.Current.TryFindResource("TextSecondary") as Brush ?? OtherBrush;
+
+        AddRow(0, ErrorBrush, "Errors:", bucket.ErrorCount, statusError, bucket.ErrorCount > 0);
+        AddRow(1, WarnBrush, "Warnings:", bucket.WarningCount, statusWarn);
+        AddRow(2, InfoBrush, "Information:", bucket.InfoCount, accentBrush);
+        AddRow(3, OtherBrush, "Other:", bucket.OtherCount, textSec);
+
+        sp.Children.Add(grid);
+
+        // Separator
+        sp.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 4), Background = Application.Current.TryFindResource("BorderSubtle") as Brush ?? Brushes.LightGray });
+
+        // Total
+        DockPanel totalPanel = new() { LastChildFill = false, Margin = new Thickness(0, 0, 0, 4) };
+        TextBlock totalLbl = new() { Text = "Total Events:", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Application.Current.TryFindResource("TextPrimary") as Brush ?? Brushes.Black };
+        TextBlock totalVal = new() { Text = bucket.TotalCount.ToString("N0", CultureInfo.InvariantCulture), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Application.Current.TryFindResource("TextPrimary") as Brush ?? Brushes.Black };
+        DockPanel.SetDock(totalLbl, Dock.Left);
+        DockPanel.SetDock(totalVal, Dock.Right);
+        totalPanel.Children.Add(totalLbl);
+        totalPanel.Children.Add(totalVal);
+        sp.Children.Add(totalPanel);
+
+        // Footer tip
+        TextBlock tipText = new()
+        {
+            Text = "Click to filter • Double-click to jump to first event",
+            FontSize = 9.5,
+            FontStyle = FontStyles.Italic,
+            Foreground = Application.Current.TryFindResource("TextMuted") as Brush ?? Brushes.Gray
+        };
+        sp.Children.Add(tipText);
+
+        tip.Content = sp;
+        ToolTip = tip;
+    }
+
+    protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseRightButtonUp(e);
+        ErrorTimelineChartViewModel? vm = ViewModel;
+        if (vm == null) return;
+
+        Point p = e.GetPosition(this);
+        int idx = GetBucketIndexAtX(p.X);
+        TimeBucket? bucket = (idx >= 0 && idx < vm.Buckets.Count) ? vm.Buckets[idx] : null;
+
+        ContextMenu cm = new();
+
+        if (bucket != null)
+        {
+            string sTime = bucket.StartTime.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+            string eTime = bucket.EndTime.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+
+            MenuItem headerItem = new()
+            {
+                Header = $"⏱ {sTime} – {eTime} ({bucket.TotalCount:N0} events)",
+                IsEnabled = false,
+                FontWeight = FontWeights.SemiBold
+            };
+            cm.Items.Add(headerItem);
+            cm.Items.Add(new Separator());
+
+            MenuItem filterItem = new() { Header = "🔍 Filter to this time bucket" };
+            filterItem.Click += (_, _) => vm.SelectBucket(bucket);
+            cm.Items.Add(filterItem);
+
+            MenuItem drillItem = new() { Header = "⏱ Drill down to first event" };
+            drillItem.Click += (_, _) => vm.DrillToFirstEvent(bucket);
+            cm.Items.Add(drillItem);
+
+            MenuItem copyItem = new() { Header = "📋 Copy time range" };
+            copyItem.Click += (_, _) =>
+            {
+                string fullS = bucket.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+                string fullE = bucket.EndTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+                Clipboard.SetText($"{fullS} – {fullE}");
+            };
+            cm.Items.Add(copyItem);
+        }
+
+        if (vm.HasTimeRangeFilter)
+        {
+            if (cm.Items.Count > 0) cm.Items.Add(new Separator());
+            MenuItem clearFilter = new() { Header = "✕ Clear time filter" };
+            clearFilter.Click += (_, _) => vm.ClearFilter();
+            cm.Items.Add(clearFilter);
+        }
+
+        if (cm.Items.Count > 0) cm.Items.Add(new Separator());
+
+        MenuItem layersMenu = new() { Header = "👁 Toggle Severity Layers" };
+
+        MenuItem errToggle = new() { Header = "Show Errors", IsCheckable = true, IsChecked = vm.ShowErrors };
+        errToggle.Click += (_, _) => vm.ToggleShowErrors();
+        layersMenu.Items.Add(errToggle);
+
+        MenuItem warnToggle = new() { Header = "Show Warnings", IsCheckable = true, IsChecked = vm.ShowWarnings };
+        warnToggle.Click += (_, _) => vm.ToggleShowWarnings();
+        layersMenu.Items.Add(warnToggle);
+
+        MenuItem infoToggle = new() { Header = "Show Information", IsCheckable = true, IsChecked = vm.ShowInfos };
+        infoToggle.Click += (_, _) => vm.ToggleShowInfos();
+        layersMenu.Items.Add(infoToggle);
+
+        MenuItem otherToggle = new() { Header = "Show Other", IsCheckable = true, IsChecked = vm.ShowOthers };
+        otherToggle.Click += (_, _) => vm.ToggleShowOthers();
+        layersMenu.Items.Add(otherToggle);
+
+        layersMenu.Items.Add(new Separator());
+        MenuItem resetLayers = new() { Header = "Show All Layers" };
+        resetLayers.Click += (_, _) => vm.ResetLayers();
+        layersMenu.Items.Add(resetLayers);
+
+        cm.Items.Add(layersMenu);
+
+        cm.PlacementTarget = this;
+        cm.IsOpen = true;
+        e.Handled = true;
     }
 
     protected override void OnMouseLeave(MouseEventArgs e)

@@ -1,11 +1,37 @@
-﻿# Plan Changelog
+# Plan Changelog
 
 Claude Code must read this file BEFORE starting any phase.
 If the version here is newer than what you last built, re-read the affected phase files.
 
 ---
 
-## v2.9 - 2026-11-06 (CURRENT) - DOCKABLE HELP GUIDE & RESET LAYOUT INTEGRATION FIX
+## v2.10 - 2026-11-18 (CURRENT) - ERROR TIMELINE CHART TIER 1 ENHANCEMENTS, STATS PANEL REVAMP & DIRECTORY RESTRUCTURE
+
+- **Clean Project Directory Restructure**:
+  - **Views Subfolders**: Partitioned `src/LogTailPro/Views/` into organized subdirectories:
+    - `Panels/`: `BookmarksPanel`, `DetailsPanel`, `ErrorTimelineChartView`, `HelpPanelView`, `LogTabView`, `ProcessExplorerPanel`, `SearchPanelView`, `SearchResultsPanel`, `StatsPanel`.
+    - `Dialogs/`: `AboutDialog`, `CorrelateIdDialog`, `GoToLineDialog`, `HelpDialog`, `HighlightRulesDialog`, `LaunchProcessDialog`, `LogDiscoveryDialog`, `LogParserDialog`, `NameInputDialog`, `SettingsDialog`, `SplitViewDialog`, `TimelineSourcesDialog`.
+    - `Controls/`: `BindingProxy`, `DockItemStyleSelector`, `MiniTimelineSparklineCanvas`, `SeverityDistributionCanvas`.
+  - **Documentation Folder**: Consolidated documentation into `docs/` (`docs/CHANGELOG.md`, `docs/HELP_GUIDE.md`, `docs/GEMINI_HANDOFF.md`, `docs/ROADMAP.md`).
+  - **Scripts Folder**: Consolidated build and tooling scripts into `scripts/` (`scripts/build-run.ps1`, `scripts/release.bat`, `scripts/start.ps1`, `scripts/zip-source.bat`, `scripts/zip-source.ps1`).
+  - **Root Forwarding Shims**: Provided zero-friction root forwarding shims (`build-run.ps1`, `release.bat`, `start.ps1`, `zip-source.bat`, `zip-source.ps1`) so existing command-line shortcuts and CI workflows continue to function unchanged.
+  - **Help Content Resolution**: Updated `HelpContentService` to load `docs/HELP_GUIDE.md` with fallback to repository root.
+- **Error Timeline Chart Enhancements**:
+  - **Y-Axis Scale Labels**: Added a calibrated left-gutter y-axis with numeric tick marks (0, 25%, 50%, 75%, and peak maxTotal formatted with thousands/k notation) so users can immediately read exact event counts.
+  - **Severity Layer Toggles**: Added interactive toggle buttons to the header severity pills (Errors, Warnings, Information, Other). Clicking any pill toggles that severity layer on/off in the vector canvas with immediate visual feedback (dimmed opacity + cross indicator when disabled).
+  - **Right-Click Context Menu**: Added a rich context menu to the chart canvas with options to filter to the clicked bucket, drill down to the first event, copy the formatted time range, clear active time filters, and toggle individual severity layers.
+  - **Rich Styled Tooltips**: Replaced plain string tooltips with a theme-aware WPF tooltip containing a timestamp header, colored severity indicators with aligned counts, total event count, and navigation hints.
+- **Stats Panel Revamp**:
+  - Replaced the unconstrained `UniformGrid` (which vertically stretched 4 counters with large blank white voids) with a compact, modern scrollable dashboard.
+  - **KPI Cards**: 2x2 grid of modern cards for Errors, Warnings, Info, and Lines/Sec. Clicking the Errors or Warnings card immediately filters the log view to those events.
+  - **Severity Distribution Bar**: Added vector-rendered `SeverityDistributionCanvas` showing horizontal proportional bar of Errors, Warnings, Info, and Other, paired with an exact count and percentage breakdown.
+  - **Embedded Mini Timeline Sparkline**: Integrated `MiniTimelineSparklineCanvas` into the Stats panel so users can inspect chronological event distribution without having to open the bottom dock pane. Includes a one-click shortcut button to open the full Error Timeline Chart panel.
+  - **Stream Metrics & Quick Actions**: Added formatted metrics (Total Lines, File Size, Bookmarks, Undated events) and quick filter buttons (Filter Errors, Filter Warnings, Clear Filter).
+  - **Empty State**: Added clean placeholder when no log tab is open.
+
+---
+
+## v2.9 - 2026-11-06 - DOCKABLE HELP GUIDE & RESET LAYOUT INTEGRATION FIX
 
 - Integrated Dockable Help Guide: Created HelpPanelView.xaml / HelpPanelView.xaml.cs and registered ContentId="help" as an AvalonDock LayoutAnchorable in MainWindow.xaml, allowing the Help Guide to be docked, floated, closed, and reset like all other IDE panels.
 - Fixed Reset Layout panel omission: Updated ResetLayout_Click, RefreshAnchorables, and AssignPanelDataContexts in MainWindow.xaml.cs so that resetting the layout cleanly restores all registered panels (including the newly added Help Guide, Error Timeline Chart, Process Explorer, Line Details, Stats, and Bookmarks) to their default docking positions.

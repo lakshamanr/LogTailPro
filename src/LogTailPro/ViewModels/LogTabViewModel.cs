@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -112,6 +112,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             if (!ct.IsCancellationRequested)
             {
                 TimelineChart.SetData(data);
+                StatsErrorCount = data.TotalErrors;
+                StatsWarnCount = data.TotalWarnings;
+                StatsInfoCount = data.TotalInfos;
             }
         }
         catch (OperationCanceledException) { }
@@ -379,6 +382,34 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     public string StructuredViewLabel => IsStructuredViewEnabled ? "Raw View" : "Structured View";
 
+    /// <summary>Filters view to show only error events.</summary>
+    [RelayCommand]
+    public void FilterToErrors()
+    {
+        SearchText = "error";
+        FilterMode = FilterMode.IncludeMatching;
+        _ = ApplySearchAsync();
+    }
+
+    /// <summary>Filters view to show only warning events.</summary>
+    [RelayCommand]
+    public void FilterToWarnings()
+    {
+        SearchText = "warn";
+        FilterMode = FilterMode.IncludeMatching;
+        _ = ApplySearchAsync();
+    }
+
+    /// <summary>Clears both time-range and text filter filters.</summary>
+    [RelayCommand]
+    public void ClearAllFilters()
+    {
+        TimelineChart.ClearFilter();
+        SearchText = string.Empty;
+        FilterMode = FilterMode.None;
+        _ = ApplySearchAsync();
+    }
+
     [RelayCommand]
     private void ToggleStructuredView() => IsStructuredViewEnabled = !IsStructuredViewEnabled;
 
@@ -631,6 +662,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
         IsLoaded = true;
         InitChart();
+        UpdateStatsAll();
         UpdateStatus();
         _ = UpdateChartAsync();
     }
@@ -671,6 +703,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         _captureService.NewLinesAvailable += OnNewLinesAvailable;
         _captureService.ProcessExited     += OnCapturedProcessExited;
         InitChart();
+        UpdateStatsAll();
         UpdateStatus();
     }
 
@@ -714,6 +747,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 IsLoading = false;
                 FileStatus = FileStatus.Watching;
                 UpdateStatus();
+                UpdateStatsAll();
                 NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
                 LinesChanged?.Invoke(this, EventArgs.Empty);
                 _ = UpdateChartAsync();
@@ -1509,9 +1543,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         foreach (LogLine line in newLines)
         {
-            if      (IsErrorLine(line.Text)) StatsErrorCount++;
-            else if (IsWarnLine(line.Text))  StatsWarnCount++;
-            else if (IsInfoLine(line.Text))  StatsInfoCount++;
+            if (line.IsContinuation) continue;
+            LogSeverity sev = ErrorTimelineChartService.NormalizeSeverity(line);
+            switch (sev)
+            {
+                case LogSeverity.Error: StatsErrorCount++; break;
+                case LogSeverity.Warning: StatsWarnCount++; break;
+                case LogSeverity.Information: StatsInfoCount++; break;
+            }
         }
 
         _recentLineCount += newLines.Count;
@@ -1526,13 +1565,23 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private void UpdateStatsAll()
     {
-        StatsErrorCount = 0; StatsWarnCount = 0; StatsInfoCount = 0;
+        int errs = 0;
+        int warns = 0;
+        int infos = 0;
         foreach (LogLine line in _allLines)
         {
-            if      (IsErrorLine(line.Text)) StatsErrorCount++;
-            else if (IsWarnLine(line.Text))  StatsWarnCount++;
-            else if (IsInfoLine(line.Text))  StatsInfoCount++;
+            if (line.IsContinuation) continue;
+            LogSeverity sev = ErrorTimelineChartService.NormalizeSeverity(line);
+            switch (sev)
+            {
+                case LogSeverity.Error: errs++; break;
+                case LogSeverity.Warning: warns++; break;
+                case LogSeverity.Information: infos++; break;
+            }
         }
+        StatsErrorCount = errs;
+        StatsWarnCount = warns;
+        StatsInfoCount = infos;
     }
 
     private void UpdateStatus()

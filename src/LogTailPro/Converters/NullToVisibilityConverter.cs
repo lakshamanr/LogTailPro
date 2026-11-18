@@ -9,8 +9,13 @@ namespace LogTailPro.Converters;
 public sealed class NullToVisibilityConverter : IValueConverter
 {
     /// <inheritdoc/>
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value == null ? Visibility.Collapsed : Visibility.Visible;
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        bool hasValue = value != null && value != DependencyProperty.UnsetValue;
+        if (parameter is string s && s == "Inverse")
+            hasValue = !hasValue;
+        return hasValue ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <inheritdoc/>
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
