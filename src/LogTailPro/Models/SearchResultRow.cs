@@ -3,6 +3,9 @@ namespace LogTailPro.Models;
 /// <summary>A row in the search results table, capturing a matched line and its regex groups.</summary>
 public sealed class SearchResultRow
 {
+    private string? _timestampDisplay;
+    private string? _groupsDisplay;
+
     /// <summary>Timestamp of the line (when it arrived or was parsed); <see cref="DateTime.MinValue"/> if unknown.</summary>
     public DateTime Timestamp { get; init; }
 
@@ -22,14 +25,14 @@ public sealed class SearchResultRow
     public string Group3 { get; init; } = string.Empty;
 
     /// <summary>All capturing groups of the match.</summary>
-    public List<string> CapturingGroups { get; init; } = new();
+    public IReadOnlyList<string> CapturingGroups { get; init; } = Array.Empty<string>();
 
     /// <summary>The log line this row points to (used to jump to it).</summary>
     public LogLine Source { get; init; } = null!;
 
     /// <summary>Timestamp formatted for the grid, or empty when the line has none.</summary>
-    public string TimestampDisplay => Timestamp == DateTime.MinValue ? string.Empty : Timestamp.ToString("yyyy-MM-dd HH:mm:ss");
+    public string TimestampDisplay => _timestampDisplay ??= (Timestamp == DateTime.MinValue ? string.Empty : Timestamp.ToString("yyyy-MM-dd HH:mm:ss"));
 
     /// <summary>Capturing groups joined for display, e.g. "42 | GET | /index".</summary>
-    public string GroupsDisplay => string.Join(" | ", CapturingGroups.Where(g => g.Length > 0));
+    public string GroupsDisplay => _groupsDisplay ??= (CapturingGroups.Count == 0 ? string.Empty : string.Join(" | ", CapturingGroups.Where(g => g.Length > 0)));
 }

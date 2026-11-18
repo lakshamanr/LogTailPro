@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO;
 using System.Text;
 
@@ -99,32 +100,57 @@ public sealed class FileWatcherService : IDisposable
                 while (_lastReadPosition < length)
                 {
                     int count = (int)Math.Min(length - _lastReadPosition, MaxReadPerPass);
-                    byte[] bytes = new byte[count];
-                    stream.Seek(_lastReadPosition, SeekOrigin.Begin);
-                    int read = stream.Read(bytes, 0, count);
-                    if (read <= 0) break;
+                    byte[] bytes = ArrayPool<byte>.Shared.Rent(count);
+                    try
+                    {
+                        stream.Seek(_lastReadPosition, SeekOrigin.Begin);
+                        int read = stream.Read(bytes, 0, count);
+                        if (read <= 0) break;
 
-                    string text = _encoding.GetString(bytes, 0, read);
-                    // '\0' is the IIS-style line terminator, '\n' the normal one.
-                    int lastNewline = text.LastIndexOfAny(LineTerminators);
+                        string text = _encoding.GetString(bytes, 0, read);
+                        // '\0' is the IIS-style line terminator, '\n' the normal one.
+                        int lastNewline = text.LastIndexOfAny(LineTerminators);
 
-                    string complete;
-                    if (lastNewline >= 0)
-                        complete = text[..(lastNewline + 1)];
-                    else if (read >= MaxReadPerPass)
-                        complete = text + "\n"; // an absurdly long line: don't stall forever
-                    else
-                        break; // writer is mid-line: wait for the newline
+                        string complete;
+                        int consumedLength;
+                        if (lastNewline >= 0)
+                        {
+                            consumedLength = lastNewline + 1;
+                            complete = text[..consumedLength];
+                        }
+                        else if (read >= MaxReadPerPass)
+                        {
+                            consumedLength = text.Length;
+                            complete = text + "\n"; // an absurdly long line: don't stall forever
+                        }
+                        else
+                        {
+                            break; // writer is mid-line: wait for the newline
+                        }
 
-                    _lastReadPosition += _encoding.GetByteCount(text[..(lastNewline >= 0 ? lastNewline + 1 : text.Length)]);
+                        _lastReadPosition += _encoding.GetByteCount(text[..consumedLength]);
 
-                    batch ??= new List<string>();
-                    foreach (string raw in complete.Split(LineTerminators))
-                        batch.Add(raw.TrimEnd('\r'));
-                    // Split leaves one empty element after the final newline.
-                    if (batch.Count > 0 && batch[^1].Length == 0) batch.RemoveAt(batch.Count - 1);
+                        batch ??= new List<string>();
+                        ReadOnlySpan<char> span = complete.AsSpan();
+                        while (!span.IsEmpty)
+                        {
+                            int idx = span.IndexOfAny('\n', '\0');
+                            if (idx < 0)
+                            {
+                                string last = span.TrimEnd('\r').ToString();
+                                if (last.Length > 0) batch.Add(last);
+                                break;
+                            }
+                            batch.Add(span[..idx].TrimEnd('\r').ToString());
+                            span = span[(idx + 1)..];
+                        }
 
-                    if (read < count) break;
+                        if (read < count) break;
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(bytes);
+                    }
                 }
             }
             catch (IOException)

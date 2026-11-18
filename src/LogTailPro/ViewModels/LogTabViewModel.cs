@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -331,8 +331,17 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private int _recentLineCount;
     private DateTime _rateWindow = DateTime.UtcNow;
 
-    // Selected lines for multi-select copy
+    // Selected lines provider for multi-select copy (queried on demand to avoid allocation on every selection change)
+    public Func<IList<LogLine>>? SelectedLinesProvider { get; set; }
     public List<LogLine> SelectedLogLines { get; set; } = new();
+
+    private IList<LogLine> GetEffectiveSelectedLines()
+    {
+        IList<LogLine>? fromProvider = SelectedLinesProvider?.Invoke();
+        if (fromProvider != null && fromProvider.Count > 0) return fromProvider;
+        if (SelectedLogLines.Count > 0) return SelectedLogLines;
+        return SelectedLogLine != null ? [SelectedLogLine] : Array.Empty<LogLine>();
+    }
 
     // ── Search state ──────────────────────────────────────────────────────────
     [ObservableProperty] private string _searchText = string.Empty;
@@ -783,14 +792,23 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     /// <summary>True when a line limit is configured (0 or less means unlimited).</summary>
     private bool HasLineLimit => _settings.MaxLinesInMemory > 0;
 
+    private readonly object _lineBuildLock = new();
+
     private List<LogLine> BuildLogLines(IReadOnlyList<string> rawLines, bool isFromWatcher = false)
     {
         List<LogLine> result = new(rawLines.Count);
-        long lineNumber = _nextLineNumber;
+        long lineNumber;
         string tabExpansion = _settings.TabWidth > 0 ? new string(' ', _settings.TabWidth) : "\t";
         bool foundStructured = false;
         DateTime arrived = isFromWatcher ? DateTime.Now : DateTime.MinValue;
 
+        lock (_lineBuildLock)
+        {
+            lineNumber = _nextLineNumber;
+            _nextLineNumber += rawLines.Count;
+        }
+
+        long currentNum = lineNumber;
         foreach (string raw in rawLines)
         {
             string text = raw.Contains('\t') ? raw.Replace("\t", tabExpansion) : raw;
@@ -813,12 +831,22 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 ts = _timestampParser.TryParse(text);
             }
 
-            TimeSpan? elapsed = (ts.HasValue && _lastTimestamp.HasValue && ts > _lastTimestamp)
-                ? ts - _lastTimestamp : null;
+            if (!timelineTs.HasValue && ts.HasValue && ts.Value.Year > 1900)
+            {
+                timelineTs = new DateTimeOffset(DateTime.SpecifyKind(ts.Value, DateTimeKind.Utc));
+            }
+
+            TimeSpan? elapsed = null;
+            lock (_lineBuildLock)
+            {
+                if (ts.HasValue && _lastTimestamp.HasValue && ts > _lastTimestamp)
+                    elapsed = ts - _lastTimestamp;
+                if (ts.HasValue) _lastTimestamp = ts;
+            }
 
             LogLine line = new()
             {
-                LineNumber = lineNumber++,
+                LineNumber = currentNum++,
                 Text = text,
                 Timestamp = ts,
                 TimelineTimestamp = timelineTs,
@@ -829,9 +857,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     : null,
                 ArrivedAt = arrived
             };
+            line.Severity = ErrorTimelineChartService.NormalizeSeverity(line);
             result.Add(line);
-
-            if (ts.HasValue) _lastTimestamp = ts;
         }
 
         if (foundStructured && !HasStructuredLogs)
@@ -839,7 +866,6 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
             HasStructuredLogs = true;
         }
 
-        _nextLineNumber = lineNumber;
         return result;
     }
 
@@ -847,37 +873,49 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
     private void OnNewLinesAvailable(object? sender, IReadOnlyList<string> newLines)
     {
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        if (_disposed || newLines.Count == 0) return;
+
+        Task.Run(() =>
         {
             if (_disposed) return;
             List<LogLine> created = BuildLogLines(newLines, isFromWatcher: true);
-            TotalLineCount += created.Count;
 
-            foreach (LogLine line in created) _groupingService.AttachLine(_allLines, line);
-            TrimOldLines();
-
-            List<LogLine> toShow = new(created.Count);
-            foreach (LogLine line in created)
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                MarkSearchMatch(line);
-                if (LinePassesFilter(line)) { if (!IsExceptionGroupingEnabled || !line.IsContinuation || (line.GroupParent != null && line.GroupParent.IsExpanded)) toShow.Add(line); }
-            }
-            VisibleLines.AppendRange(toShow);
+                if (_disposed) return;
+                TotalLineCount += created.Count;
 
-            if (HasLineLimit && VisibleLines.Count > _settings.MaxLinesInMemory)
-                VisibleLines.RemoveFirst(VisibleLines.Count - _settings.MaxLinesInMemory);
+                _allLines.EnsureCapacity(_allLines.Count + created.Count);
+                foreach (LogLine line in created) _groupingService.AttachLine(_allLines, line);
+                TrimOldLines();
 
-            if (!IsProcessTab)
-            {
-                try { FileSizeBytes = new FileInfo(LogFile.FilePath).Length; } catch { }
-            }
-            UpdateStats(created);
-            CheckForNotifications(created);
-            UpdateStatus();
-            NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
-            LinesChanged?.Invoke(this, EventArgs.Empty);
-            RequestChartUpdate();
-        }, DispatcherPriority.Background);
+                List<LogLine> toShow = new(created.Count);
+                foreach (LogLine line in created)
+                {
+                    MarkSearchMatch(line);
+                    if (LinePassesFilter(line))
+                    {
+                        if (!IsExceptionGroupingEnabled || !line.IsContinuation || (line.GroupParent != null && line.GroupParent.IsExpanded))
+                            toShow.Add(line);
+                    }
+                }
+                VisibleLines.AppendRange(toShow);
+
+                if (HasLineLimit && VisibleLines.Count > _settings.MaxLinesInMemory)
+                    VisibleLines.RemoveFirst(VisibleLines.Count - _settings.MaxLinesInMemory);
+
+                if (!IsProcessTab)
+                {
+                    try { FileSizeBytes = new FileInfo(LogFile.FilePath).Length; } catch { }
+                }
+                UpdateStats(created);
+                CheckForNotifications(created);
+                UpdateStatus();
+                NavigationBarInvalidated?.Invoke(this, EventArgs.Empty);
+                LinesChanged?.Invoke(this, EventArgs.Empty);
+                RequestChartUpdate();
+            }, DispatcherPriority.Background);
+        });
     }
 
     private void OnFileDeleted(object? sender, EventArgs e)
@@ -923,10 +961,14 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         if (toRemove > 0)
         {
             _allLines.RemoveRange(0, toRemove);
-            if (_allLines.Count > 0 && _allLines[0].IsContinuation && _allLines[0].GroupParent is { } parent && !_allLines.Contains(parent))
+            if (_allLines.Count > 0 && _allLines[0].IsContinuation && _allLines[0].GroupParent is { } parent)
             {
-                _allLines[0].IsPartialContinuation = true;
-                _allLines[0].GroupParent = null;
+                long minLineNo = _allLines[0].LineNumber;
+                if (parent.LineNumber < minLineNo)
+                {
+                    _allLines[0].IsPartialContinuation = true;
+                    _allLines[0].GroupParent = null;
+                }
             }
             RequestChartUpdate();
         }
@@ -1019,10 +1061,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 }
                 if (mode != FilterMode.None)
                 {
-                    if (typedFilter != null)
-                        result = _searchService.ApplyTypedFilter(result, typedFilter, mode);
-                    else if (pattern != null)
-                        result = _searchService.ApplyFilter(result, pattern, mode);
+                    if (mode == FilterMode.IncludeMatching)
+                        result = result.Where(l => l.IsSearchMatch);
+                    else if (mode == FilterMode.ExcludeMatching)
+                        result = result.Where(l => !l.IsSearchMatch);
                 }
 
                 if (compiledChain.Count > 0)
@@ -1032,6 +1074,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                 if (IsExceptionGroupingEnabled) list = list.Where(l => !l.IsContinuation || (l.GroupParent != null && l.GroupParent.IsExpanded)).ToList();
 
                 // Build the grid rows here, off the UI thread
+                bool hasGroups = pattern != null && pattern.GetGroupNumbers().Length > 1;
                 if (typedFilter != null)
                 {
                     foreach (LogLine line in list)
@@ -1048,7 +1091,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                             Group1 = line.StructuredLevel ?? string.Empty,
                             Group2 = line.StructuredEvent?.Message ?? string.Empty,
                             Group3 = string.Empty,
-                            CapturingGroups = line.StructuredLevel != null ? [line.StructuredLevel] : [],
+                            CapturingGroups = line.StructuredLevel != null ? [line.StructuredLevel] : Array.Empty<string>(),
                             Source = line
                         });
                     }
@@ -1059,7 +1102,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                     {
                         if (!line.IsSearchMatch) continue;
                         if (rows.Count >= MaxSearchResultRows) break;
-                        string[] groups = _searchService.GetCapturingGroups(pattern, line.Text);
+                        string[] groups = hasGroups ? _searchService.GetCapturingGroups(pattern, line.Text) : Array.Empty<string>();
                         rows.Add(new SearchResultRow
                         {
                             LineNumber = line.LineNumber,
@@ -1070,7 +1113,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
                             Group1 = groups.Length > 0 ? groups[0] : string.Empty,
                             Group2 = groups.Length > 1 ? groups[1] : string.Empty,
                             Group3 = groups.Length > 2 ? groups[2] : string.Empty,
-                            CapturingGroups = groups.ToList(),
+                            CapturingGroups = groups,
                             Source = line
                         });
                     }
@@ -1173,11 +1216,9 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void CopyWithLineNumbers()
     {
-        IList<LogLine> toCopy = SelectedLogLines.Count > 0
-            ? SelectedLogLines
-            : SelectedLogLine != null ? [SelectedLogLine] : (IList<LogLine>)Array.Empty<LogLine>();
+        IList<LogLine> toCopy = GetEffectiveSelectedLines();
         if (toCopy.Count == 0) return;
-        List<string> lines = new();
+        List<string> lines = new(toCopy.Count);
         foreach (LogLine l in toCopy)
         {
             lines.Add($"{l.LineNumber,6}: {l.Text}");
@@ -1350,6 +1391,8 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         IsDetailPanelVisible = true;
     }
 
+    private static readonly System.Text.Json.JsonSerializerOptions PrettyPrintJsonOptions = new() { WriteIndented = true };
+
     private static string? TryPrettyPrintJson(string text)
     {
         int start = text.IndexOfAny(['{', '[']);
@@ -1358,9 +1401,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         {
             string candidate = text[start..];
             using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(candidate);
-            return System.Text.Json.JsonSerializer.Serialize(
-                doc.RootElement,
-                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            return System.Text.Json.JsonSerializer.Serialize(doc.RootElement, PrettyPrintJsonOptions);
         }
         catch { return null; }
     }
@@ -1392,12 +1433,10 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void CopySelectedLines()
     {
-        IList<LogLine> toCopy = SelectedLogLines.Count > 0
-            ? SelectedLogLines
-            : SelectedLogLine != null ? [SelectedLogLine] : (IList<LogLine>)Array.Empty<LogLine>();
+        IList<LogLine> toCopy = GetEffectiveSelectedLines();
         if (toCopy.Count == 0) return;
 
-        List<string> lines = new();
+        List<string> lines = new(toCopy.Count);
         foreach (LogLine l in toCopy)
         {
             lines.Add(l.Text);

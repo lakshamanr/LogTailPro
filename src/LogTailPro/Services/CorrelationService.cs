@@ -118,6 +118,22 @@ public sealed class CorrelationService
             if (id.Length >= 2) id = id[1..^1].Trim();
         }
 
+        // Fast reject: if id is not present anywhere in raw line or continuations, return false
+        if (line.Text.IndexOf(id, StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            if (!line.HasContinuations) return false;
+            bool foundInCont = false;
+            for (int c = 0; c < line.Continuations.Count; c++)
+            {
+                if (line.Continuations[c].Text.IndexOf(id, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    foundInCont = true;
+                    break;
+                }
+            }
+            if (!foundInCont) return false;
+        }
+
         // 1. Structured JSON properties check (exact match)
         StructuredLogEvent? ev = line.StructuredEvent;
         if ((ev == null || !ev.IsValidJson) && line.Text.AsSpan().TrimStart().StartsWith("{"))
@@ -143,15 +159,20 @@ public sealed class CorrelationService
         }
 
         // 2. Plain text / raw line check with strict token boundary
-        // Pattern matches id only when not preceded or followed by word characters or dashes
+        // Matches id only when not preceded or followed by word characters or dashes (e.g. (?<![\w\-])id(?![\w\-]))
         bool isMatch = false;
-        try
+        int idx = 0;
+        while ((idx = line.Text.IndexOf(id, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
         {
-            string pattern = $@"(?<![\w\-]){Regex.Escape(id)}(?![\w\-])";
-            isMatch = Regex.IsMatch(line.Text, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
-        }
-        catch (RegexMatchTimeoutException)
-        {
+            bool startOk = idx == 0 || (!char.IsLetterOrDigit(line.Text[idx - 1]) && line.Text[idx - 1] != '_' && line.Text[idx - 1] != '-');
+            int endIdx = idx + id.Length;
+            bool endOk = endIdx == line.Text.Length || (!char.IsLetterOrDigit(line.Text[endIdx]) && line.Text[endIdx] != '_' && line.Text[endIdx] != '-');
+            if (startOk && endOk)
+            {
+                isMatch = true;
+                break;
+            }
+            idx += id.Length;
         }
 
         if (isMatch) return true;
@@ -258,13 +279,24 @@ public sealed class CorrelationService
         }
 
         // Deterministic chronological ordering with source and original line ties
-        List<LogLine> sorted = matches
-            .OrderBy(row => row.Row.TimelineTimestamp ?? DateTimeOffset.MaxValue)
-            .ThenBy(row => row.Source)
-            .ThenBy(row => row.Row.SourceLineNumber)
-            .ThenBy(row => row.Index)
-            .Select(row => row.Row)
-            .ToList();
+        matches.Sort(static (a, b) =>
+        {
+            long aTicks = a.Row.TimelineTimestamp?.UtcTicks ?? long.MaxValue;
+            long bTicks = b.Row.TimelineTimestamp?.UtcTicks ?? long.MaxValue;
+            int cmp = aTicks.CompareTo(bTicks);
+            if (cmp != 0) return cmp;
+
+            cmp = a.Source.CompareTo(b.Source);
+            if (cmp != 0) return cmp;
+
+            cmp = a.Row.SourceLineNumber.CompareTo(b.Row.SourceLineNumber);
+            if (cmp != 0) return cmp;
+
+            return a.Index.CompareTo(b.Index);
+        });
+
+        List<LogLine> sorted = new(matches.Count);
+        for (int i = 0; i < matches.Count; i++) sorted.Add(matches[i].Row);
 
         ct.ThrowIfCancellationRequested();
 

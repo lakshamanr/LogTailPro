@@ -63,9 +63,9 @@ public sealed class ProcessSearchMatcher
     {
         if (_regex == null && _plainTerms.Length == 0) return true;
 
-        string pid = p.Pid.ToString();
         if (_regex != null)
         {
+            string pid = p.Pid.ToString();
             try
             {
                 return _regex.IsMatch(p.Name) || _regex.IsMatch(pid) ||
@@ -74,12 +74,17 @@ public sealed class ProcessSearchMatcher
             catch (RegexMatchTimeoutException) { return false; }
         }
 
-        foreach (string term in _plainTerms)
+        string? pidStr = null;
+        for (int i = 0; i < _plainTerms.Length; i++)
         {
+            string term = _plainTerms[i];
             if (p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                pid.Contains(term, StringComparison.Ordinal) ||
                 p.ExecutablePath.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 p.UserName.Contains(term, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            pidStr ??= p.Pid.ToString();
+            if (pidStr.Contains(term, StringComparison.Ordinal))
                 return true;
         }
         return false;
@@ -93,25 +98,34 @@ public sealed class ProcessSearchMatcher
     {
         if (_regex == null && _plainTerms.Length == 0) return true;
 
-        string pid = s.Pid > 0 ? s.Pid.ToString() : string.Empty;
         if (_regex != null)
         {
+            string pid = s.Pid > 0 ? s.Pid.ToString() : string.Empty;
             try
             {
-                return _regex.IsMatch(s.Name) || _regex.IsMatch(s.DisplayName) || _regex.IsMatch(pid) ||
+                return _regex.IsMatch(s.Name) || _regex.IsMatch(s.DisplayName) ||
+                       (pid.Length > 0 && _regex.IsMatch(pid)) ||
                        _regex.IsMatch(s.BinaryPath) || _regex.IsMatch(s.AccountName);
             }
             catch (RegexMatchTimeoutException) { return false; }
         }
 
-        foreach (string term in _plainTerms)
+        string? pidStr = null;
+        for (int i = 0; i < _plainTerms.Length; i++)
         {
+            string term = _plainTerms[i];
             if (s.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 s.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                pid.Contains(term, StringComparison.Ordinal) ||
                 s.BinaryPath.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 s.AccountName.Contains(term, StringComparison.OrdinalIgnoreCase))
                 return true;
+
+            if (s.Pid > 0)
+            {
+                pidStr ??= s.Pid.ToString();
+                if (pidStr.Contains(term, StringComparison.Ordinal))
+                    return true;
+            }
         }
         return false;
     }

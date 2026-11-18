@@ -76,6 +76,7 @@ public partial class LogTabView : UserControl
         // so the ScrollViewer still holds the old tab's offset here.
         if (e.OldValue is LogTabViewModel oldVm)
         {
+            oldVm.SelectedLinesProvider = null;
             ScrollViewer? sv = GetScrollViewer();
             if (sv != null)
             {
@@ -95,6 +96,7 @@ public partial class LogTabView : UserControl
 
         if (_viewModel != null)
         {
+            _viewModel.SelectedLinesProvider = () => LogListView.SelectedItems.Cast<LogLine>().ToList();
             _viewModel.VisibleLines.CollectionChanged += OnVisibleLinesChanged;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.ScrollToLineRequested += OnScrollToLineRequested;
@@ -167,8 +169,8 @@ public partial class LogTabView : UserControl
 
     private void LogListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_viewModel != null)
-            _viewModel.SelectedLogLines = LogListView.SelectedItems.Cast<LogLine>().ToList();
+        // Selected lines are retrieved on demand via SelectedLinesProvider when copying,
+        // avoiding generating a new List<LogLine> on every single arrow key or click event.
     }
 
     private void OnSelectAllRequested(object? sender, EventArgs e)

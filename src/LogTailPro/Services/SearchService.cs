@@ -71,16 +71,17 @@ public sealed class SearchService
         LogLine line,
         IReadOnlyList<CompiledFilterRule> compiledChain)
     {
-        IEnumerable<CompiledFilterRule> active =
-            compiledChain.Where(c => c.Rule.IsEnabled && !string.IsNullOrEmpty(c.Rule.Pattern));
-
-        if (!active.Any()) return true;
+        if (compiledChain.Count == 0) return true;
 
         bool result = true;
         bool first = true;
 
-        foreach (CompiledFilterRule compiled in active)
+        for (int i = 0; i < compiledChain.Count; i++)
         {
+            CompiledFilterRule compiled = compiledChain[i];
+            if (!compiled.Rule.IsEnabled || string.IsNullOrEmpty(compiled.Rule.Pattern))
+                continue;
+
             bool matches = compiled.TypedFilter != null
                 ? compiled.TypedFilter.Matches(line)
                 : (compiled.Pattern != null && SafeLineOrContinuationsMatch(compiled.Pattern, line));
@@ -108,16 +109,17 @@ public sealed class SearchService
         string lineText,
         IReadOnlyList<(FilterRule Rule, Regex CompiledPattern)> compiledChain)
     {
-        IEnumerable<(FilterRule Rule, Regex CompiledPattern)> active =
-            compiledChain.Where(c => c.Rule.IsEnabled && !string.IsNullOrEmpty(c.Rule.Pattern));
-
-        if (!active.Any()) return true;
+        if (compiledChain.Count == 0) return true;
 
         bool result = true;
         bool first = true;
 
-        foreach ((FilterRule rule, Regex pattern) in active)
+        for (int i = 0; i < compiledChain.Count; i++)
         {
+            (FilterRule rule, Regex pattern) = compiledChain[i];
+            if (!rule.IsEnabled || string.IsNullOrEmpty(rule.Pattern))
+                continue;
+
             bool matches = SafeIsMatch(pattern, lineText);
             if (rule.IsNegated) matches = !matches;
 

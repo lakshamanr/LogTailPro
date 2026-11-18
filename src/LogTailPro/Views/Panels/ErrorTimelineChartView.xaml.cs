@@ -104,6 +104,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
     private static readonly Pen GridPen = new(GridLineBrush, 1.0);
     private static readonly Pen SelectedBorderPen = new(SelectedBorderBrush, 1.5);
     private static readonly Pen MarqueePen = new(SelectedBorderBrush, 1.0);
+    private static readonly Typeface LabelFont = new("Segoe UI");
 
     static ErrorTimelineChartCanvas()
     {
@@ -181,7 +182,7 @@ public sealed class ErrorTimelineChartCanvas : FrameworkElement
         double leftMargin = 38.0;
         double availableWidth = Math.Max(10, width - leftMargin);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        Typeface labelFont = new("Segoe UI");
+        Typeface labelFont = LabelFont;
 
         // Draw baseline from leftMargin to width
         dc.DrawLine(BaselinePen, new Point(leftMargin, baselineY), new Point(width, baselineY));

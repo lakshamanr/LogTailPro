@@ -99,11 +99,31 @@ public sealed partial class ProcessExplorerViewModel : ObservableObject, IDispos
         _ = RefreshAsync();
     }
 
+    private DispatcherTimer? _searchDebounceTimer;
+
     partial void OnSearchTextChanged(string value)
     {
         OnPropertyChanged(nameof(LogsButtonText));
         OpenLogsForMatchesCommand.NotifyCanExecuteChanged();
-        _ = RefreshAsync();
+
+        if (string.IsNullOrEmpty(value))
+        {
+            _searchDebounceTimer?.Stop();
+            _ = RefreshAsync();
+            return;
+        }
+
+        if (_searchDebounceTimer == null)
+        {
+            _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _searchDebounceTimer.Tick += async (_, _) =>
+            {
+                _searchDebounceTimer.Stop();
+                await RefreshAsync();
+            };
+        }
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
     }
 
     partial void OnIsRegexSearchChanged(bool value)

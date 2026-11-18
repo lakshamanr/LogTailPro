@@ -95,7 +95,7 @@ public sealed class LogParserService
         char[] chars = new char[encoding.GetMaxCharCount(ChunkSize)];
         StringBuilder pending = new();
 
-        Queue<string>? ring = maxLines > 0 ? new Queue<string>() : null;
+        Queue<string>? ring = maxLines > 0 ? new Queue<string>(Math.Min(maxLines + 1, 1_000_000)) : null;
         List<string>? list = maxLines > 0 ? null : new List<string>((int)Math.Min(remaining / 60 + 16, 4_000_000));
         long dropped = 0;
         long readTotal = 0;

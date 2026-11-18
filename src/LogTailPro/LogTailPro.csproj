@@ -6,13 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>LogTailPro</AssemblyName>
     <RootNamespace>LogTailPro</RootNamespace>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <Optimize>true</Optimize>
     <LangVersion>12</LangVersion>
-    <Version>1.5.0</Version>
-    <FileVersion>1.5.0.0</FileVersion>
+    <Version>2.10.0</Version>
+    <FileVersion>2.10.0.0</FileVersion>
     <Description>Real-time log file viewer for Windows</Description>
   </PropertyGroup>
 

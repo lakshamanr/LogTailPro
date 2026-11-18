@@ -55,6 +55,15 @@ public sealed class ErrorTimelineChartService
     /// </summary>
     public static LogSeverity NormalizeSeverity(LogLine line)
     {
+        if (line.Severity.HasValue) return line.Severity.Value;
+
+        LogSeverity sev = ComputeSeverity(line);
+        line.Severity = sev;
+        return sev;
+    }
+
+    private static LogSeverity ComputeSeverity(LogLine line)
+    {
         if (line.StructuredEvent != null && !string.IsNullOrWhiteSpace(line.StructuredEvent.Level))
         {
             string lvl = line.StructuredEvent.Level.Trim();
@@ -84,12 +93,33 @@ public sealed class ErrorTimelineChartService
             return LogSeverity.Error;
 
         string text = line.Text;
-        if (ErrorRegex.IsMatch(text)) return LogSeverity.Error;
-        if (WarningRegex.IsMatch(text)) return LogSeverity.Warning;
-        if (InfoRegex.IsMatch(text)) return LogSeverity.Information;
+        if (QuickContainsError(text) && ErrorRegex.IsMatch(text)) return LogSeverity.Error;
+        if (QuickContainsWarning(text) && WarningRegex.IsMatch(text)) return LogSeverity.Warning;
+        if (QuickContainsInfo(text) && InfoRegex.IsMatch(text)) return LogSeverity.Information;
 
         return LogSeverity.Other;
     }
+
+    private static bool QuickContainsError(string text) =>
+        text.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("fatal", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("crit", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("err", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("crash", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("exception", StringComparison.OrdinalIgnoreCase);
+
+    private static bool QuickContainsWarning(string text) =>
+        text.Contains("warn", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("wrn", StringComparison.OrdinalIgnoreCase);
+
+    private static bool QuickContainsInfo(string text) =>
+        text.Contains("info", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("inf", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("dbg", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("debug", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("trace", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("trc", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("verbose", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Extracts the timestamp in UTC for a log event.
@@ -98,13 +128,25 @@ public sealed class ErrorTimelineChartService
     {
         if (line.TimelineTimestamp.HasValue) return line.TimelineTimestamp.Value;
         if (line.StructuredEvent?.Timestamp.HasValue == true)
-            return line.StructuredEvent.Timestamp.Value.ToUniversalTime();
+        {
+            DateTimeOffset dto = line.StructuredEvent.Timestamp.Value.ToUniversalTime();
+            line.TimelineTimestamp = dto;
+            return dto;
+        }
 
         DateTimeOffset? parsed = TimelineService.ParseTimestamp(line);
-        if (parsed.HasValue) return parsed.Value;
+        if (parsed.HasValue)
+        {
+            line.TimelineTimestamp = parsed.Value;
+            return parsed.Value;
+        }
 
         if (line.Timestamp is DateTime dt && dt.Year > 1900)
-            return new DateTimeOffset(dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt.ToUniversalTime());
+        {
+            DateTimeOffset dto = new DateTimeOffset(dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt.ToUniversalTime());
+            line.TimelineTimestamp = dto;
+            return dto;
+        }
 
         return null;
     }

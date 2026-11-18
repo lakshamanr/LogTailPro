@@ -36,10 +36,14 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     /// <summary>Time elapsed between this line's timestamp and the previous line's timestamp.</summary>
     public TimeSpan? ElapsedSincePrevious { get; set; }
 
+    private string? _elapsedDisplay;
     /// <summary>Formatted elapsed time for display in the Elapsed column.</summary>
-    public string ElapsedDisplay => ElapsedSincePrevious.HasValue
+    public string ElapsedDisplay => _elapsedDisplay ??= (ElapsedSincePrevious.HasValue
         ? $"+{ElapsedSincePrevious.Value.TotalMilliseconds:N0}ms"
-        : string.Empty;
+        : string.Empty);
+
+    /// <summary>Cached normalized severity for fast timeline charting and stats aggregation.</summary>
+    public LogSeverity? Severity { get; set; }
 
     /// <summary>True when <see cref="ElapsedSincePrevious"/> exceeds 1 second (shown in orange).</summary>
     public bool IsElapsedWarning => ElapsedSincePrevious?.TotalSeconds >= 1 && ElapsedSincePrevious?.TotalSeconds < 5;
@@ -74,8 +78,9 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     /// <summary>Timestamp in UTC for cross-file ordering; null means no full date was recognized.</summary>
     public DateTimeOffset? TimelineTimestamp { get; set; }
 
+    private string? _timelineTimeDisplay;
     /// <summary>Explicit timestamp label, including the timezone.</summary>
-    public string TimelineTimeDisplay => TimelineTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff 'UTC'") ?? "No dated timestamp";
+    public string TimelineTimeDisplay => _timelineTimeDisplay ??= (TimelineTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff 'UTC'") ?? "No dated timestamp");
 
     /// <summary>Wall-clock time when this line arrived from the file watcher. DateTime.MinValue for initial load.</summary>
     public DateTime ArrivedAt { get; set; } = DateTime.MinValue;
@@ -86,15 +91,17 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     /// <summary>Structured severity level (e.g. Information, Warning, Error), or null if not structured.</summary>
     public string? StructuredLevel => StructuredEvent?.Level;
 
+    private string? _structuredTimeDisplay;
     /// <summary>Formatted timestamp string preserving the original timezone offset, or null.</summary>
-    public string? StructuredTimeDisplay => StructuredEvent?.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff zzz");
+    public string? StructuredTimeDisplay => _structuredTimeDisplay ??= StructuredEvent?.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff zzz");
 
+    private string? _structuredMessage;
     /// <summary>Rendered message if structured JSON, or malformed notice, or fallback raw text.</summary>
-    public string StructuredMessage => StructuredEvent != null
+    public string StructuredMessage => _structuredMessage ??= (StructuredEvent != null
         ? (StructuredEvent.IsValidJson
             ? (StructuredEvent.Message ?? StructuredEvent.MessageTemplate ?? Text)
             : $"[Malformed JSON: {StructuredEvent.ParseError}] {Text}")
-        : Text;
+        : Text);
 
     /// <summary>True when this line represents a valid structured JSON event.</summary>
     public bool HasStructuredEvent => StructuredEvent != null && StructuredEvent.IsValidJson;

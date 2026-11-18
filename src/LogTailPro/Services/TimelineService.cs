@@ -21,14 +21,22 @@ public sealed class TimelineService
             return line.TimelineTimestamp.Value;
 
         if (line.StructuredEvent?.Timestamp.HasValue == true)
-            return line.StructuredEvent.Timestamp.Value.ToUniversalTime();
+        {
+            DateTimeOffset dto = line.StructuredEvent.Timestamp.Value.ToUniversalTime();
+            line.TimelineTimestamp = dto;
+            return dto;
+        }
 
         // Check structured JSON record if not already parsed
         if (line.Text.AsSpan().TrimStart().StartsWith("{"))
         {
             StructuredLogEvent? ev = JsonLogParser.TryParse(line.Text);
             if (ev?.Timestamp.HasValue == true)
-                return ev.Timestamp.Value.ToUniversalTime();
+            {
+                DateTimeOffset dto = ev.Timestamp.Value.ToUniversalTime();
+                line.TimelineTimestamp = dto;
+                return dto;
+            }
         }
 
         string head = line.Text[..Math.Min(line.Text.Length, 100)];
@@ -41,7 +49,11 @@ public sealed class TimelineService
                 value = value.Insert(value.Length - 2, ":");
             if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
                 DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal, out DateTimeOffset parsed))
-                return parsed.ToUniversalTime();
+            {
+                DateTimeOffset dto = parsed.ToUniversalTime();
+                line.TimelineTimestamp = dto;
+                return dto;
+            }
             return null; // A malformed full date must not fall back to a partial time.
         }
 
@@ -50,20 +62,27 @@ public sealed class TimelineService
         if (line.Timestamp is DateTime timestamp && timestamp.Year > 1 &&
             Regex.IsMatch(head, @"\b\d{2}/\d{2}/\d{4}\b", RegexOptions.CultureInvariant,
                 TimeSpan.FromMilliseconds(100)))
-            return new DateTimeOffset(timestamp).ToUniversalTime();
+        {
+            DateTimeOffset dto = new DateTimeOffset(timestamp).ToUniversalTime();
+            line.TimelineTimestamp = dto;
+            return dto;
+        }
         return null;
     }
 
     /// <summary>Merges snapshots, normalizes timezones and resolves equal/unknown times deterministically.</summary>
     public IReadOnlyList<LogLine> Merge(IReadOnlyList<TimelineSource> sources, CancellationToken ct = default)
     {
-        List<(LogLine Row, int Source, int Index)> rows = new();
+        int totalLines = 0;
+        for (int i = 0; i < sources.Count; i++) totalLines += sources[i].Lines.Count;
+
+        List<(LogLine Row, int Source, int Index)> rows = new(totalLines);
         for (int sourceIndex = 0; sourceIndex < sources.Count; sourceIndex++)
         {
             TimelineSource source = sources[sourceIndex];
             for (int index = 0; index < source.Lines.Count; index++)
             {
-                ct.ThrowIfCancellationRequested();
+                if ((index & 0x3FFF) == 0) ct.ThrowIfCancellationRequested();
                 LogLine original = source.Lines[index];
                 DateTimeOffset? timestamp = ParseTimestamp(original);
                 rows.Add((new LogLine
@@ -82,10 +101,27 @@ public sealed class TimelineService
                 }, sourceIndex, index));
             }
         }
+        ct.ThrowIfCancellationRequested();
+
         // Stable tie-breakers preserve source/line identity even for repeated timestamps.
-        List<LogLine> sorted = rows.OrderBy(row => row.Row.TimelineTimestamp ?? DateTimeOffset.MaxValue)
-            .ThenBy(row => row.Source).ThenBy(row => row.Row.SourceLineNumber).ThenBy(row => row.Index)
-            .Select(row => row.Row).ToList();
+        rows.Sort(static (a, b) =>
+        {
+            long aTicks = a.Row.TimelineTimestamp?.UtcTicks ?? long.MaxValue;
+            long bTicks = b.Row.TimelineTimestamp?.UtcTicks ?? long.MaxValue;
+            int cmp = aTicks.CompareTo(bTicks);
+            if (cmp != 0) return cmp;
+
+            cmp = a.Source.CompareTo(b.Source);
+            if (cmp != 0) return cmp;
+
+            cmp = a.Row.SourceLineNumber.CompareTo(b.Row.SourceLineNumber);
+            if (cmp != 0) return cmp;
+
+            return a.Index.CompareTo(b.Index);
+        });
+
+        List<LogLine> sorted = new(rows.Count);
+        for (int i = 0; i < rows.Count; i++) sorted.Add(rows[i].Row);
         ct.ThrowIfCancellationRequested();
         return sorted;
     }

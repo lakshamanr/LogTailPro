@@ -61,6 +61,12 @@ public sealed class MultilineGroupingService
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
 
+        char first = text[0];
+        // Fast-path: stack frames and exception continuations in .NET, Java, Python
+        // almost always start with whitespace (' ', '\t'), or specific prefixes like '-', 'C', 'T', 'F', 'D', '.'
+        if (!char.IsWhiteSpace(first) && first != '-' && first != 'C' && first != 'T' && first != 'F' && first != 'D' && first != '.')
+            return false;
+
         return DotNetStackFrameRegex.IsMatch(text)
             || DotNetBoundaryRegex.IsMatch(text)
             || JavaExceptionRegex.IsMatch(text)
@@ -73,6 +79,17 @@ public sealed class MultilineGroupingService
     public static bool HasExceptionIndicator(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
+
+        // Fast rejection before regex
+        if (text.IndexOf("Exception", StringComparison.OrdinalIgnoreCase) < 0 &&
+            text.IndexOf("Error", StringComparison.OrdinalIgnoreCase) < 0 &&
+            text.IndexOf("Fault", StringComparison.OrdinalIgnoreCase) < 0 &&
+            text.IndexOf("Crash", StringComparison.OrdinalIgnoreCase) < 0 &&
+            text.IndexOf("Traceback", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return false;
+        }
+
         return ExceptionKeywordRegex.IsMatch(text);
     }
 

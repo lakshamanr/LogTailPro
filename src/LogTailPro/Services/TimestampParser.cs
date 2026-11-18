@@ -37,6 +37,8 @@ public sealed class TimestampParser
          ["HH:mm:ss"]),
     ];
 
+    private int _lastSuccessfulIndex = -1;
+
     /// <summary>
     /// Tries to extract and parse a timestamp from the beginning or early part of a log line.
     /// Returns null when no recognized timestamp format is found.
@@ -49,26 +51,59 @@ public sealed class TimestampParser
         ReadOnlySpan<char> head = lineText.Length > 60
             ? lineText.AsSpan(0, 60)
             : lineText.AsSpan();
-        string headStr = head.ToString();
 
-        foreach ((Regex pattern, string[] formats) in Patterns)
+        // Fast rejection: every supported timestamp format contains digits and at least one colon for time
+        bool hasDigit = false;
+        bool hasColon = false;
+        for (int i = 0; i < head.Length; i++)
         {
-            Match m = pattern.Match(headStr);
-            if (!m.Success) continue;
+            char c = head[i];
+            if (char.IsAsciiDigit(c)) hasDigit = true;
+            else if (c == ':') hasColon = true;
+            if (hasDigit && hasColon) break;
+        }
+        if (!hasDigit || !hasColon) return null;
 
-            foreach (string fmt in formats)
+        string headStr = lineText.Length <= 60 ? lineText : lineText[..60];
+
+        // Adaptive cache: try the pattern that matched the previous line first (99%+ hit rate in standard logs)
+        int lastIdx = _lastSuccessfulIndex;
+        if (lastIdx >= 0 && lastIdx < Patterns.Length)
+        {
+            DateTime? result = TryMatch(Patterns[lastIdx], headStr);
+            if (result.HasValue) return result;
+        }
+
+        for (int i = 0; i < Patterns.Length; i++)
+        {
+            if (i == lastIdx) continue;
+            DateTime? result = TryMatch(Patterns[i], headStr);
+            if (result.HasValue)
             {
-                if (DateTime.TryParseExact(
-                    m.Value, fmt,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out DateTime dt))
-                {
-                    return dt;
-                }
+                _lastSuccessfulIndex = i;
+                return result;
             }
         }
 
+        return null;
+    }
+
+    private static DateTime? TryMatch((Regex Pattern, string[] Formats) entry, string headStr)
+    {
+        Match m = entry.Pattern.Match(headStr);
+        if (!m.Success) return null;
+
+        foreach (string fmt in entry.Formats)
+        {
+            if (DateTime.TryParseExact(
+                m.Value, fmt,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out DateTime dt))
+            {
+                return dt;
+            }
+        }
         return null;
     }
 }

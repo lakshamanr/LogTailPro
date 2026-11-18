@@ -9,9 +9,26 @@ namespace LogTailPro.Models;
 /// </summary>
 public sealed class TypedFieldFilter
 {
+    private string _value = string.Empty;
+    private double? _parsedTargetNum;
+    private bool? _parsedTargetBool;
+    private string _unquotedValue = string.Empty;
+
     public string FieldName { get; init; } = string.Empty;
     public FieldFilterOperator Operator { get; init; } = FieldFilterOperator.Equals;
-    public string Value { get; init; } = string.Empty;
+    public string Value
+    {
+        get => _value;
+        init
+        {
+            _value = value;
+            _unquotedValue = value.Trim('"', '\'');
+            if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double n))
+                _parsedTargetNum = n;
+            if (bool.TryParse(value, out bool b))
+                _parsedTargetBool = b;
+        }
+    }
 
     /// <summary>Evaluates whether the given <paramref name="line"/> matches this typed filter.</summary>
     public bool Matches(LogLine line)
@@ -37,28 +54,19 @@ public sealed class TypedFieldFilter
             case FieldFilterOperator.Equals:
                 if (!hasProp || propValue == null)
                     return Value.Equals("null", StringComparison.OrdinalIgnoreCase);
-                return CompareEquals(propValue, Value);
+                return CompareEquals(propValue);
 
             case FieldFilterOperator.NotEquals:
                 if (!hasProp || propValue == null)
                     return !Value.Equals("null", StringComparison.OrdinalIgnoreCase);
-                return !CompareEquals(propValue, Value);
+                return !CompareEquals(propValue);
 
             case FieldFilterOperator.GreaterThan:
-                if (!hasProp || propValue == null) return false;
-                return CompareNumeric(propValue, Value, (a, b) => a > b);
-
             case FieldFilterOperator.GreaterThanOrEqual:
-                if (!hasProp || propValue == null) return false;
-                return CompareNumeric(propValue, Value, (a, b) => a >= b);
-
             case FieldFilterOperator.LessThan:
-                if (!hasProp || propValue == null) return false;
-                return CompareNumeric(propValue, Value, (a, b) => a < b);
-
             case FieldFilterOperator.LessThanOrEqual:
                 if (!hasProp || propValue == null) return false;
-                return CompareNumeric(propValue, Value, (a, b) => a <= b);
+                return CompareNumeric(propValue, Operator);
 
             case FieldFilterOperator.Contains:
                 if (!hasProp || propValue == null) return false;
@@ -69,32 +77,36 @@ public sealed class TypedFieldFilter
         }
     }
 
-    private static bool CompareEquals(object propValue, string targetStr)
+    private bool CompareEquals(object propValue)
     {
         // Boolean check
-        if (propValue is bool b && bool.TryParse(targetStr, out bool targetBool))
-            return b == targetBool;
+        if (_parsedTargetBool.HasValue && propValue is bool b)
+            return b == _parsedTargetBool.Value;
 
         // Numeric check
-        if (IsNumeric(propValue) && double.TryParse(targetStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double targetNum))
+        if (_parsedTargetNum.HasValue && IsNumeric(propValue))
         {
             double propNum = Convert.ToDouble(propValue, CultureInfo.InvariantCulture);
-            return Math.Abs(propNum - targetNum) < 0.0000001;
+            return Math.Abs(propNum - _parsedTargetNum.Value) < 0.0000001;
         }
 
         // String / default check (strip quotes from target if user typed `"value"`)
-        string unquoted = targetStr.Trim('"', '\'');
-        return string.Equals(propValue.ToString(), unquoted, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(propValue.ToString(), _unquotedValue, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool CompareNumeric(object propValue, string targetStr, Func<double, double, bool> comparison)
+    private bool CompareNumeric(object propValue, FieldFilterOperator op)
     {
-        if (!IsNumeric(propValue)) return false; // Type mismatch: non-numeric property cannot satisfy numeric comparison
-        if (!double.TryParse(targetStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double targetNum))
-            return false; // Target is not a valid number
-
+        if (!_parsedTargetNum.HasValue || !IsNumeric(propValue)) return false;
         double propNum = Convert.ToDouble(propValue, CultureInfo.InvariantCulture);
-        return comparison(propNum, targetNum);
+        double targetNum = _parsedTargetNum.Value;
+        return op switch
+        {
+            FieldFilterOperator.GreaterThan => propNum > targetNum,
+            FieldFilterOperator.GreaterThanOrEqual => propNum >= targetNum,
+            FieldFilterOperator.LessThan => propNum < targetNum,
+            FieldFilterOperator.LessThanOrEqual => propNum <= targetNum,
+            _ => false
+        };
     }
 
     private static bool IsNumeric(object value) =>

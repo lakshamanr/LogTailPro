@@ -35,12 +35,23 @@ public sealed class HighlightService
         string lineText,
         IReadOnlyList<(HighlightRule Rule, Regex CompiledPattern)> compiledRules)
     {
-        foreach ((HighlightRule rule, Regex pattern) in compiledRules)
+        for (int i = 0; i < compiledRules.Count; i++)
         {
+            (HighlightRule rule, Regex pattern) = compiledRules[i];
             try
             {
-                if (pattern.IsMatch(lineText))
+                if (!rule.IsRegex)
+                {
+                    StringComparison sc = rule.IsCaseSensitive
+                        ? StringComparison.Ordinal
+                        : StringComparison.OrdinalIgnoreCase;
+                    if (lineText.IndexOf(rule.Pattern, sc) >= 0)
+                        return rule;
+                }
+                else if (pattern.IsMatch(lineText))
+                {
                     return rule;
+                }
             }
             catch (RegexMatchTimeoutException)
             {

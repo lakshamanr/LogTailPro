@@ -23,6 +23,8 @@
         <ListView ItemsSource="{Binding SelectedTab.Bookmarks}"
                   SelectedItem="{Binding SelectedTab.SelectedLogLine, Mode=TwoWay}"
                   Background="Transparent"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
                   FontFamily="{StaticResource MonoFont}"
                   FontSize="{StaticResource FontSizeMonoSmall}">
             <ListView.ItemTemplate>

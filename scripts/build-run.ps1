@@ -96,9 +96,13 @@ if (-not (Test-Path $exe)) {
     exit 1
 }
 
-Write-Step "Launching LogTailPro..."
+Write-Step "Launching LogTailPro (as Administrator)..."
 Write-Host "  $exe" -ForegroundColor Gray
 Write-Host ""
-Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe)
-Write-OK "Launched. This window can be closed."
+try {
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -Verb RunAs
+    Write-OK "Launched as Administrator. This window can be closed."
+} catch {
+    Write-Fail "Elevation cancelled or failed: $_"
+}
 Write-Host ""

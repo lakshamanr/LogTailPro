@@ -32,10 +32,44 @@ public sealed class ProcessOutputCaptureService : IDisposable
     /// <summary>PID of the launched child process (null before <see cref="Start"/>).</summary>
     public int? ProcessId { get; private set; }
 
-    /// <summary>Pushes a single line to subscribers (used by non-process producers).</summary>
+    private readonly object _batchLock = new();
+    private readonly List<string> _pendingBatch = new();
+    private Timer? _batchTimer;
+
+    /// <summary>Pushes a single line to subscribers (micro-batched to avoid UI Dispatcher saturation).</summary>
     public void Emit(string line)
     {
-        if (!_disposed) NewLinesAvailable?.Invoke(this, new[] { line });
+        if (_disposed) return;
+        lock (_batchLock)
+        {
+            _pendingBatch.Add(line);
+            if (_pendingBatch.Count >= 200)
+            {
+                FlushBatchLocked();
+            }
+            else if (_batchTimer == null)
+            {
+                _batchTimer = new Timer(OnBatchTimerElapsed, null, 30, Timeout.Infinite);
+            }
+        }
+    }
+
+    private void OnBatchTimerElapsed(object? state)
+    {
+        lock (_batchLock)
+        {
+            _batchTimer?.Dispose();
+            _batchTimer = null;
+            FlushBatchLocked();
+        }
+    }
+
+    private void FlushBatchLocked()
+    {
+        if (_pendingBatch.Count == 0 || _disposed) return;
+        string[] copy = _pendingBatch.ToArray();
+        _pendingBatch.Clear();
+        NewLinesAvailable?.Invoke(this, copy);
     }
 
     /// <summary>
@@ -108,6 +142,12 @@ public sealed class ProcessOutputCaptureService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        lock (_batchLock)
+        {
+            _batchTimer?.Dispose();
+            _batchTimer = null;
+            _pendingBatch.Clear();
+        }
         Detach();
         _process?.Dispose();
         _process = null;

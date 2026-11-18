@@ -1,4 +1,7 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Security.Principal;
 using System.Windows;
 using LogTailPro.Services;
 using LogTailPro.ViewModels;
@@ -25,6 +28,21 @@ public partial class App : Application
         try
         {
             base.OnStartup(e);
+
+            // Ensure the application runs with Administrator privileges.
+            if (!IsRunningAsAdministrator())
+            {
+                if (!TryRestartAsAdministrator(e.Args))
+                {
+                    MessageBox.Show(
+                        "LogTailPro requires administrator privileges to run.\nThe application will now exit.",
+                        "Administrator Privileges Required",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                Shutdown();
+                return;
+            }
 
             // One instance at a time: a second launch (e.g. Explorer "Open with") hands its files to the
             // running window, which adds them as tabs, and exits. Explicit window placement/tiling switches
@@ -222,5 +240,67 @@ public partial class App : Application
         window.Width  = tileW;
         window.Height = tileH;
         window.WindowState = WindowState.Normal;
+    }
+
+    private static bool IsRunningAsAdministrator()
+    {
+        using WindowsIdentity identity = WindowsIdentity.GetCurrent();
+        WindowsPrincipal principal = new(identity);
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
+    private static bool TryRestartAsAdministrator(string[] args)
+    {
+        try
+        {
+            string? exePath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exePath))
+                exePath = Process.GetCurrentProcess().MainModule?.FileName;
+
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                return false;
+
+            ProcessStartInfo startInfo = new()
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WorkingDirectory = Environment.CurrentDirectory
+            };
+
+            if (Path.GetFileName(exePath).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                startInfo.FileName = exePath;
+                string[] cmdArgs = Environment.GetCommandLineArgs();
+                if (cmdArgs.Length > 0 && cmdArgs[0].EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    startInfo.ArgumentList.Add(cmdArgs[0]);
+                }
+                foreach (string arg in args)
+                {
+                    startInfo.ArgumentList.Add(arg);
+                }
+            }
+            else
+            {
+                startInfo.FileName = exePath;
+                foreach (string arg in args)
+                {
+                    startInfo.ArgumentList.Add(arg);
+                }
+            }
+
+            Process.Start(startInfo);
+            return true;
+        }
+        catch (Win32Exception)
+        {
+            // The user cancelled the UAC prompt (e.g. clicked No)
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LogCrash(ex);
+            return false;
+        }
     }
 }

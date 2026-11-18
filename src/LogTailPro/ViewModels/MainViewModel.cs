@@ -85,7 +85,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (processes.Count == 0) return;
         string label = processes.Count == 1 ? processes[0].DisplayName : $"{processes.Count} processes";
-        StatusMessage = $"Looking for log files of {label}…";
+        StatusMessage = $"Looking for log files of {label}...";
 
         IReadOnlyList<LogCandidate> found;
         try
@@ -113,9 +113,9 @@ public sealed partial class MainViewModel : ObservableObject
             MessageBox.Show(
                 $"No log files were found for {label}.\n\n" +
                 "Searched: files the process has open, config files next to its executable " +
-                "(NLog, log4net, Serilog, appsettings, ini, yaml …) and its usual log folders.\n\n" +
-                (noPath ? "The executable path of some processes is not accessible — try running LogTailPro as administrator.\n\n" : "") +
-                "If the process logs elsewhere, use File ? Open to open the file directly.",
+                "(NLog, log4net, Serilog, appsettings, ini, yaml ...) and its usual log folders.\n\n" +
+                (noPath ? "The executable path of some processes is not accessible - try running LogTailPro as administrator.\n\n" : "") +
+                "If the process logs elsewhere, use File > Open to open the file directly.",
                 "Open Log Files", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -147,8 +147,8 @@ public sealed partial class MainViewModel : ObservableObject
         if (Application.Current.MainWindow != null)
         {
             Application.Current.MainWindow.Title = value != null
-                ? $"{value.FileName} — LogTailPro"
-                : "LogTailPro";
+                ? $"{value.FileName} - LogTailPro (Administrator)"
+                : "LogTailPro (Administrator)";
         }
     }
 
@@ -306,7 +306,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Settings.RecentFiles.Remove(filePath);
             _settingsService.Save(Settings);
-            MessageBox.Show($"File not found:\n{filePath}", "LogTailPro",
+            MessageBox.Show($"File not found:\n{filePath}", "LogTailPro (Administrator)",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
