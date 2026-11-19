@@ -320,12 +320,58 @@ public sealed partial class PluginLoaderService : ObservableObject
         var context = _host?.GetActiveContext() ?? new PluginLogContext(null);
         try
         {
+            var priorWindows = System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>().ToList() ?? new();
+
             pluginInfo.Plugin.ExecuteCommand(commandId, context);
+
+            // Automatically align newly launched plugin window with LogTailPro main window
+            if (System.Windows.Application.Current?.MainWindow is { } mainWin)
+            {
+                System.Windows.Application.Current.Dispatcher?.InvokeAsync(() =>
+                {
+                    foreach (System.Windows.Window win in System.Windows.Application.Current.Windows)
+                    {
+                        if (ReferenceEquals(win, mainWin) || priorWindows.Contains(win)) continue;
+                        AlignPluginWindow(win, mainWin);
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Loaded);
+            }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[PluginLoader] Error executing '{commandId}' on plugin '{pluginId}': {ex.Message}");
             _host?.SetStatusMessage($"Plugin Error ({pluginInfo.Plugin.PluginName}): {ex.Message}");
+        }
+    }
+
+    private static void AlignPluginWindow(System.Windows.Window win, System.Windows.Window mainWin)
+    {
+        try
+        {
+            if (win.Owner == null && !ReferenceEquals(win, mainWin) && mainWin.IsVisible)
+            {
+                try { win.Owner = mainWin; } catch { /* Ignore if owner cannot be set */ }
+            }
+
+            if (mainWin.WindowState == System.Windows.WindowState.Maximized)
+            {
+                win.WindowState = System.Windows.WindowState.Maximized;
+            }
+            else if (mainWin.WindowState == System.Windows.WindowState.Normal)
+            {
+                double targetWidth = Math.Max(win.MinWidth, mainWin.ActualWidth > 0 ? mainWin.ActualWidth : mainWin.Width);
+                double targetHeight = Math.Max(win.MinHeight, mainWin.ActualHeight > 0 ? mainWin.ActualHeight : mainWin.Height);
+
+                win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+                win.Left = mainWin.Left;
+                win.Top = mainWin.Top;
+                win.Width = targetWidth;
+                win.Height = targetHeight;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[PluginLoader] Could not align plugin window: {ex.Message}");
         }
     }
 
