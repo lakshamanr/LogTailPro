@@ -72,10 +72,21 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
 
-                            <GridViewColumn Header="Directory Path" Width="300">
+                            <GridViewColumn Header="Directory Path" Width="260">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding DirectoryPath}" ToolTip="{Binding DirectoryPath}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Action" Width="75">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Remove" Click="RemoveRow_Click"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Padding="6,2" FontSize="11"
+                                                ToolTip="Remove this extension from LogTailPro"/>
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
@@ -109,6 +120,7 @@
         <!-- Bottom Actions -->
         <DockPanel Grid.Row="2" Margin="0,14,0,0" LastChildFill="False">
             <Button Content="Add Plugin / Folder…" Click="AddFolder_Click" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0"/>
+            <Button x:Name="RemoveBtn" Content="Remove Extension" Click="RemoveSelected_Click" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0" IsEnabled="False"/>
             <Button Content="Open Plugins Folder" Click="OpenFolder_Click" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0"/>
             <Button Content="Reload All" Click="Reload_Click" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
 
