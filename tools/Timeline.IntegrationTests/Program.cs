@@ -980,6 +980,57 @@ internal static class Program
             Check(validMenuGroup.Items.Any(i => i.CommandId == "fresh_replacement_cmd"),
                 "Replacement session must be permitted to register its command");
 
+            // ── Finding 5: Batched Severity Stats Notifications ─────────────────────────
+            int infoNotifies = 0;
+            int warnNotifies = 0;
+            int errorNotifies = 0;
+            sourceA.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(LogTabViewModel.StatsInfoCount)) infoNotifies++;
+                if (e.PropertyName == nameof(LogTabViewModel.StatsWarnCount)) warnNotifies++;
+                if (e.PropertyName == nameof(LogTabViewModel.StatsErrorCount)) errorNotifies++;
+            };
+
+            int startInfo = sourceA.StatsInfoCount;
+            int startWarn = sourceA.StatsWarnCount;
+            int startError = sourceA.StatsErrorCount;
+
+            List<LogLine> mixedBatch =
+            [
+                new LogLine { LineNumber = 100, Text = "2026-11-20T00:00:00Z [INFO] Message 1" },
+                new LogLine { LineNumber = 101, Text = "   at System.Continuation1", IsContinuation = true },
+                new LogLine { LineNumber = 102, Text = "2026-11-20T00:00:01Z [WARN] Warning 1" },
+                new LogLine { LineNumber = 103, Text = "2026-11-20T00:00:02Z [ERROR] Error 1" },
+                new LogLine { LineNumber = 104, Text = "   at System.Continuation2", IsContinuation = true },
+                new LogLine { LineNumber = 105, Text = "2026-11-20T00:00:03Z [INFO] Message 2" },
+                new LogLine { LineNumber = 106, Text = "2026-11-20T00:00:04Z [WARN] Warning 2" },
+                new LogLine { LineNumber = 107, Text = "2026-11-20T00:00:05Z [ERROR] Error 2" },
+                new LogLine { LineNumber = 108, Text = "2026-11-20T00:00:06Z [INFO] Message 3" }
+            ];
+
+            sourceA.UpdateStats(mixedBatch);
+
+            Check(sourceA.StatsInfoCount == startInfo + 3, $"Expected +3 Info, got {sourceA.StatsInfoCount - startInfo}");
+            Check(sourceA.StatsWarnCount == startWarn + 2, $"Expected +2 Warn, got {sourceA.StatsWarnCount - startWarn}");
+            Check(sourceA.StatsErrorCount == startError + 2, $"Expected +2 Error, got {sourceA.StatsErrorCount - startError}");
+            Check(infoNotifies == 1, $"Expected exactly 1 Info notification per batch, got {infoNotifies}");
+            Check(warnNotifies == 1, $"Expected exactly 1 Warn notification per batch, got {warnNotifies}");
+            Check(errorNotifies == 1, $"Expected exactly 1 Error notification per batch, got {errorNotifies}");
+
+            // Verify batch with single severity produces 0 notifications for unaffected counters
+            infoNotifies = 0;
+            warnNotifies = 0;
+            errorNotifies = 0;
+            List<LogLine> infoOnlyBatch =
+            [
+                new LogLine { LineNumber = 109, Text = "2026-11-20T00:00:07Z [INFO] Msg 4" },
+                new LogLine { LineNumber = 110, Text = "2026-11-20T00:00:08Z [INFO] Msg 5" }
+            ];
+            sourceA.UpdateStats(infoOnlyBatch);
+            Check(infoNotifies == 1, $"Expected 1 Info notification, got {infoNotifies}");
+            Check(warnNotifies == 0, $"Expected 0 Warn notifications, got {warnNotifies}");
+            Check(errorNotifies == 0, $"Expected 0 Error notifications, got {errorNotifies}");
+
             // Clean up custom plugin directories from test
             mainVm.PluginLoaderService.CustomPluginDirectories.Clear();
             mainVm.PluginLoaderService.ExcludedPluginDirectories.Clear();

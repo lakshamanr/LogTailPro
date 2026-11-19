@@ -36,4 +36,8 @@
   <ItemGroup>
     <ProjectReference Include="..\LogTailPro.PluginContract\LogTailPro.PluginContract.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Timeline.IntegrationTests" />
+  </ItemGroup>
 </Project>

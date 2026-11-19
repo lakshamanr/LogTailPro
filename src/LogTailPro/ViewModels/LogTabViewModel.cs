@@ -1596,19 +1596,27 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private static bool IsInfoLine(string text) =>
         text.Contains("INFO", StringComparison.OrdinalIgnoreCase);
 
-    private void UpdateStats(IReadOnlyList<LogLine> newLines)
+    internal void UpdateStats(IReadOnlyList<LogLine> newLines)
     {
+        int errorDelta = 0;
+        int warnDelta = 0;
+        int infoDelta = 0;
+
         foreach (LogLine line in newLines)
         {
             if (line.IsContinuation) continue;
             LogSeverity sev = ErrorTimelineChartService.NormalizeSeverity(line);
             switch (sev)
             {
-                case LogSeverity.Error: StatsErrorCount++; break;
-                case LogSeverity.Warning: StatsWarnCount++; break;
-                case LogSeverity.Information: StatsInfoCount++; break;
+                case LogSeverity.Error: errorDelta++; break;
+                case LogSeverity.Warning: warnDelta++; break;
+                case LogSeverity.Information: infoDelta++; break;
             }
         }
+
+        if (errorDelta > 0) StatsErrorCount += errorDelta;
+        if (warnDelta > 0) StatsWarnCount += warnDelta;
+        if (infoDelta > 0) StatsInfoCount += infoDelta;
 
         _recentLineCount += newLines.Count;
         TimeSpan elapsed = DateTime.UtcNow - _rateWindow;
