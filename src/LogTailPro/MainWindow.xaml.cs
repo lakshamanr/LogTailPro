@@ -517,6 +517,12 @@ public partial class MainWindow : Window
 
     private void PluginsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
     {
+        // Ignore SubmenuOpened events that bubbled up from child plugin submenus
+        if (!ReferenceEquals(e.Source, PluginsMenu))
+        {
+            return;
+        }
+
         PluginsMenu.Items.Clear();
 
         var groups = ViewModel.PluginLoaderService.MenuGroups;
