@@ -515,6 +515,52 @@ public partial class MainWindow : Window
                 item.IsChecked = a.IsVisible;
     }
 
+    private void PluginsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        PluginsMenu.Items.Clear();
+
+        var groups = ViewModel.PluginLoaderService.MenuGroups;
+        if (groups.Count == 0)
+        {
+            PluginsMenu.Items.Add(new MenuItem { Header = "(No plugins installed)", IsEnabled = false });
+        }
+        else
+        {
+            foreach (var group in groups)
+            {
+                var groupItem = new MenuItem { Header = group.Header };
+                foreach (var cmd in group.Items)
+                {
+                    if (cmd.SeparatorBefore)
+                    {
+                        groupItem.Items.Add(new Separator());
+                    }
+
+                    var item = new MenuItem
+                    {
+                        Header = cmd.Header,
+                        Command = cmd.Command,
+                        InputGestureText = cmd.Shortcut ?? string.Empty
+                    };
+                    groupItem.Items.Add(item);
+                }
+                PluginsMenu.Items.Add(groupItem);
+            }
+        }
+
+        PluginsMenu.Items.Add(new Separator());
+        PluginsMenu.Items.Add(new MenuItem
+        {
+            Header = "Open Plugins Folder…",
+            Command = ViewModel.OpenPluginsFolderCommand
+        });
+        PluginsMenu.Items.Add(new MenuItem
+        {
+            Header = "Reload Plugins",
+            Command = ViewModel.ReloadPluginsCommand
+        });
+    }
+
     private void PanelMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: string id } item) return;

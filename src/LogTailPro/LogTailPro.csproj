@@ -32,4 +32,8 @@
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.77" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LogTailPro.PluginContract\LogTailPro.PluginContract.csproj" />
+  </ItemGroup>
 </Project>

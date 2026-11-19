@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>StreamServerDataflowExtension</AssemblyName>
+    <RootNamespace>StreamServerDataflowExtension</RootNamespace>
+    <LangVersion>12</LangVersion>
+    <Version>1.0.0</Version>
+    <Description>Independent Stream Server Dataflow Extension for LogTailPro</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LogTailPro.PluginContract\LogTailPro.PluginContract.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="plugin.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

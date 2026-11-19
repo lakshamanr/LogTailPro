@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LogTailPro.PluginContract</AssemblyName>
+    <RootNamespace>LogTailPro.PluginContract</RootNamespace>
+    <LangVersion>12</LangVersion>
+    <Version>2.10.0</Version>
+    <FileVersion>2.10.0.0</FileVersion>
+    <Description>LogTailPro Plugin and Extension Contract</Description>
+  </PropertyGroup>
+</Project>

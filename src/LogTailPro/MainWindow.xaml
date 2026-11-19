@@ -194,6 +194,15 @@
                 <MenuItem Header="Settings…"
                           Command="{Binding OpenSettingsCommand}"/>
             </MenuItem>
+
+            <!-- ═══ 6. Plugins Menu ═════════════════════════════════════════════ -->
+            <MenuItem x:Name="PluginsMenu" Header="_Plugins" SubmenuOpened="PluginsMenu_SubmenuOpened">
+                <MenuItem Header="(No plugins installed)" IsEnabled="False"/>
+                <Separator/>
+                <MenuItem Header="Open Plugins Folder…" Command="{Binding OpenPluginsFolderCommand}"/>
+                <MenuItem Header="Reload Plugins" Command="{Binding ReloadPluginsCommand}"/>
+            </MenuItem>
+
             <MenuItem Header="_Help">
                 <MenuItem Header="_Help Guide (Docked Panel)"
                           Command="{Binding OpenHelpGuideCommand}"

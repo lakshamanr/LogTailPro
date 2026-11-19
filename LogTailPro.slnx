@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/LogTailPro/LogTailPro.csproj" />
+    <Project Path="src/LogTailPro.PluginContract/LogTailPro.PluginContract.csproj" />
   </Folder>
 </Solution>

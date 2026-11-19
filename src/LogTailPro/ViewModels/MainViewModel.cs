@@ -50,10 +50,18 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isProcessExplorerVisible;
 
+    /// <summary>Plugin loader service managing external Notepad++ style plugins.</summary>
+    public PluginLoaderService PluginLoaderService { get; } = new();
+
+    /// <summary>Host context provided to plugins.</summary>
+    public PluginHost PluginHost { get; }
+
     public MainViewModel(SettingsService settingsService)
     {
         _settingsService = settingsService;
         Settings = settingsService.Load();
+        PluginHost = new PluginHost(this);
+        _ = PluginLoaderService.InitializeAndLoadAsync(PluginHost);
 
         _directoryMonitor.NewFileDetected += async (_, path) =>
             await Application.Current.Dispatcher.InvokeAsync(() => OpenFileTabAsync(path));
@@ -150,6 +158,19 @@ public sealed partial class MainViewModel : ObservableObject
                 ? $"{value.FileName} - LogTailPro (Administrator)"
                 : "LogTailPro (Administrator)";
         }
+    }
+
+    // -- Plugin commands -------------------------------------------------------
+
+    [RelayCommand]
+    private void OpenPluginsFolder() => PluginLoaderService.OpenPluginsFolder();
+
+    [RelayCommand]
+    private async Task ReloadPluginsAsync()
+    {
+        StatusMessage = "Reloading plugins...";
+        await PluginLoaderService.ReloadPluginsAsync();
+        StatusMessage = $"{PluginLoaderService.LoadedPlugins.Count} plugin(s) loaded.";
     }
 
     // -- File commands ---------------------------------------------------------

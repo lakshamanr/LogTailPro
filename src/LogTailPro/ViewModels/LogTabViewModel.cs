@@ -574,6 +574,13 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public event EventHandler? NavigationBarInvalidated;
     public event EventHandler? SelectAllRequested;
 
+    /// <summary>Selects and requests UI scrolling to the specified log line.</summary>
+    public void RequestScrollToLine(LogLine line)
+    {
+        SelectedLogLine = line;
+        ScrollToLineRequested?.Invoke(this, line);
+    }
+
     // ── Property change hooks ─────────────────────────────────────────────────
     partial void OnSelectedSavedPatternChanged(SavedSearchPattern? value)
     {

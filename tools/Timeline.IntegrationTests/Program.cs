@@ -519,6 +519,25 @@ internal static class Program
             Check(chartTab.SearchResults.Count == 0, "Search results should be cleared after ClearSearch");
             Check(string.IsNullOrEmpty(chartTab.SearchText), "SearchText should be cleared after ClearSearch");
             Check(chartTab.MatchCount == 0, "MatchCount should be 0 after ClearSearch");
+
+            // 7. Verify Notepad++ Style Plugin System
+            var pluginLoader = mainVm.PluginLoaderService;
+            Check(pluginLoader != null, "PluginLoaderService should not be null");
+            await pluginLoader.ReloadPluginsAsync();
+            Check(Directory.Exists(LogTailPro.Services.PluginLoaderService.LocalPluginsDirectory), "Local plugins directory should exist");
+
+            if (pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow"))
+            {
+                var streamPlugin = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow");
+                Check(streamPlugin.Plugin.PluginName == "Stream Server Dataflow", "Plugin name mismatch");
+                Check(streamPlugin.Manifest.Menu != null && streamPlugin.Manifest.Menu.Items.Count > 0, "Plugin menu items missing");
+
+                mainVm.SelectedTab = chartTab;
+                var ctx = mainVm.PluginHost.GetActiveContext();
+                Check(ctx != null, "PluginLogContext should not be null");
+                Check(ctx.FilePath == chartFile, "PluginLogContext FilePath mismatch");
+                Check(ctx.TabTitle == chartTab.DisplayName, "PluginLogContext TabTitle mismatch");
+            }
         }
         finally
         {
