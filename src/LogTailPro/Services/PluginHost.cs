@@ -76,6 +76,50 @@ public sealed class PluginHost : IPluginHost
         return new PluginLogContext(_mainViewModel.SelectedTab);
     }
 
+    public System.Collections.Generic.IReadOnlyList<ILogContext> GetAllOpenContexts()
+    {
+        try
+        {
+            return _mainViewModel.Tabs
+                .Select(t => (ILogContext)new PluginLogContext(t))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PluginHost] GetAllOpenContexts error: {ex.Message}");
+            return GetActiveContext() is { } ctx ? new[] { ctx } : Array.Empty<ILogContext>();
+        }
+    }
+
+    public void SwitchToTab(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+        var app = Application.Current;
+        if (app?.Dispatcher == null || app.Dispatcher.HasShutdownStarted) return;
+
+        Action action = () =>
+        {
+            try
+            {
+                var target = _mainViewModel.Tabs.FirstOrDefault(t =>
+                    string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(t.TempFilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+                if (target != null)
+                {
+                    _mainViewModel.SelectedTab = target;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PluginHost] SwitchToTab error: {ex.Message}");
+            }
+        };
+
+        if (app.Dispatcher.CheckAccess()) action();
+        else app.Dispatcher.InvokeAsync(action);
+    }
+
     public void OpenLogFile(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;

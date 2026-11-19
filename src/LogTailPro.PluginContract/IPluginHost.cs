@@ -20,6 +20,17 @@ public interface IPluginHost
     ILogContext? GetActiveContext();
 
     /// <summary>
+    /// Gets information about all currently open log tabs in LogTailPro.
+    /// </summary>
+    IReadOnlyList<ILogContext> GetAllOpenContexts() =>
+        GetActiveContext() is { } ctx ? new[] { ctx } : Array.Empty<ILogContext>();
+
+    /// <summary>
+    /// Switches the active tab in LogTailPro to the tab matching the specified file path.
+    /// </summary>
+    void SwitchToTab(string filePath) => NavigateToLine(1, filePath);
+
+    /// <summary>
     /// Opens a log file in a new tab within LogTailPro.
     /// </summary>
     void OpenLogFile(string filePath);

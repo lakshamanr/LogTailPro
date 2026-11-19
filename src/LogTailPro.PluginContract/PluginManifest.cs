@@ -16,6 +16,14 @@ public class PluginManifest
     public string? EntryClass { get; set; }
     public string MinLogTailProVersion { get; set; } = "2.10.0";
     public PluginMenuDefinition? Menu { get; set; }
+    public PluginFileAssociations? FileAssociations { get; set; }
+}
+
+public class PluginFileAssociations
+{
+    public List<string> Patterns { get; set; } = new();
+    public string? FileFilter { get; set; }
+    public List<string> SignatureKeywords { get; set; } = new();
 }
 
 public class PluginMenuDefinition
