@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -47,72 +48,82 @@ public sealed partial class PluginLoaderService : ObservableObject
         await ReloadPluginsAsync();
     }
 
+    private readonly SemaphoreSlim _reloadLock = new(1, 1);
+
     public async Task ReloadPluginsAsync()
     {
-        // 1. Shutdown existing plugins
-        foreach (var p in LoadedPlugins)
+        await _reloadLock.WaitAsync();
+        try
         {
-            try { p.Plugin.Shutdown(); } catch { /* Ignore shutdown errors */ }
-        }
-        RunOnUI(() =>
-        {
-            LoadedPlugins.Clear();
-            MenuGroups.Clear();
-        });
-
-        // 2. Ensure default discovery directories exist
-        EnsureDirectory(LocalPluginsDirectory);
-        EnsureDirectory(UserPluginsDirectory);
-
-        // 3. Scan directories (Priority: Custom user directories > User AppData > App Local)
-        var candidateDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // A. Custom Directories (e.g. user added Desktop\Testing Plusing)
-        foreach (var custom in CustomPluginDirectories)
-        {
-            if (Directory.Exists(custom))
+            // 1. Shutdown existing plugins
+            foreach (var p in LoadedPlugins)
             {
-                if (File.Exists(Path.Combine(custom, "plugin.json")) || Directory.GetFiles(custom, "*.dll").Length > 0)
+                try { p.Plugin.Shutdown(); } catch { /* Ignore shutdown errors */ }
+            }
+            RunOnUI(() =>
+            {
+                LoadedPlugins.Clear();
+                MenuGroups.Clear();
+            });
+
+            // 2. Ensure default discovery directories exist
+            EnsureDirectory(LocalPluginsDirectory);
+            EnsureDirectory(UserPluginsDirectory);
+
+            // 3. Scan directories (Priority: Custom user directories > User AppData > App Local)
+            var candidateDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // A. Custom Directories (e.g. user added Desktop\Testing Plusing)
+            foreach (var custom in CustomPluginDirectories)
+            {
+                if (Directory.Exists(custom))
                 {
-                    candidateDirs.Add(custom);
+                    if (File.Exists(Path.Combine(custom, "plugin.json")) || Directory.GetFiles(custom, "*.dll").Length > 0)
+                    {
+                        candidateDirs.Add(custom);
+                    }
+                    foreach (var sub in Directory.GetDirectories(custom))
+                    {
+                        candidateDirs.Add(sub);
+                    }
                 }
-                foreach (var sub in Directory.GetDirectories(custom))
+            }
+
+            // B. User AppData (%LOCALAPPDATA%\LogTailPro\plugins)
+            if (Directory.Exists(UserPluginsDirectory))
+            {
+                foreach (var sub in Directory.GetDirectories(UserPluginsDirectory))
                 {
                     candidateDirs.Add(sub);
                 }
             }
-        }
 
-        // B. User AppData (%LOCALAPPDATA%\LogTailPro\plugins)
-        if (Directory.Exists(UserPluginsDirectory))
-        {
-            foreach (var sub in Directory.GetDirectories(UserPluginsDirectory))
+            // C. Local App Dir (<AppDir>\plugins)
+            if (Directory.Exists(LocalPluginsDirectory))
             {
-                candidateDirs.Add(sub);
+                foreach (var sub in Directory.GetDirectories(LocalPluginsDirectory))
+                {
+                    candidateDirs.Add(sub);
+                }
+            }
+
+            // 4. Load each discovered plugin with deduplication
+            var loadedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var dir in candidateDirs)
+            {
+                try
+                {
+                    await LoadPluginFromDirectoryAsync(dir, loadedIds);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[PluginLoader] Error loading plugin from '{dir}': {ex.Message}");
+                }
             }
         }
-
-        // C. Local App Dir (<AppDir>\plugins)
-        if (Directory.Exists(LocalPluginsDirectory))
+        finally
         {
-            foreach (var sub in Directory.GetDirectories(LocalPluginsDirectory))
-            {
-                candidateDirs.Add(sub);
-            }
-        }
-
-        // 4. Load each discovered plugin with deduplication
-        var loadedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var dir in candidateDirs)
-        {
-            try
-            {
-                await LoadPluginFromDirectoryAsync(dir, loadedIds);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[PluginLoader] Error loading plugin from '{dir}': {ex.Message}");
-            }
+            _reloadLock.Release();
         }
     }
 
