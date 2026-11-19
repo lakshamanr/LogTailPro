@@ -573,6 +573,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     public event EventHandler<LogLine>? ScrollToLineRequested;
     public event EventHandler? NavigationBarInvalidated;
     public event EventHandler? SelectAllRequested;
+    public event EventHandler<IReadOnlyList<string>>? RawLinesAppended;
 
     /// <summary>Selects and requests UI scrolling to the specified log line.</summary>
     public void RequestScrollToLine(LogLine line)
@@ -886,6 +887,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     private void OnNewLinesAvailable(object? sender, IReadOnlyList<string> newLines)
     {
         if (_disposed || newLines.Count == 0) return;
+        RawLinesAppended?.Invoke(this, newLines);
 
         Task.Run(() =>
         {

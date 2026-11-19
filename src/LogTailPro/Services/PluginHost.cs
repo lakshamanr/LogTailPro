@@ -62,14 +62,31 @@ public sealed class PluginHost : IPluginHost
         });
     }
 
+    public void NavigateToLine(int lineNumber)
+    {
+        NavigateToLine(lineNumber, null);
+    }
+
     public void NavigateToLine(int lineNumber, string? filePath = null)
     {
         Application.Current?.Dispatcher?.Invoke(() =>
         {
-            var tab = _mainViewModel.SelectedTab;
+            LogTabViewModel? tab = null;
+            if (!string.IsNullOrWhiteSpace(filePath))
+            {
+                tab = _mainViewModel.Tabs.FirstOrDefault(t => 
+                    string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+                if (tab != null)
+                {
+                    _mainViewModel.SelectedTab = tab;
+                }
+            }
+
+            tab ??= _mainViewModel.SelectedTab;
             if (tab == null) return;
 
-            var match = tab.VisibleLines.FirstOrDefault(l => l.LineNumber == lineNumber);
+            var match = tab.VisibleLines.FirstOrDefault(l => l.LineNumber == lineNumber)
+                        ?? tab.AllLines.FirstOrDefault(l => l.LineNumber == lineNumber);
             if (match != null)
             {
                 tab.RequestScrollToLine(match);
@@ -77,7 +94,12 @@ public sealed class PluginHost : IPluginHost
         });
     }
 
-    public void SetStatusMessage(string message, int durationSeconds = 5)
+    public void SetStatusMessage(string message)
+    {
+        SetStatusMessage(message, 5);
+    }
+
+    public void SetStatusMessage(string message, int durationSeconds)
     {
         if (Application.Current?.Dispatcher?.CheckAccess() == true)
         {

@@ -38,11 +38,26 @@ public partial class PluginsAdminDialog : Window
                 _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
                 await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
 
-                MessageBox.Show(
-                    $"Added plugin folder:\n{folder}\n\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",
-                    "Plugin Folder Added",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                int loadedCount = _mainViewModel.PluginLoaderService.LoadedPlugins.Count;
+                if (loadedCount > 0)
+                {
+                    MessageBox.Show(
+                        $"Added plugin folder:\n{folder}\n\nTotal loaded plugins: {loadedCount}",
+                        "Plugin Folder Added",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"Plugin directory was added:\n{folder}\n\nHowever, 0 plugins were loaded from this location.\n\nPlease ensure:\n" +
+                        "1. A 'plugin.json' manifest is present specifying 'entryAssembly', OR\n" +
+                        "2. A compiled .dll implementing 'ILogTailPlugin' is located in the folder.\n" +
+                        "3. The plugin assembly targets .NET 9 (net9.0-windows7.0).",
+                        "No Plugins Detected",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
         }
         catch (Exception ex)

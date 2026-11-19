@@ -520,24 +520,78 @@ internal static class Program
             Check(string.IsNullOrEmpty(chartTab.SearchText), "SearchText should be cleared after ClearSearch");
             Check(chartTab.MatchCount == 0, "MatchCount should be 0 after ClearSearch");
 
-            // 7. Verify Notepad++ Style Plugin System
+            // 7. Verify Notepad++ Style Plugin System End-to-End
             var pluginLoader = mainVm.PluginLoaderService;
             Check(pluginLoader != null, "PluginLoaderService should not be null");
-            await pluginLoader!.ReloadPluginsAsync();
             Check(Directory.Exists(LogTailPro.Services.PluginLoaderService.LocalPluginsDirectory), "Local plugins directory should exist");
 
-            if (pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow"))
+            // Add custom plugin directory from Desktop if present
+            string desktopTestingDir = @"C:\Users\lakshamanrokade\Desktop\Testing Plusing";
+            if (Directory.Exists(desktopTestingDir) && !pluginLoader!.CustomPluginDirectories.Contains(desktopTestingDir))
             {
-                var streamPlugin = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow");
-                Check(streamPlugin.Plugin.PluginName == "Stream Server Dataflow", "Plugin name mismatch");
-                Check(streamPlugin.Manifest.Menu != null && streamPlugin.Manifest.Menu.Items.Count > 0, "Plugin menu items missing");
-
-                mainVm.SelectedTab = chartTab;
-                var ctx = mainVm.PluginHost.GetActiveContext();
-                Check(ctx != null, "PluginLogContext should not be null");
-                Check(ctx!.FilePath == chartLog, "PluginLogContext FilePath mismatch");
-                Check(ctx.TabTitle == chartTab.DisplayName, "PluginLogContext TabTitle mismatch");
+                pluginLoader.CustomPluginDirectories.Add(desktopTestingDir);
             }
+
+            await pluginLoader!.ReloadPluginsAsync();
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow"),
+                "Stream Server Dataflow extension failed to load during discovery");
+
+            var streamPlugin = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow");
+            Check(streamPlugin.Plugin.PluginName == "Stream Server Dataflow", "Plugin name mismatch");
+            Check(streamPlugin.Manifest?.Menu != null && streamPlugin.Manifest.Menu.Items.Count >= 3, "Plugin menu items missing");
+
+            // Verify Menu Groups & Command ViewModels
+            var menuGroup = pluginLoader.MenuGroups.FirstOrDefault(g => g.PluginId == "com.logtailpro.streamserver.dataflow");
+            Check(menuGroup != null, "PluginMenuGroup missing for stream dataflow");
+            Check(menuGroup!.Items.Count >= 3, $"Expected >= 3 menu commands, got {menuGroup.Items.Count}");
+            Check(menuGroup.Items.Any(i => i.CommandId == "open_visualizer"), "open_visualizer command missing");
+            Check(menuGroup.Items.Any(i => i.CommandId == "analyze_current_call"), "analyze_current_call command missing");
+
+            // Verify Context Passing
+            mainVm.SelectedTab = chartTab;
+            var ctx = mainVm.PluginHost.GetActiveContext();
+            Check(ctx != null, "PluginLogContext should not be null");
+            Check(ctx!.FilePath == chartLog, "PluginLogContext FilePath mismatch");
+            Check(ctx.TabTitle == chartTab.DisplayName, "PluginLogContext TabTitle mismatch");
+
+            // Verify IPluginHost Services (Status, Line Navigation)
+            mainVm.PluginHost.SetStatusMessage("EndToEnd Status Verification");
+            Check(mainVm.StatusMessage == "EndToEnd Status Verification", "SetStatusMessage failed to update MainViewModel");
+
+            mainVm.PluginHost.NavigateToLine(2, chartLog);
+            Check(chartTab.SelectedLogLine != null && chartTab.SelectedLogLine.LineNumber == 2,
+                "NavigateToLine failed to select line 2 in active tab");
+
+            // Verify Live LinesAppended event pipeline
+            bool linesAppendedEventFired = false;
+            EventHandler<LogTailPro.PluginContract.LogLinesAppendedEventArgs> appendedHandler = (s, e) =>
+            {
+                if (e.FilePath == chartLog && e.NewLines.Count == 1)
+                {
+                    linesAppendedEventFired = true;
+                }
+            };
+            mainVm.PluginHost.LinesAppended += appendedHandler;
+            try
+            {
+                mainVm.PluginHost.RaiseLinesAppended(chartLog, new[] { "Appended log line for test" }, 3);
+                Check(linesAppendedEventFired, "PluginHost.LinesAppended event was not received");
+            }
+            finally
+            {
+                mainVm.PluginHost.LinesAppended -= appendedHandler;
+            }
+
+            // Verify Command Dispatch through PluginLoaderService
+            pluginLoader.ExecutePluginCommand("com.logtailpro.streamserver.dataflow", "open_visualizer");
+            pluginLoader.ExecutePluginCommand("com.logtailpro.streamserver.dataflow", "analyze_current_call");
+
+            // Verify Hot Reload Lifecycle
+            int initialCount = pluginLoader.LoadedPlugins.Count;
+            await pluginLoader.ReloadPluginsAsync();
+            Check(pluginLoader.LoadedPlugins.Count == initialCount,
+                $"Hot reload count mismatch: expected {initialCount}, got {pluginLoader.LoadedPlugins.Count}");
+            Check(pluginLoader.MenuGroups.Count == 1, "Duplicate menu groups created during hot reload");
         }
         finally
         {

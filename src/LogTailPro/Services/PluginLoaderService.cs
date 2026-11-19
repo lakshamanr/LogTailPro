@@ -141,39 +141,64 @@ public sealed partial class PluginLoaderService : ObservableObject
 
         // Find assembly file
         string? assemblyPath = null;
+        Assembly? asm = null;
+        Type? pluginType = null;
+        PluginLoadContext? alc = null;
+
         if (manifest != null && !string.IsNullOrWhiteSpace(manifest.EntryAssembly))
         {
             assemblyPath = Path.Combine(dir, manifest.EntryAssembly);
+            if (File.Exists(assemblyPath))
+            {
+                try
+                {
+                    alc = new PluginLoadContext(assemblyPath);
+                    asm = alc.LoadFromAssemblyPath(assemblyPath);
+                    if (!string.IsNullOrWhiteSpace(manifest.EntryClass))
+                    {
+                        pluginType = asm.GetType(manifest.EntryClass);
+                    }
+                    pluginType ??= FindPluginType(asm);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[PluginLoader] Failed loading entry assembly '{assemblyPath}': {ex.Message}");
+                }
+            }
         }
         else
         {
-            // Auto-detect first .dll with plugin implementation
-            var dlls = Directory.GetFiles(dir, "*.dll");
-            assemblyPath = dlls.FirstOrDefault();
+            // Auto-detect DLL with plugin implementation
+            // Exclude contract DLL and probe candidate DLLs
+            var dlls = Directory.GetFiles(dir, "*.dll")
+                .Where(f => !Path.GetFileName(f).Equals("LogTailPro.PluginContract.dll", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.EndsWith("Extension.dll", StringComparison.OrdinalIgnoreCase) || f.EndsWith("Plugin.dll", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var dll in dlls)
+            {
+                try
+                {
+                    var probeAlc = new PluginLoadContext(dll);
+                    var probeAsm = probeAlc.LoadFromAssemblyPath(dll);
+                    var detectedType = FindPluginType(probeAsm);
+                    if (detectedType != null)
+                    {
+                        assemblyPath = dll;
+                        alc = probeAlc;
+                        asm = probeAsm;
+                        pluginType = detectedType;
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[PluginLoader] Probing '{Path.GetFileName(dll)}' skipped: {ex.Message}");
+                }
+            }
         }
 
-        if (string.IsNullOrEmpty(assemblyPath) || !File.Exists(assemblyPath))
-        {
-            return;
-        }
-
-        // Load assembly using custom AssemblyLoadContext
-        var alc = new PluginLoadContext(assemblyPath);
-        var asm = alc.LoadFromAssemblyPath(assemblyPath);
-
-        Type? pluginType = null;
-        if (manifest != null && !string.IsNullOrWhiteSpace(manifest.EntryClass))
-        {
-            pluginType = asm.GetType(manifest.EntryClass);
-        }
-
-        if (pluginType == null)
-        {
-            pluginType = asm.GetTypes().FirstOrDefault(t => 
-                typeof(ILogTailPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
-        }
-
-        if (pluginType == null)
+        if (string.IsNullOrEmpty(assemblyPath) || asm == null || pluginType == null)
         {
             return;
         }
@@ -308,6 +333,29 @@ public sealed partial class PluginLoaderService : ObservableObject
         catch (Exception ex)
         {
             Debug.WriteLine($"[PluginLoader] Could not open plugins folder: {ex.Message}");
+        }
+    }
+
+    private static Type? FindPluginType(Assembly asm)
+    {
+        try
+        {
+            Type[] types;
+            try
+            {
+                types = asm.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types.Where(t => t != null).ToArray()!;
+            }
+
+            return types.FirstOrDefault(t => 
+                typeof(ILogTailPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
+        }
+        catch
+        {
+            return null;
         }
     }
 

@@ -79,6 +79,8 @@ public sealed partial class MainViewModel : ObservableObject
                 foreach (LogTabViewModel t in e.NewItems)
                 {
                     t.CorrelationRequested += (_, id) => CorrelateId(id);
+                    t.RawLinesAppended += (_, lines) =>
+                        PluginHost.RaiseLinesAppended(t.FilePath ?? "", lines, (int)Math.Max(1, t.TotalLineCount - lines.Count + 1));
                 }
             }
         };

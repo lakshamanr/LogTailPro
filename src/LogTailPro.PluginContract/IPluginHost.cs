@@ -25,6 +25,11 @@ public interface IPluginHost
     void OpenLogFile(string filePath);
 
     /// <summary>
+    /// Navigates to a specific line in the active file.
+    /// </summary>
+    void NavigateToLine(int lineNumber) => NavigateToLine(lineNumber, null);
+
+    /// <summary>
     /// Navigates to a specific line in the active or specified file.
     /// </summary>
     void NavigateToLine(int lineNumber, string? filePath = null);
@@ -32,7 +37,12 @@ public interface IPluginHost
     /// <summary>
     /// Shows a status message in LogTailPro's status bar.
     /// </summary>
-    void SetStatusMessage(string message, int durationSeconds = 5);
+    void SetStatusMessage(string message) => SetStatusMessage(message, 5);
+
+    /// <summary>
+    /// Shows a status message in LogTailPro's status bar.
+    /// </summary>
+    void SetStatusMessage(string message, int durationSeconds);
 
     /// <summary>
     /// Registers a custom dockable AvalonDock panel or tool window.
