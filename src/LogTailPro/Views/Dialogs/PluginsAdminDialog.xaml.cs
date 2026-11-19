@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using LogTailPro.Services;
@@ -37,7 +38,6 @@ public partial class PluginsAdminDialog : Window
         }
     }
 
-
     private async void AddFolder_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -49,21 +49,13 @@ public partial class PluginsAdminDialog : Window
 
             if (dialog.ShowDialog(this) == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
             {
-                string folder = dialog.FolderName;
-                if (!_mainViewModel.Settings.CustomPluginDirectories.Contains(folder, StringComparer.OrdinalIgnoreCase))
-                {
-                    _mainViewModel.Settings.CustomPluginDirectories.Add(folder);
-                    _mainViewModel.SaveSettings();
-                }
+                var result = await PluginManagementService.AddPluginFolderAsync(_mainViewModel, dialog.FolderName);
 
-                _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
-                await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
-
-                int loadedCount = _mainViewModel.PluginLoaderService.LoadedPlugins.Count;
-                if (loadedCount > 0)
+                if (result.LoadedFromFolder.Count > 0)
                 {
+                    string pluginList = string.Join("\n", result.LoadedFromFolder.Select(p => $"• {p.Name} (v{p.Version})"));
                     MessageBox.Show(
-                        $"Added plugin folder:\n{folder}\n\nTotal loaded plugins: {loadedCount}",
+                        $"Added plugin folder:\n{result.NormalizedPath}\n\nSuccessfully loaded {result.LoadedFromFolder.Count} plugin(s) from this folder:\n{pluginList}",
                         "Plugin Folder Added",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -71,7 +63,7 @@ public partial class PluginsAdminDialog : Window
                 else
                 {
                     MessageBox.Show(
-                        $"Plugin directory was added:\n{folder}\n\nHowever, 0 plugins were loaded from this location.\n\nPlease ensure:\n" +
+                        $"Plugin directory was added:\n{result.NormalizedPath}\n\nHowever, 0 plugins were loaded from this location.\n\nPlease ensure:\n" +
                         "1. A 'plugin.json' manifest is present specifying 'entryAssembly', OR\n" +
                         "2. A compiled .dll implementing 'ILogTailPlugin' is located in the folder.\n" +
                         "3. The plugin assembly targets .NET 9 (net9.0-windows7.0).",
@@ -113,6 +105,7 @@ public partial class PluginsAdminDialog : Window
         {
             _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
             await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
+
             MessageBox.Show(
                 $"Reload complete.\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",
                 "Plugins Reloaded",
@@ -157,40 +150,19 @@ public partial class PluginsAdminDialog : Window
 
             if (confirm != MessageBoxResult.Yes) return;
 
-            // 1. Check if the plugin is from a custom user directory
-            var toRemove = _mainViewModel.Settings.CustomPluginDirectories
-                .Where(custom => string.Equals(custom, info.DirectoryPath, StringComparison.OrdinalIgnoreCase) ||
-                                 info.DirectoryPath.StartsWith(custom.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var result = await PluginManagementService.RemovePluginAsync(_mainViewModel, info);
 
-            if (toRemove.Count > 0)
+            if (!result.Success)
             {
-                foreach (var path in toRemove)
-                {
-                    _mainViewModel.Settings.CustomPluginDirectories.Remove(path);
-                }
-                _mainViewModel.SaveSettings();
+                string title = result.RestartRequired ? "Restart Required" : "Removal Failed";
+                MessageBoxImage icon = result.RestartRequired ? MessageBoxImage.Warning : MessageBoxImage.Error;
+                MessageBox.Show(
+                    result.ErrorMessage ?? "Could not remove extension.",
+                    title,
+                    MessageBoxButton.OK,
+                    icon);
+                return;
             }
-            else
-            {
-                // 2. Check if the plugin is in UserPluginsDirectory (%LOCALAPPDATA%\LogTailPro\plugins)
-                string userDir = PluginLoaderService.UserPluginsDirectory;
-                if (info.DirectoryPath.StartsWith(userDir, StringComparison.OrdinalIgnoreCase) && Directory.Exists(info.DirectoryPath))
-                {
-                    try
-                    {
-                        Directory.Delete(info.DirectoryPath, recursive: true);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[PluginsAdmin] Could not delete plugin directory: {ex.Message}");
-                    }
-                }
-            }
-
-            // 3. Reload plugins
-            _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
-            await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
 
             MessageBox.Show(
                 $"Extension '{info.Name}' has been removed.",

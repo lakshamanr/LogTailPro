@@ -38,6 +38,9 @@ public sealed class AppSettings
     /// <summary>Custom plugin directory paths configured by the user.</summary>
     public List<string> CustomPluginDirectories { get; set; } = new();
 
+    /// <summary>Excluded plugin directory paths configured by the user (e.g. from shared discovery roots).</summary>
+    public List<string> ExcludedPluginDirectories { get; set; } = new();
+
     /// <summary>Main window width in device-independent pixels.</summary>
     public double WindowWidth { get; set; } = 1280;
 

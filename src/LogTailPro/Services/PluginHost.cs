@@ -250,4 +250,9 @@ public sealed class PluginHost : IPluginHost
     {
         _mainViewModel.PluginLoaderService?.RegisterDynamicMenuItem(pluginId, menuItem);
     }
+
+    public void RegisterMenuItem(PluginHostSession session, PluginMenuItem menuItem)
+    {
+        _mainViewModel.PluginLoaderService?.RegisterDynamicMenuItem(session, menuItem);
+    }
 }

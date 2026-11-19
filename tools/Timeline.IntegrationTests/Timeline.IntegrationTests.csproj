@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/LogTailPro/LogTailPro.csproj"/>
+    <ProjectReference Include="../TestPlugins/TestPluginFixture.csproj"/>
   </ItemGroup>
 </Project>

@@ -62,6 +62,7 @@ public sealed partial class MainViewModel : ObservableObject
         Settings = settingsService.Load();
         PluginHost = new PluginHost(this);
         PluginLoaderService.CustomPluginDirectories = Settings.CustomPluginDirectories;
+        PluginLoaderService.ExcludedPluginDirectories = Settings.ExcludedPluginDirectories;
         _ = Task.Run(async () =>
         {
             try
@@ -201,6 +202,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         StatusMessage = "Reloading plugins...";
         PluginLoaderService.CustomPluginDirectories = Settings.CustomPluginDirectories;
+        PluginLoaderService.ExcludedPluginDirectories = Settings.ExcludedPluginDirectories;
         await PluginLoaderService.ReloadPluginsAsync();
         StatusMessage = $"{PluginLoaderService.LoadedPlugins.Count} plugin(s) loaded.";
     }

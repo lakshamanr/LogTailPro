@@ -2,6 +2,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using LogTailPro.Models;
+using LogTailPro.PluginContract;
+using LogTailPro.Services;
 using LogTailPro.ViewModels;
 using LogTailPro.Views;
 
@@ -153,7 +155,7 @@ internal static class Program
             Check(sourceC.SelectedLineProperties.Any(p => p.Name == "User" && p.HasChildren), "Inspector nested User object mismatch");
 
             // Verify DetailsPanel layout
-            MainViewModel mainVm = new(new LogTailPro.Services.SettingsService());
+            MainViewModel mainVm = new(new LogTailPro.Services.SettingsService(Path.Combine(folder, "settings-main.json")));
             mainVm.Tabs.Add(sourceC);
             mainVm.SelectedTab = sourceC;
             DetailsPanel detailsPanel = new() { DataContext = mainVm };
@@ -284,7 +286,7 @@ internal static class Program
             await File.WriteAllTextAsync(wsLogA, "2026-11-06T10:30:00Z line 1 error in auth\n2026-11-06T10:30:05Z line 2 info\n");
             await File.WriteAllTextAsync(wsLogB, "2026-11-06T10:30:02Z line 3 trace-xyz processing\n");
 
-            MainViewModel wsMainVm = new(new LogTailPro.Services.SettingsService());
+            MainViewModel wsMainVm = new(new LogTailPro.Services.SettingsService(Path.Combine(folder, "settings-ws.json")));
             string capturedLayoutXml = string.Empty;
             wsMainVm.RequestLayoutXml = () => "<LayoutRoot><TestMockLayout/></LayoutRoot>";
             wsMainVm.RestoreLayoutXml = xml => capturedLayoutXml = xml;
@@ -319,7 +321,7 @@ internal static class Program
             Check(File.Exists(wsPath), "Workspace file project.ltpw was not written");
 
             // Create new MainViewModel and load workspace
-            MainViewModel restoredMainVm = new(new LogTailPro.Services.SettingsService());
+            MainViewModel restoredMainVm = new(new LogTailPro.Services.SettingsService(Path.Combine(folder, "settings-restored.json")));
             string restoredLayoutXml = string.Empty;
             restoredMainVm.RestoreLayoutXml = xml => restoredLayoutXml = xml;
 
@@ -523,7 +525,7 @@ internal static class Program
             // 7. Verify Notepad++ Style Plugin System End-to-End
             var pluginLoader = mainVm.PluginLoaderService;
             Check(pluginLoader != null, "PluginLoaderService should not be null");
-            Check(Directory.Exists(LogTailPro.Services.PluginLoaderService.LocalPluginsDirectory), "Local plugins directory should exist");
+            Check(Directory.Exists(PluginLoaderService.LocalPluginsDirectory), "Local plugins directory should exist");
 
             // Verify Context Passing
             mainVm.SelectedTab = chartTab;
@@ -542,7 +544,7 @@ internal static class Program
 
             // Verify Live LinesAppended event pipeline
             bool linesAppendedEventFired = false;
-            EventHandler<LogTailPro.PluginContract.LogLinesAppendedEventArgs> appendedHandler = (s, e) =>
+            EventHandler<LogLinesAppendedEventArgs> appendedHandler = (s, e) =>
             {
                 if (e.FilePath == chartLog && e.NewLines.Count == 1)
                 {
@@ -560,45 +562,437 @@ internal static class Program
                 mainVm.PluginHost.LinesAppended -= appendedHandler;
             }
 
-            // Add custom plugin directory from Desktop if present
-            string desktopTestingDir = @"C:\Users\lakshamanrokade\Desktop\Testing Plusing";
-            if (Directory.Exists(desktopTestingDir) && !pluginLoader!.CustomPluginDirectories.Contains(desktopTestingDir))
+            // ── Phase 3 Controlled Plugin Fixtures Verification ────────────────
+            string fixtureDllSource = typeof(TestPlugins.ValidTestPlugin).Assembly.Location;
+            Check(File.Exists(fixtureDllSource), $"TestPluginFixture.dll must exist at: {fixtureDllSource}");
+
+            string fixturesDir = Path.Combine(folder, "ControlledPlugins");
+            Directory.CreateDirectory(fixturesDir);
+
+            // Fixture 1: Valid Plugin in a custom directory
+            string validPluginDir = Path.Combine(fixturesDir, "ValidPlugin");
+            Directory.CreateDirectory(validPluginDir);
+            File.Copy(fixtureDllSource, Path.Combine(validPluginDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(validPluginDir, "plugin.json"), """
             {
-                pluginLoader.CustomPluginDirectories.Add(desktopTestingDir);
+                "id": "com.logtailpro.test.valid",
+                "name": "Valid Test Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.ValidTestPlugin",
+                "menu": {
+                    "header": "Valid Test Plugin",
+                    "items": [
+                        { "id": "valid_menu_cmd", "header": "Valid Menu Command" }
+                    ]
+                }
+            }
+            """);
+
+            // Test 1: Discovery, initialization, command registration, and nonzero count
+            var addValidResult = await PluginManagementService.AddPluginFolderAsync(mainVm, validPluginDir);
+            Check(addValidResult.LoadedFromFolder.Count == 1, $"Expected 1 plugin from ValidPlugin dir, got {addValidResult.LoadedFromFolder.Count}");
+            Check(pluginLoader!.LoadedPlugins.Count >= 1, "Expected nonzero loaded plugins count");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.valid"), "Valid plugin not loaded");
+
+            var validInfo = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.test.valid");
+            Type validPluginType = validInfo.Plugin.GetType();
+            int initCount = (int)validPluginType.GetField("InitializeCount")!.GetValue(null)!;
+            Check(initCount > 0, "ValidTestPlugin.InitializeAsync was not executed");
+
+            // Verify command registration & execution
+            var validGroup = pluginLoader.MenuGroups.FirstOrDefault(g => g.PluginId == "com.logtailpro.test.valid");
+            Check(validGroup != null, "MenuGroup for valid plugin not created");
+            Check(validGroup!.Items.Any(i => i.CommandId == "valid_cmd"), "Dynamic command valid_cmd not registered");
+            pluginLoader.ExecutePluginCommand("com.logtailpro.test.valid", "valid_cmd");
+            int cmdCount = (int)validPluginType.GetField("CommandExecutedCount")!.GetValue(null)!;
+            Check(cmdCount > 0, "ExecutePluginCommand failed to invoke plugin");
+
+            // Verify lines appended event received by active plugin
+            mainVm.PluginHost.RaiseLinesAppended(chartLog, new[] { "Line for test" }, 1);
+            bool linesRcvd = (bool)validPluginType.GetField("LinesAppendedReceived")!.GetValue(null)!;
+            Check(linesRcvd, "Active plugin did not receive LinesAppended event");
+
+            // Test 2: Overlapping and successive reloads & Main Menu command
+            int preReloadCount = pluginLoader.LoadedPlugins.Count;
+            await Task.WhenAll(
+                pluginLoader.ReloadPluginsAsync(),
+                pluginLoader.ReloadPluginsAsync(),
+                pluginLoader.ReloadPluginsAsync()
+            );
+            Check(pluginLoader.LoadedPlugins.Count == preReloadCount,
+                $"Overlapping reloads count mismatch: expected {preReloadCount}, got {pluginLoader.LoadedPlugins.Count}");
+            int shutdownCount = (int)validPluginType.GetField("ShutdownCount")!.GetValue(null)!;
+            Check(shutdownCount > 0, "Shutdown was not called on reload");
+
+            // Verify Main-Menu Reload Command
+            await mainVm.ReloadPluginsCommand.ExecuteAsync(null);
+            Check(mainVm.StatusMessage.Contains("plugin(s) loaded"), "Main-menu ReloadPluginsCommand did not update StatusMessage correctly");
+
+            // Test 3: Broken DLL
+            string brokenDir = Path.Combine(fixturesDir, "BrokenDllPlugin");
+            Directory.CreateDirectory(brokenDir);
+            await File.WriteAllBytesAsync(Path.Combine(brokenDir, "CorruptPlugin.dll"), new byte[] { 0x00, 0x11, 0x22, 0x33, 0x44 });
+            var addBrokenResult = await PluginManagementService.AddPluginFolderAsync(mainVm, brokenDir);
+            Check(addBrokenResult.LoadedFromFolder.Count == 0, "Broken DLL should not produce loaded plugins");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.valid"), "Valid plugin must remain loaded after broken DLL probe");
+
+            // Test 4: Failed initialization
+            string failingDir = Path.Combine(fixturesDir, "FailingPlugin");
+            Directory.CreateDirectory(failingDir);
+            File.Copy(fixtureDllSource, Path.Combine(failingDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(failingDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.failing",
+                "name": "Failing Test Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.FailingTestPlugin"
+            }
+            """);
+            var addFailingResult = await PluginManagementService.AddPluginFolderAsync(mainVm, failingDir);
+            Check(addFailingResult.LoadedFromFolder.Count == 0, "Failing plugin should not be marked as loaded");
+            Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.failing"), "Failing plugin should not exist in LoadedPlugins");
+
+            // Test 5: Timed-out initialization with timeout override & stale callback guard
+            string timeoutDir = Path.Combine(fixturesDir, "TimeoutPlugin");
+            Directory.CreateDirectory(timeoutDir);
+            File.Copy(fixtureDllSource, Path.Combine(timeoutDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(timeoutDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.timeout",
+                "name": "Timeout Test Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.TimeoutTestPlugin"
+            }
+            """);
+            var originalTimeout = PluginLoaderService.PluginInitTimeout;
+            PluginLoaderService.PluginInitTimeout = TimeSpan.FromMilliseconds(200);
+            try
+            {
+                var addTimeoutResult = await PluginManagementService.AddPluginFolderAsync(mainVm, timeoutDir);
+                Check(addTimeoutResult.LoadedFromFolder.Count == 0, "Timed out plugin should not be marked as loaded");
+                Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.timeout"), "Timed out plugin should not be in LoadedPlugins");
+
+                // Wait 2.2 seconds to allow the plugin task to complete its delay and attempt stale callback
+                await Task.Delay(2200);
+                Check(!pluginLoader.MenuGroups.Any(g => g.PluginId == "com.logtailpro.test.timeout"), "Stale registration from timed out plugin must be guarded against");
+            }
+            finally
+            {
+                PluginLoaderService.PluginInitTimeout = originalTimeout;
             }
 
-            await pluginLoader!.ReloadPluginsAsync();
-
-            if (pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow"))
+            // Test 6: Fallback to valid copy when higher-priority copy fails
+            string fallbackHighPriorityDir = Path.Combine(fixturesDir, "FallbackHighPriority");
+            Directory.CreateDirectory(fallbackHighPriorityDir);
+            File.Copy(fixtureDllSource, Path.Combine(fallbackHighPriorityDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(fallbackHighPriorityDir, "plugin.json"), """
             {
-                var streamPlugin = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow");
-                Check(streamPlugin.Plugin.PluginName == "Stream Server Dataflow", "Plugin name mismatch");
-                Check(streamPlugin.Manifest?.Menu != null && streamPlugin.Manifest.Menu.Items.Count >= 3, "Plugin menu items missing");
-
-                // Verify Menu Groups & Command ViewModels
-                var menuGroup = pluginLoader.MenuGroups.FirstOrDefault(g => g.PluginId == "com.logtailpro.streamserver.dataflow");
-                Check(menuGroup != null, "PluginMenuGroup missing for stream dataflow");
-                Check(menuGroup!.Items.Count >= 3, $"Expected >= 3 menu commands, got {menuGroup.Items.Count}");
-                Check(menuGroup.Items.Any(i => i.CommandId == "open_visualizer"), "open_visualizer command missing");
-                Check(menuGroup.Items.Any(i => i.CommandId == "analyze_current_call"), "analyze_current_call command missing");
-
-                // Verify Command Dispatch through PluginLoaderService
-                pluginLoader.ExecutePluginCommand("com.logtailpro.streamserver.dataflow", "open_visualizer");
-                pluginLoader.ExecutePluginCommand("com.logtailpro.streamserver.dataflow", "analyze_current_call");
-
-                // Verify Hot Reload Lifecycle
-                int initialCount = pluginLoader.LoadedPlugins.Count;
-                await pluginLoader.ReloadPluginsAsync();
-                Check(pluginLoader.LoadedPlugins.Count == initialCount,
-                    $"Hot reload count mismatch: expected {initialCount}, got {pluginLoader.LoadedPlugins.Count}");
-                Check(pluginLoader.MenuGroups.Count == 1, "Duplicate menu groups created during hot reload");
+                "id": "com.logtailpro.test.fallback",
+                "name": "Fallback Test Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.FallbackFailingPlugin"
             }
+            """);
+
+            string fallbackLowPriorityDir = Path.Combine(fixturesDir, "FallbackLowPriority");
+            Directory.CreateDirectory(fallbackLowPriorityDir);
+            File.Copy(fixtureDllSource, Path.Combine(fallbackLowPriorityDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(fallbackLowPriorityDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.fallback",
+                "name": "Fallback Test Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.FallbackValidPlugin"
+            }
+            """);
+
+            // Configure high-priority before low-priority in CustomPluginDirectories
+            mainVm.Settings.CustomPluginDirectories.Add(fallbackHighPriorityDir);
+            mainVm.Settings.CustomPluginDirectories.Add(fallbackLowPriorityDir);
+            mainVm.SaveSettings();
+            await pluginLoader.ReloadPluginsAsync();
+
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.fallback"),
+                "Fallback copy should have succeeded when higher priority copy failed");
+            var fallbackPlugin = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.test.fallback");
+            Check(fallbackPlugin.Plugin.GetType().Name == "FallbackValidPlugin", "FallbackValidPlugin should be loaded");
+            bool fallbackInit = (bool)fallbackPlugin.Plugin.GetType().GetField("InitializedSuccessfully")!.GetValue(null)!;
+            Check(fallbackInit, "FallbackValidPlugin should be the one successfully initialized");
+
+            // Test 7: Empty Add Folder while another plugin is already loaded
+            string emptyDir = Path.Combine(fixturesDir, "EmptyPluginFolder");
+            Directory.CreateDirectory(emptyDir);
+            int countBeforeEmpty = pluginLoader.LoadedPlugins.Count;
+            var addEmptyResult = await PluginManagementService.AddPluginFolderAsync(mainVm, emptyDir);
+            Check(addEmptyResult.LoadedFromFolder.Count == 0, "Empty folder should report 0 plugins loaded from it");
+            Check(addEmptyResult.TotalLoadedCount == countBeforeEmpty, "Existing plugins should remain loaded");
+
+            // Test 8: Removing one plugin from a shared root while its sibling stays available
+            string sharedRoot = Path.Combine(fixturesDir, "SharedRoot");
+            Directory.CreateDirectory(sharedRoot);
+
+            string sibADir = Path.Combine(sharedRoot, "SiblingA");
+            Directory.CreateDirectory(sibADir);
+            File.Copy(fixtureDllSource, Path.Combine(sibADir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(sibADir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.siblinga",
+                "name": "Sibling Plugin A",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.SiblingAPlugin"
+            }
+            """);
+
+            string sibBDir = Path.Combine(sharedRoot, "SiblingB");
+            Directory.CreateDirectory(sibBDir);
+            File.Copy(fixtureDllSource, Path.Combine(sibBDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(sibBDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.siblingb",
+                "name": "Sibling Plugin B",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.SiblingBPlugin"
+            }
+            """);
+
+            var addSharedResult = await PluginManagementService.AddPluginFolderAsync(mainVm, sharedRoot);
+            Check(addSharedResult.LoadedFromFolder.Count >= 2, $"Expected at least 2 plugins from shared root, got {addSharedResult.LoadedFromFolder.Count}");
+
+            var sibAInfo = pluginLoader.LoadedPlugins.FirstOrDefault(p => p.Plugin.PluginId == "com.logtailpro.test.siblinga");
+            var sibBInfo = pluginLoader.LoadedPlugins.FirstOrDefault(p => p.Plugin.PluginId == "com.logtailpro.test.siblingb");
+            Check(sibAInfo != null, "Sibling A should be loaded");
+            Check(sibBInfo != null, "Sibling B should be loaded");
+
+            // Remove Sibling A
+            var removeResult = await PluginManagementService.RemovePluginAsync(mainVm, sibAInfo!);
+            Check(removeResult.Success, $"Removal of Sibling A failed: {removeResult.ErrorMessage}");
+
+            // Verify Sibling A is removed, but Sibling B is still loaded and available
+            Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.siblinga"), "Sibling A must not be loaded after removal");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.siblingb"), "Sibling B must remain loaded after Sibling A removal");
+            Check(Directory.Exists(sibADir), "External custom directory on disk must be preserved, not deleted");
+
+            // ── Finding 1: Removal from Managed Plugin Directory (Locked vs Unlocked) ────
+            string isolatedManagedRoot = Path.Combine(fixturesDir, "IsolatedManagedRoot");
+            Directory.CreateDirectory(isolatedManagedRoot);
+            pluginLoader.UserPluginsPath = isolatedManagedRoot;
+
+            // 1a: Managed plugin configured for locked deletion failure test
+            string managedLockedDir = Path.Combine(isolatedManagedRoot, "ManagedLockedPlugin");
+            Directory.CreateDirectory(managedLockedDir);
+            string lockedDllPath = Path.Combine(managedLockedDir, "TestPluginFixture.dll");
+            File.Copy(fixtureDllSource, lockedDllPath);
+            await File.WriteAllTextAsync(Path.Combine(managedLockedDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.managed.locked",
+                "name": "Managed Locked Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.ManagedLockedPlugin"
+            }
+            """);
+
+            // 1b: Managed plugin configured for clean deletion test
+            string managedCleanDir = Path.Combine(isolatedManagedRoot, "ManagedCleanPlugin");
+            Directory.CreateDirectory(managedCleanDir);
+            string cleanDllPath = Path.Combine(managedCleanDir, "TestPluginFixture.dll");
+            File.Copy(fixtureDllSource, cleanDllPath);
+            await File.WriteAllTextAsync(Path.Combine(managedCleanDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.managed.clean",
+                "name": "Managed Clean Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.ManagedCleanPlugin"
+            }
+            """);
+
+            await pluginLoader.ReloadPluginsAsync();
+            var managedLockedInfo = pluginLoader.LoadedPlugins.FirstOrDefault(p => p.Plugin?.PluginId == "com.logtailpro.test.managed.locked");
+            var managedCleanInfo = pluginLoader.LoadedPlugins.FirstOrDefault(p => p.Plugin?.PluginId == "com.logtailpro.test.managed.clean");
+            Check(managedLockedInfo != null, "Managed locked plugin must be loaded from isolated managed root");
+            Check(managedCleanInfo != null, "Managed clean plugin must be loaded from isolated managed root");
+
+            // 1a: Test deletion failure while a file in the directory is locked
+            using (var lockStream = new FileStream(lockedDllPath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                var failedManagedRemoval = await PluginManagementService.RemovePluginAsync(mainVm, managedLockedInfo!);
+                Check(!failedManagedRemoval.Success, "Failed deletion must never report success");
+                Check(failedManagedRemoval.RestartRequired, "Locked deletion must report restartRequired");
+                Check(!string.IsNullOrWhiteSpace(failedManagedRemoval.ErrorMessage), "Locked deletion must report error message");
+                Check(Directory.Exists(managedLockedDir), "Directory must still exist when deletion fails");
+                Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin?.PluginId == "com.logtailpro.test.managed.locked"),
+                    "Failed deletion plugin must still be retired from LoadedPlugins in current session");
+            }
+
+            // 1b: Test successful deletion of a loaded DLL in an isolated managed root
+            var successfulManagedRemoval = await PluginManagementService.RemovePluginAsync(mainVm, managedCleanInfo!);
+            Check(successfulManagedRemoval.Success, "Removal should succeed when files are not locked");
+            Check(!Directory.Exists(managedCleanDir), "Managed clean plugin directory must be deleted on successful removal");
+            Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin?.PluginId == "com.logtailpro.test.managed.clean"),
+                "Managed clean plugin must be removed from LoadedPlugins");
+
+            // ── Finding 2: Shared Discovery Root with Root Plugin + 2 Children ──────────
+            string sharedMultiRoot = Path.Combine(fixturesDir, "SharedMultiRoot");
+            Directory.CreateDirectory(sharedMultiRoot);
+
+            // Root directory's own plugin
+            File.Copy(fixtureDllSource, Path.Combine(sharedMultiRoot, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(sharedMultiRoot, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.rootdiscovery",
+                "name": "Root Discovery Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.RootDiscoveryPlugin"
+            }
+            """);
+
+            // Child A
+            string multiChildADir = Path.Combine(sharedMultiRoot, "ChildA");
+            Directory.CreateDirectory(multiChildADir);
+            File.Copy(fixtureDllSource, Path.Combine(multiChildADir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(multiChildADir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.sharedchilda",
+                "name": "Shared Child A Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.SharedChildAPlugin"
+            }
+            """);
+
+            // Child B
+            string multiChildBDir = Path.Combine(sharedMultiRoot, "ChildB");
+            Directory.CreateDirectory(multiChildBDir);
+            File.Copy(fixtureDllSource, Path.Combine(multiChildBDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(multiChildBDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.sharedchildb",
+                "name": "Shared Child B Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.SharedChildBPlugin"
+            }
+            """);
+
+            var addMultiResult = await PluginManagementService.AddPluginFolderAsync(mainVm, sharedMultiRoot);
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.rootdiscovery"), "Root plugin must be loaded");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchilda"), "Child A must be loaded");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchildb"), "Child B must be loaded");
+
+            // Remove Child A from shared root
+            var childAInfo = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchilda");
+            var removeChildAResult = await PluginManagementService.RemovePluginAsync(mainVm, childAInfo);
+            Check(removeChildAResult.Success, "Child A removal must succeed");
+
+            // Verify shared root stays registered, Child A is excluded, Child A's files remain on disk
+            Check(!pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchilda"), "Child A must be removed from LoadedPlugins");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.rootdiscovery"), "Root plugin must remain loaded");
+            Check(pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchildb"), "Child B must remain loaded");
+            Check(Directory.Exists(multiChildADir), "Child A external files must remain on disk");
+            Check(mainVm.Settings.CustomPluginDirectories.Any(c => string.Equals(c, sharedMultiRoot, StringComparison.OrdinalIgnoreCase)),
+                "Shared root must remain registered in CustomPluginDirectories");
+            Check(mainVm.Settings.ExcludedPluginDirectories.Any(e => e.Contains("ChildA")),
+                "Child A must be persisted in ExcludedPluginDirectories");
+
+            // Verify fresh load from saved settings
+            var freshSettings = new SettingsService(Path.Combine(folder, "settings-main.json")).Load();
+            Check(freshSettings.CustomPluginDirectories.Any(c => string.Equals(c, sharedMultiRoot, StringComparison.OrdinalIgnoreCase)),
+                "Fresh load must preserve shared root in CustomPluginDirectories");
+            Check(freshSettings.ExcludedPluginDirectories.Any(e => e.Contains("ChildA")),
+                "Fresh load must preserve Child A exclusion");
+
+            MainViewModel freshVm = new(new SettingsService(Path.Combine(folder, "settings-main.json")));
+            freshVm.PluginLoaderService.CustomPluginDirectories = freshSettings.CustomPluginDirectories;
+            freshVm.PluginLoaderService.ExcludedPluginDirectories = freshSettings.ExcludedPluginDirectories;
+            freshVm.PluginLoaderService.UserPluginsPath = isolatedManagedRoot;
+            await freshVm.PluginLoaderService.ReloadPluginsAsync();
+
+            Check(freshVm.PluginLoaderService.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.rootdiscovery"), "Root plugin must load after fresh start");
+            Check(freshVm.PluginLoaderService.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchildb"), "Child B must load after fresh start");
+            Check(!freshVm.PluginLoaderService.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.test.sharedchilda"), "Excluded Child A must not load after fresh start");
+
+            // ── Finding 3: Diagnostic Instrumentation for Slow Callbacks ────────────────
+            string slowDir = Path.Combine(fixturesDir, "SlowSyncPlugin");
+            Directory.CreateDirectory(slowDir);
+            File.Copy(fixtureDllSource, Path.Combine(slowDir, "TestPluginFixture.dll"));
+            await File.WriteAllTextAsync(Path.Combine(slowDir, "plugin.json"), """
+            {
+                "id": "com.logtailpro.test.slowsync",
+                "name": "Slow Sync Init Plugin",
+                "version": "1.0.0",
+                "entryAssembly": "TestPluginFixture.dll",
+                "entryClass": "TestPlugins.SlowSyncInitPlugin"
+            }
+            """);
+
+            var addSlowResult = await PluginManagementService.AddPluginFolderAsync(mainVm, slowDir);
+            var slowInfo = pluginLoader.LoadedPlugins.FirstOrDefault(p => p.Plugin?.PluginId == "com.logtailpro.test.slowsync");
+            Check(slowInfo != null, "Slow sync plugin should load");
+            Check(pluginLoader.LoadLog.Any(l => l.Contains("Plugin constructor took") || l.Contains("InitializeAsync synchronous portion took")),
+                "Instrumentation must log warning when synchronous callbacks exceed threshold");
+
+            // ── Finding 4: Reject Queued Callbacks from Retired Plugin Sessions ──────────
+            // Obtain old active session for ValidTestPlugin
+            var oldValidInfo = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.test.valid");
+            var oldSession = oldValidInfo.HostSession;
+            Check(oldSession != null, "HostSession must be present");
+
+            // Simulate a queued delegate that was scheduled from the old session before reload
+            Action queuedStaleRegistration = () =>
+            {
+                pluginLoader.RegisterDynamicMenuItem(oldSession!, new PluginMenuItem
+                {
+                    Id = "stale_queued_cmd",
+                    Header = "Stale Queued Command"
+                });
+            };
+
+            // Reload to retire oldSession and spawn a new replacement session for the same PluginId
+            await pluginLoader.ReloadPluginsAsync();
+            var replacementValidInfo = pluginLoader.LoadedPlugins.First(p => p.Plugin.PluginId == "com.logtailpro.test.valid");
+            var replacementSession = replacementValidInfo.HostSession;
+            Check(replacementSession != null, "Replacement HostSession must be present");
+            Check(!ReferenceEquals(oldSession, replacementSession), "Replacement session must be a new instance");
+            Check(!oldSession!.IsActive, "Old session must be deactivated after reload");
+
+            // Execute the queued stale registration now on the UI thread
+            queuedStaleRegistration();
+
+            // Register a valid command from the new replacement session
+            replacementSession!.RegisterMenuItem("com.logtailpro.test.valid", new PluginMenuItem
+            {
+                Id = "fresh_replacement_cmd",
+                Header = "Fresh Replacement Command"
+            });
+
+            var validMenuGroup = pluginLoader.MenuGroups.First(g => g.PluginId == "com.logtailpro.test.valid");
+            Check(!validMenuGroup.Items.Any(i => i.CommandId == "stale_queued_cmd"),
+                "Stale command from retired host session must be rejected");
+            Check(validMenuGroup.Items.Any(i => i.CommandId == "fresh_replacement_cmd"),
+                "Replacement session must be permitted to register its command");
+
+            // Clean up custom plugin directories from test
+            mainVm.PluginLoaderService.CustomPluginDirectories.Clear();
+            mainVm.PluginLoaderService.ExcludedPluginDirectories.Clear();
+            await mainVm.PluginLoaderService.ReloadPluginsAsync();
         }
         finally
         {
             sourceA.Dispose();
             sourceB.Dispose();
-            Directory.Delete(folder, true);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            try { Directory.Delete(folder, true); } catch { /* best-effort cleanup of temp test files */ }
         }
     }
 }

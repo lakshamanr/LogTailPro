@@ -7,17 +7,26 @@ namespace LogTailPro.Services;
 /// <summary>Loads and saves application settings to %AppData%\LogTailPro\settings.json.</summary>
 public sealed class SettingsService
 {
-    private static readonly string SettingsPath = Path.Combine(
+    public static string DefaultSettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "LogTailPro",
         "settings.json");
+
+    private readonly string _settingsPath;
+
+    public SettingsService(string? customSettingsPath = null)
+    {
+        _settingsPath = customSettingsPath ?? DefaultSettingsPath;
+    }
+
+    public static string SettingsPath => DefaultSettingsPath;
 
     /// <summary>Loads settings from disk, returning defaults if the file is missing or corrupt.</summary>
     public AppSettings Load()
     {
         AppSettings settings;
 
-        if (!File.Exists(SettingsPath))
+        if (!File.Exists(_settingsPath))
         {
             settings = new AppSettings();
         }
@@ -25,7 +34,7 @@ public sealed class SettingsService
         {
             try
             {
-                string json = File.ReadAllText(SettingsPath);
+                string json = File.ReadAllText(_settingsPath);
                 settings = JsonConvert.DeserializeObject<AppSettings>(json) ?? new AppSettings();
             }
             catch
@@ -91,7 +100,7 @@ public sealed class SettingsService
     /// <summary>Saves settings to disk, creating directories as needed.</summary>
     public void Save(AppSettings settings)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-        File.WriteAllText(SettingsPath, JsonConvert.SerializeObject(settings, Formatting.Indented));
+        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
+        File.WriteAllText(_settingsPath, JsonConvert.SerializeObject(settings, Formatting.Indented));
     }
 }
