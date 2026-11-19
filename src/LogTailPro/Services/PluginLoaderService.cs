@@ -35,9 +35,22 @@ public sealed partial class PluginLoaderService : ObservableObject
 
     private static void RunOnUI(Action action)
     {
-        if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+        var app = System.Windows.Application.Current;
+        if (app?.Dispatcher == null || app.Dispatcher.HasShutdownStarted || app.Dispatcher.HasShutdownFinished)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(action);
+            return;
+        }
+
+        if (!app.Dispatcher.CheckAccess())
+        {
+            try
+            {
+                app.Dispatcher.Invoke(action);
+            }
+            catch (Exception ex) when (ex is TaskCanceledException or InvalidOperationException)
+            {
+                // Dispatcher shutting down or unavailable
+            }
         }
         else
         {
@@ -457,7 +470,7 @@ public sealed partial class PluginLoaderService : ObservableObject
         var context = _host?.GetActiveContext() ?? new PluginLogContext(null);
         try
         {
-            var priorWindows = System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>().ToList() ?? new();
+            var priorWindows = System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>().ToArray() ?? Array.Empty<System.Windows.Window>();
 
             pluginInfo.Plugin.ExecuteCommand(commandId, context);
 
@@ -466,10 +479,18 @@ public sealed partial class PluginLoaderService : ObservableObject
             {
                 System.Windows.Application.Current.Dispatcher?.InvokeAsync(() =>
                 {
-                    foreach (System.Windows.Window win in System.Windows.Application.Current.Windows)
+                    try
                     {
-                        if (ReferenceEquals(win, mainWin) || priorWindows.Contains(win)) continue;
-                        AlignPluginWindow(win, mainWin);
+                        var currentWindows = System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>().ToArray() ?? Array.Empty<System.Windows.Window>();
+                        foreach (System.Windows.Window win in currentWindows)
+                        {
+                            if (ReferenceEquals(win, mainWin) || priorWindows.Contains(win)) continue;
+                            AlignPluginWindow(win, mainWin);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[PluginLoader] Error aligning windows: {ex.Message}");
                     }
                 }, System.Windows.Threading.DispatcherPriority.Loaded);
             }
@@ -497,12 +518,24 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
             else if (mainWin.WindowState == System.Windows.WindowState.Normal)
             {
-                double targetWidth = Math.Max(win.MinWidth > 0 ? win.MinWidth : 800, mainWin.ActualWidth > 0 ? mainWin.ActualWidth : mainWin.Width);
-                double targetHeight = Math.Max(win.MinHeight > 0 ? win.MinHeight : 600, mainWin.ActualHeight > 0 ? mainWin.ActualHeight : mainWin.Height);
+                double targetWidth = mainWin.ActualWidth > 0 ? mainWin.ActualWidth : mainWin.Width;
+                double targetHeight = mainWin.ActualHeight > 0 ? mainWin.ActualHeight : mainWin.Height;
+
+                if (double.IsNaN(targetWidth) || targetWidth <= 0) targetWidth = 1200;
+                if (double.IsNaN(targetHeight) || targetHeight <= 0) targetHeight = 800;
+
+                targetWidth = Math.Max(win.MinWidth > 0 ? win.MinWidth : 800, targetWidth);
+                targetHeight = Math.Max(win.MinHeight > 0 ? win.MinHeight : 600, targetHeight);
 
                 win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
-                win.Left = mainWin.Left;
-                win.Top = mainWin.Top;
+                if (!double.IsNaN(mainWin.Left) && !double.IsInfinity(mainWin.Left))
+                {
+                    win.Left = mainWin.Left;
+                }
+                if (!double.IsNaN(mainWin.Top) && !double.IsInfinity(mainWin.Top))
+                {
+                    win.Top = mainWin.Top;
+                }
                 win.Width = targetWidth;
                 win.Height = targetHeight;
             }

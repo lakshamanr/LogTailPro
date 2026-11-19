@@ -106,6 +106,7 @@ public partial class PluginsAdminDialog : Window
     {
         try
         {
+            _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
             await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
             MessageBox.Show(
                 $"Reload complete.\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",

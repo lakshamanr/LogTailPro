@@ -40,12 +40,35 @@ public sealed class PluginHost : IPluginHost
     public void RaiseActiveContextChanged()
     {
         var ctx = GetActiveContext();
-        ActiveContextChanged?.Invoke(this, ctx);
+        if (ActiveContextChanged == null) return;
+        foreach (EventHandler<ILogContext?> handler in ActiveContextChanged.GetInvocationList())
+        {
+            try
+            {
+                handler(this, ctx);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PluginHost] ActiveContextChanged handler error: {ex.Message}");
+            }
+        }
     }
 
     public void RaiseLinesAppended(string filePath, System.Collections.Generic.IReadOnlyList<string> newLines, int startingLineNumber)
     {
-        LinesAppended?.Invoke(this, new LogLinesAppendedEventArgs(filePath, newLines, startingLineNumber));
+        if (LinesAppended == null) return;
+        var args = new LogLinesAppendedEventArgs(filePath, newLines, startingLineNumber);
+        foreach (EventHandler<LogLinesAppendedEventArgs> handler in LinesAppended.GetInvocationList())
+        {
+            try
+            {
+                handler(this, args);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PluginHost] LinesAppended handler error: {ex.Message}");
+            }
+        }
     }
 
     public ILogContext? GetActiveContext()
@@ -56,9 +79,19 @@ public sealed class PluginHost : IPluginHost
     public void OpenLogFile(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;
-        Application.Current?.Dispatcher?.InvokeAsync(async () =>
+        var app = Application.Current;
+        if (app?.Dispatcher == null || app.Dispatcher.HasShutdownStarted) return;
+
+        app.Dispatcher.InvokeAsync(async () =>
         {
-            await _mainViewModel.OpenFileTabAsync(filePath);
+            try
+            {
+                await _mainViewModel.OpenFileTabAsync(filePath);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PluginHost] OpenLogFile error: {ex.Message}");
+            }
         });
     }
 
@@ -69,29 +102,76 @@ public sealed class PluginHost : IPluginHost
 
     public void NavigateToLine(int lineNumber, string? filePath = null)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        var app = Application.Current;
+        if (app?.Dispatcher == null || app.Dispatcher.HasShutdownStarted) return;
+
+        Action action = () =>
         {
-            LogTabViewModel? tab = null;
-            if (!string.IsNullOrWhiteSpace(filePath))
+            try
             {
-                tab = _mainViewModel.Tabs.FirstOrDefault(t => 
-                    string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
-                if (tab != null)
+                LogTabViewModel? tab = null;
+                if (!string.IsNullOrWhiteSpace(filePath))
                 {
-                    _mainViewModel.SelectedTab = tab;
+                    tab = _mainViewModel.Tabs.FirstOrDefault(t => 
+                        string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+                    if (tab != null)
+                    {
+                        _mainViewModel.SelectedTab = tab;
+                    }
+                }
+
+                tab ??= _mainViewModel.SelectedTab;
+                if (tab == null) return;
+
+                LogLine? match = null;
+
+                // 1. O(1) direct index lookup if sequential
+                if (tab.AllLines.Count > 0)
+                {
+                    long firstNo = tab.AllLines[0].LineNumber;
+                    int idx = (int)(lineNumber - firstNo);
+                    if (idx >= 0 && idx < tab.AllLines.Count && tab.AllLines[idx].LineNumber == lineNumber)
+                    {
+                        match = tab.AllLines[idx];
+                    }
+                }
+
+                // 2. O(log N) binary search fallback
+                if (match == null && tab.AllLines.Count > 0)
+                {
+                    int low = 0, high = tab.AllLines.Count - 1;
+                    while (low <= high)
+                    {
+                        int mid = low + (high - low) / 2;
+                        long midNum = tab.AllLines[mid].LineNumber;
+                        if (midNum == lineNumber) { match = tab.AllLines[mid]; break; }
+                        if (midNum < lineNumber) low = mid + 1;
+                        else high = mid - 1;
+                    }
+                }
+
+                // 3. Fallback to VisibleLines
+                match ??= tab.VisibleLines.FirstOrDefault(l => l.LineNumber == lineNumber);
+
+                if (match != null)
+                {
+                    tab.RequestScrollToLine(match);
                 }
             }
-
-            tab ??= _mainViewModel.SelectedTab;
-            if (tab == null) return;
-
-            var match = tab.VisibleLines.FirstOrDefault(l => l.LineNumber == lineNumber)
-                        ?? tab.AllLines.FirstOrDefault(l => l.LineNumber == lineNumber);
-            if (match != null)
+            catch (Exception ex)
             {
-                tab.RequestScrollToLine(match);
+                System.Diagnostics.Debug.WriteLine($"[PluginHost] NavigateToLine error: {ex.Message}");
             }
-        });
+        };
+
+        if (app.Dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            app.Dispatcher.InvokeAsync(action);
+        }
     }
 
     public void SetStatusMessage(string message)
@@ -101,13 +181,16 @@ public sealed class PluginHost : IPluginHost
 
     public void SetStatusMessage(string message, int durationSeconds)
     {
-        if (Application.Current?.Dispatcher?.CheckAccess() == true)
+        var app = Application.Current;
+        if (app?.Dispatcher == null || app.Dispatcher.HasShutdownStarted) return;
+
+        if (app.Dispatcher.CheckAccess())
         {
             _mainViewModel.StatusMessage = message;
         }
         else
         {
-            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            app.Dispatcher.InvokeAsync(() =>
             {
                 _mainViewModel.StatusMessage = message;
             });

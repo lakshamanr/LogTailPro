@@ -62,7 +62,17 @@ public sealed partial class MainViewModel : ObservableObject
         Settings = settingsService.Load();
         PluginHost = new PluginHost(this);
         PluginLoaderService.CustomPluginDirectories = Settings.CustomPluginDirectories;
-        _ = PluginLoaderService.InitializeAndLoadAsync(PluginHost);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await PluginLoaderService.InitializeAndLoadAsync(PluginHost);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainViewModel] Plugin init error: {ex.Message}");
+            }
+        });
 
         _directoryMonitor.NewFileDetected += async (_, path) =>
             await Application.Current.Dispatcher.InvokeAsync(() => OpenFileTabAsync(path));
@@ -190,6 +200,7 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ReloadPluginsAsync()
     {
         StatusMessage = "Reloading plugins...";
+        PluginLoaderService.CustomPluginDirectories = Settings.CustomPluginDirectories;
         await PluginLoaderService.ReloadPluginsAsync();
         StatusMessage = $"{PluginLoaderService.LoadedPlugins.Count} plugin(s) loaded.";
     }

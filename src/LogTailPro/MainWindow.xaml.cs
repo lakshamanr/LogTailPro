@@ -517,59 +517,66 @@ public partial class MainWindow : Window
 
     private void PluginsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
     {
-        // Ignore SubmenuOpened events that bubbled up from child plugin submenus
-        if (!ReferenceEquals(e.Source, PluginsMenu))
+        try
         {
-            return;
-        }
-
-        PluginsMenu.Items.Clear();
-
-        var groups = ViewModel.PluginLoaderService.MenuGroups;
-        if (groups.Count == 0)
-        {
-            PluginsMenu.Items.Add(new MenuItem { Header = "(No plugins installed)", IsEnabled = false });
-        }
-        else
-        {
-            foreach (var group in groups)
+            // Ignore SubmenuOpened events that bubbled up from child plugin submenus
+            if (!ReferenceEquals(e.Source, PluginsMenu))
             {
-                var groupItem = new MenuItem { Header = group.Header };
-                foreach (var cmd in group.Items)
-                {
-                    if (cmd.SeparatorBefore)
-                    {
-                        groupItem.Items.Add(new Separator());
-                    }
-
-                    var item = new MenuItem
-                    {
-                        Header = cmd.Header,
-                        Command = cmd.Command,
-                        InputGestureText = cmd.Shortcut ?? string.Empty
-                    };
-                    groupItem.Items.Add(item);
-                }
-                PluginsMenu.Items.Add(groupItem);
+                return;
             }
-        }
 
-        PluginsMenu.Items.Add(new Separator());
-        PluginsMenu.Items.Add(new MenuItem
+            PluginsMenu.Items.Clear();
+
+            var groups = ViewModel.PluginLoaderService.MenuGroups;
+            if (groups.Count == 0)
+            {
+                PluginsMenu.Items.Add(new MenuItem { Header = "(No plugins installed)", IsEnabled = false });
+            }
+            else
+            {
+                foreach (var group in groups)
+                {
+                    var groupItem = new MenuItem { Header = group.Header };
+                    foreach (var cmd in group.Items)
+                    {
+                        if (cmd.SeparatorBefore)
+                        {
+                            groupItem.Items.Add(new Separator());
+                        }
+
+                        var item = new MenuItem
+                        {
+                            Header = cmd.Header,
+                            Command = cmd.Command,
+                            InputGestureText = cmd.Shortcut ?? string.Empty
+                        };
+                        groupItem.Items.Add(item);
+                    }
+                    PluginsMenu.Items.Add(groupItem);
+                }
+            }
+
+            PluginsMenu.Items.Add(new Separator());
+            PluginsMenu.Items.Add(new MenuItem
+            {
+                Header = "Plugins Manager…",
+                Command = ViewModel.OpenPluginsAdminCommand
+            });
+            PluginsMenu.Items.Add(new MenuItem
+            {
+                Header = "Open Plugins Folder…",
+                Command = ViewModel.OpenPluginsFolderCommand
+            });
+            PluginsMenu.Items.Add(new MenuItem
+            {
+                Header = "Reload Plugins",
+                Command = ViewModel.ReloadPluginsCommand
+            });
+        }
+        catch (Exception ex)
         {
-            Header = "Plugins Manager…",
-            Command = ViewModel.OpenPluginsAdminCommand
-        });
-        PluginsMenu.Items.Add(new MenuItem
-        {
-            Header = "Open Plugins Folder…",
-            Command = ViewModel.OpenPluginsFolderCommand
-        });
-        PluginsMenu.Items.Add(new MenuItem
-        {
-            Header = "Reload Plugins",
-            Command = ViewModel.ReloadPluginsCommand
-        });
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] PluginsMenu_SubmenuOpened error: {ex.Message}");
+        }
     }
 
     private void PanelMenuItem_Click(object sender, RoutedEventArgs e)
