@@ -175,9 +175,27 @@ public partial class MainWindow : Window
         _hadSavedLayout = false;
         RefreshAnchorables();
         AssignPanelDataContexts();
+
+        // Establish ideal reference visibility state:
+        ViewModel.IsProcessExplorerVisible = false;
+        ViewModel.IsHelpPanelVisible = false;
+        if (ViewModel.SelectedTab != null)
+        {
+            ViewModel.SelectedTab.IsSearchPanelVisible = false;
+            ViewModel.SelectedTab.IsChartPanelVisible = false;
+            ViewModel.SelectedTab.IsStatsPanelVisible = false;
+            ViewModel.SelectedTab.IsDetailPanelVisible = true;
+        }
+
         ApplyAllPanelVisibility();
+
+        // Activate the primary tabs in the right pane and center document pane
+        if (_anchorables.TryGetValue("details", out LayoutAnchorable? detailsAnchor))
+            detailsAnchor.IsActive = true;
+
         if (ViewModel.SelectedTab != null)
             Dock.ActiveContent = ViewModel.SelectedTab;
+
         SaveLayout();
     }
 
@@ -242,7 +260,7 @@ public partial class MainWindow : Window
                 {
                     LayoutAnchorablePane newPane = new(missing)
                     {
-                        DockHeight = new GridLength(pair.Key == "chart" ? 160 : 180)
+                        DockHeight = new GridLength(pair.Key == "chart" ? 180 : 250)
                     };
                     Dock.Layout.RootPanel.Children.Add(newPane);
                 }
@@ -268,8 +286,7 @@ public partial class MainWindow : Window
         "details" => "Line Details",
         "stats" => "Stats",
         "bookmarks" => "Bookmarks",
-        "search" => "Search",
-        "results" => "Search Results",
+        "search" => "Search & Results",
         "help" => "Help Guide",
         _ => id
     };
@@ -391,9 +408,6 @@ public partial class MainWindow : Window
             case nameof(LogTabViewModel.IsSearchPanelVisible):
                 SetAnchorableVisible("search", _watchedTab?.IsSearchPanelVisible == true, focusSearch: true);
                 break;
-            case nameof(LogTabViewModel.IsSearchResultsVisible):
-                SetAnchorableVisible("results", _watchedTab?.IsSearchResultsVisible == true, activate: false);
-                break;
             case nameof(LogTabViewModel.IsChartPanelVisible):
                 SetAnchorableVisible("chart", _watchedTab?.IsChartPanelVisible == true);
                 break;
@@ -411,10 +425,6 @@ public partial class MainWindow : Window
     {
         if (!_anchorables.TryGetValue(id, out LayoutAnchorable? a)) return;
 
-        // Live search shows/hides the results panel while the user is still typing: keep their focus and caret.
-        bool keepSearchFocus = id != "search" && !activate && SearchView.HasFocus;
-        int caret = keepSearchFocus ? SearchView.CaretIndex : 0;
-
         if (a.IsVisible != visible)
         {
             _syncing = true;
@@ -424,9 +434,6 @@ public partial class MainWindow : Window
             }
             finally { _syncing = false; }
         }
-
-        if (keepSearchFocus)
-            Dispatcher.BeginInvoke(() => SearchView.RestoreFocus(caret), DispatcherPriority.Input);
 
         if (visible && activate)
         {
@@ -448,11 +455,10 @@ public partial class MainWindow : Window
         {
             case "process": ViewModel.IsProcessExplorerVisible = visible; break;
             case "search":  if (tab != null) tab.IsSearchPanelVisible = visible; break;
-            case "results": if (tab != null) tab.IsSearchResultsVisible = visible; break;
             case "chart":   if (tab != null) tab.IsChartPanelVisible = visible; break;
             case "stats":   if (tab != null) tab.IsStatsPanelVisible = visible; break;
             case "details": if (tab != null) tab.IsDetailPanelVisible = visible; break;
-            case "help": ViewModel.IsHelpPanelVisible = visible; break;
+            case "help":    ViewModel.IsHelpPanelVisible = visible; break;
         }
     }
 
@@ -470,12 +476,11 @@ public partial class MainWindow : Window
         LogTabViewModel? tab = ViewModel.SelectedTab;
         SetAnchorableVisible("process", ViewModel.IsProcessExplorerVisible);
         SetAnchorableVisible("search",  tab?.IsSearchPanelVisible == true);
-        SetAnchorableVisible("results", tab?.IsSearchResultsVisible == true);
         SetAnchorableVisible("chart",   tab?.IsChartPanelVisible == true);
         SetAnchorableVisible("stats",   tab?.IsStatsPanelVisible == true);
-        SetAnchorableVisible("details", tab?.IsDetailPanelVisible == true);
-        if (!_hadSavedLayout)
-            SetAnchorableVisible("bookmarks", false);
+        SetAnchorableVisible("details", tab != null ? tab.IsDetailPanelVisible : false);
+        SetAnchorableVisible("bookmarks", false);
+        SetAnchorableVisible("help",    ViewModel.IsHelpPanelVisible);
     }
 
     // ── Docking: documents ────────────────────────────────────────────────────
@@ -522,7 +527,6 @@ public partial class MainWindow : Window
             case "process": ViewModel.IsProcessExplorerVisible = visible; return;
             case "help": ViewModel.IsHelpPanelVisible = visible; return;
             case "search"  when tab != null: tab.IsSearchPanelVisible = visible; return;
-            case "results" when tab != null: tab.IsSearchResultsVisible = visible; return;
             case "chart"   when tab != null: tab.IsChartPanelVisible = visible; return;
             case "stats"   when tab != null: tab.IsStatsPanelVisible = visible; return;
             case "details" when tab != null: tab.IsDetailPanelVisible = visible; return;

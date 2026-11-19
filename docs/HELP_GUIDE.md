@@ -25,7 +25,7 @@ Each entry includes:
    - 2.2 Plain Text vs Regular Expression Modes
    - 2.3 Case Sensitivity & Invert Matching
    - 2.4 Filter Tail Mode (Real-Time Dynamic Grep)
-   - 2.5 Search Results Dock Panel
+   - 2.5 Unified Search & Results Panel
    - 2.6 Saved Search Patterns & Presets
    - 2.7 Export Filtered Lines
 3. [Structured JSON Logs & Property Inspector](#3-structured-json-logs--property-inspector)
@@ -300,12 +300,12 @@ You are tailing a live log generating 1,000 lines/sec. You only care about error
 
 ---
 
-## 2.5 Search Results Dock Panel
-- **UI Location**: `View > Panels > Search Results`, docked at the bottom of the workspace.
-- **Purpose**: Displays a dedicated tabular grid of all search hits across the entire file with line numbers, timestamps, and extracted regex capture groups.
+## 2.5 Unified Search & Results Panel
+- **UI Location**: `Ctrl+F` | `View > Panels > Search & Results`, docked at the bottom of the workspace.
+- **Purpose**: Integrated search controls and tabular grid of all search hits across the entire file with line numbers, timestamps, and extracted regex capture groups.
 
 ### Demo / Scenario
-Searching for regex `order (?<ID>\d+) failed` produces 45 matches across a 2,000,000 line file. The **Search Results** panel lists all 45 occurrences in a clean grid showing Line Number, Extracted ID, and the text snippet. Double-clicking row #12 jumps the main log viewer directly to Line 841,203.
+Searching for regex `order (?<ID>\d+) failed` produces 45 matches across a 2,000,000 line file. The **Search & Results** panel displays the query options and lists all 45 occurrences in a clean grid showing Line Number, Extracted ID, and the text snippet. Double-clicking row #12 jumps the main log viewer directly to Line 841,203.
 
 ### Actual How It Works
 1. Rows are stored in `ObservableCollection<SearchResultRow>`.
@@ -713,7 +713,7 @@ You open `web-server.log` and `database.log`. Click **Edit > Combined Timelineâ€
 
 ## 11.1 AvalonDock Docking Layout & Tab Reordering
 - LogTailPro features a dockable IDE layout engine.
-- Every panel (**Process Explorer**, **Search**, **Search Results**, **Line Details**, **Stats**, **Bookmarks**, **Error Timeline Chart**) can be:
+- Every panel (**Process Explorer**, **Search & Results**, **Line Details**, **Stats**, **Bookmarks**, **Help Guide**, **Error Timeline Chart**) can be:
   - Dragged and docked to any window edge (Left, Right, Top, Bottom).
   - Pinned or auto-hidden.
   - Popped out into a floating window.

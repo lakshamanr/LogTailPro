@@ -315,17 +315,17 @@ public sealed class HelpContentService
             {
                 Id = "search-results-panel",
                 Category = "2. Search, Filtering & Saved Patterns",
-                Title = "2.5 Search Results Dock Panel",
-                ShortTitle = "Search Results Panel",
-                Shortcut = "None",
-                UiLocation = "View > Panels > Search Results (bottom dock)",
-                Overview = "Tabular grid of all search hits across the entire file with line numbers, timestamps, and regex capture groups.",
+                Title = "2.5 Unified Search & Results Panel",
+                ShortTitle = "Search & Results Panel",
+                Shortcut = "Ctrl+F",
+                UiLocation = "Ctrl+F | View > Panels > Search & Results (bottom dock)",
+                Overview = "Integrated search query controls and tabular grid of all search hits across the entire file with line numbers, timestamps, and regex capture groups.",
                 DemoScenario = "Searching regex 'order (?<ID>\\d+) failed' finds 45 matches.\n" +
-                               "The Search Results panel lists all 45 occurrences.\n" +
+                               "The Search & Results panel lists all 45 occurrences in the grid below the query.\n" +
                                "Double-clicking row #12 jumps the main log viewer directly to that line.",
-                StepByStep = "1. Perform a search.\n" +
-                             "2. Open the Search Results dockable panel.\n" +
-                             "3. Double-click any row to jump to its location in the log.",
+                StepByStep = "1. Press Ctrl+F or click Search on the toolbar.\n" +
+                             "2. Type your query or regex and press Enter.\n" +
+                             "3. Click or double-click any result row to jump directly to its location in the log.",
                 UnderTheHood = "• SearchResultRow populates dynamic columns for named regex groups.\n" +
                                "• Double-clicking fires ScrollToLineRequested."
             },
@@ -796,7 +796,7 @@ public sealed class HelpContentService
                 Shortcut = "None",
                 UiLocation = "Drag panel headers to dock, float, or pin",
                 Overview = "Full Visual Studio / JetBrains style docking system for all panels and document tabs.",
-                DemoScenario = "Grab the 'Search Results' panel tab and drag it to the right screen edge.\n" +
+                DemoScenario = "Grab the 'Search & Results' panel tab and drag it to the right screen edge.\n" +
                                "It docks vertically beside the log viewer.\n" +
                                "Drag another tab out to float on a secondary monitor.",
                 StepByStep = "1. Click and drag any panel header.\n" +

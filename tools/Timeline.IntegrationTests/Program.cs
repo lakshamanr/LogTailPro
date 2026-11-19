@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using LogTailPro.Models;
@@ -498,6 +498,27 @@ internal static class Program
 
             chartView.Measure(new Size(1000, 300));
             chartView.Arrange(new Rect(0, 0, 1000, 300));
+
+            // 6. Verify Unified Search & Results panel rendering, execution and clearing
+            SearchPanelView searchView = new() { DataContext = mainVm };
+            searchView.Measure(new Size(800, 250));
+            searchView.Arrange(new Rect(0, 0, 800, 250));
+            chartTab.SearchText = "error";
+            chartTab.ExecuteSearchCommand.Execute(null);
+            await UntilAsync(() => chartTab.SearchResults.Count > 0, "Search results populated in unified view");
+            Check(chartTab.IsSearchPanelVisible, "Search panel should be visible after ExecuteSearch");
+            Check(chartTab.SearchResults.Count >= 2, $"Expected at least 2 search results for 'error', got {chartTab.SearchResults.Count}");
+            Check(!string.IsNullOrWhiteSpace(chartTab.SearchResultsSummary), "Search results summary should be non-empty");
+
+            // Row selection navigation
+            chartTab.SelectedSearchResult = chartTab.SearchResults[0];
+            Check(chartTab.SelectedLogLine != null, "Selecting search result row should update SelectedLogLine");
+
+            // Clear search keeps panel open but clears results and query
+            chartTab.ClearSearchCommand.Execute(null);
+            Check(chartTab.SearchResults.Count == 0, "Search results should be cleared after ClearSearch");
+            Check(string.IsNullOrEmpty(chartTab.SearchText), "SearchText should be cleared after ClearSearch");
+            Check(chartTab.MatchCount == 0, "MatchCount should be 0 after ClearSearch");
         }
         finally
         {

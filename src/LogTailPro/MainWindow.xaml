@@ -146,8 +146,7 @@
                 <Separator/>
                 <MenuItem x:Name="PanelsMenu" Header="_Panels" SubmenuOpened="PanelsMenu_SubmenuOpened">
                     <MenuItem Header="Process Explorer" Tag="process" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+P"/>
-                    <MenuItem Header="Search"           Tag="search"    IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+F"/>
-                                        <MenuItem Header="Search Results"   Tag="results"   IsCheckable="True" Click="PanelMenuItem_Click"/>
+                    <MenuItem Header="Search &amp; Results" Tag="search" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+F"/>
                     <MenuItem Header="Error Timeline Chart" Tag="chart" IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+T"/>
                     <MenuItem Header="Stats"            Tag="stats"     IsCheckable="True" Click="PanelMenuItem_Click" InputGestureText="Ctrl+Shift+S"/>
                     <MenuItem Header="Line Details"     Tag="details"   IsCheckable="True" Click="PanelMenuItem_Click"/>
@@ -379,7 +378,7 @@
 
                         <xcad:LayoutPanel Orientation="Horizontal">
                             <!-- Left: Process Explorer -->
-                            <xcad:LayoutAnchorablePane DockWidth="300">
+                            <xcad:LayoutAnchorablePane DockWidth="280">
                                 <xcad:LayoutAnchorable x:Name="ProcessPanel" ContentId="process" Title="Process Explorer" CanClose="True" CanFloat="True">
                                     <views:ProcessExplorerPanel/>
                                 </xcad:LayoutAnchorable>
@@ -388,8 +387,8 @@
                             <!-- Centre: log documents -->
                             <xcad:LayoutDocumentPane/>
 
-                            <!-- Right: details, stats, bookmarks -->
-                            <xcad:LayoutAnchorablePane DockWidth="300">
+                            <!-- Right: details, stats, bookmarks, help -->
+                            <xcad:LayoutAnchorablePane DockWidth="320">
                                 <xcad:LayoutAnchorable x:Name="DetailsPanelAnchor" ContentId="details" Title="Line Details">
                                     <views:DetailsPanel/>
                                 </xcad:LayoutAnchorable>
@@ -405,20 +404,14 @@
                             </xcad:LayoutAnchorablePane>
                         </xcad:LayoutPanel>
 
-                        <!-- Bottom: search above results, as two direct children of the root so that hidden
-                             panes collapse completely (a nested panel keeps an empty gray block) -->
-                        <xcad:LayoutAnchorablePane DockHeight="150">
-                            <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search">
+                        <!-- Bottom: Unified Search & Results, and Error Timeline Chart as direct children of the vertical panel so that hidden panes collapse completely -->
+                        <xcad:LayoutAnchorablePane DockHeight="250">
+                            <xcad:LayoutAnchorable x:Name="SearchPanelAnchor" ContentId="search" Title="Search &amp; Results" CanClose="True">
                                 <views:SearchPanelView x:Name="SearchView"/>
                             </xcad:LayoutAnchorable>
                         </xcad:LayoutAnchorablePane>
-                        <xcad:LayoutAnchorablePane DockHeight="240">
-                            <xcad:LayoutAnchorable x:Name="ResultsPanelAnchor" ContentId="results" Title="Search Results">
-                                <views:SearchResultsPanel/>
-                            </xcad:LayoutAnchorable>
-                        </xcad:LayoutAnchorablePane>
-                        <xcad:LayoutAnchorablePane DockHeight="160">
-                            <xcad:LayoutAnchorable x:Name="ChartPanelAnchor" ContentId="chart" Title="Error Timeline Chart">
+                        <xcad:LayoutAnchorablePane DockHeight="180">
+                            <xcad:LayoutAnchorable x:Name="ChartPanelAnchor" ContentId="chart" Title="Error Timeline Chart" CanClose="True">
                                 <views:ErrorTimelineChartView x:Name="ChartView"/>
                             </xcad:LayoutAnchorable>
                         </xcad:LayoutAnchorablePane>

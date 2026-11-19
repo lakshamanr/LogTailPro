@@ -1197,7 +1197,7 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     [RelayCommand] private void ShowSearch() => IsSearchPanelVisible = true;
 
     // Search bar button commands (new spec)
-    [RelayCommand] private void ExecuteSearch() => _ = ApplySearchAsync();
+    [RelayCommand] private void ExecuteSearch() { IsSearchPanelVisible = true; _ = ApplySearchAsync(); }
     [RelayCommand] private void StopSearch() => _searchCts?.Cancel();
 
     [RelayCommand]
