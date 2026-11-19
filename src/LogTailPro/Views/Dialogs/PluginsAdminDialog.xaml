@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Plugins Manager — LogTailPro"
-        Width="780" Height="480"
+        Width="860" Height="620"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BgElevated}"
         Foreground="{StaticResource TextPrimary}"
@@ -23,58 +23,88 @@
                        Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <!-- Plugins List -->
-        <Border Grid.Row="1" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
-                BorderThickness="1" CornerRadius="4">
-            <ListView x:Name="PluginsListView" ItemsSource="{Binding LoadedPlugins}" BorderThickness="0"
-                      Background="Transparent" Foreground="{StaticResource TextPrimary}">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="Status" Width="70">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Border Background="{StaticResource BadgeInfoBg}" CornerRadius="3" Padding="4,1">
-                                        <TextBlock Text="Active" Foreground="{StaticResource BadgeInfoFg}" FontSize="11" FontWeight="SemiBold"/>
-                                    </Border>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+        <!-- Plugins List + Load Log -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="140"/>
+            </Grid.RowDefinitions>
 
-                        <GridViewColumn Header="Plugin Name" Width="180">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+            <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                    BorderThickness="1" CornerRadius="4">
+                <ListView x:Name="PluginsListView" ItemsSource="{Binding LoadedPlugins}" BorderThickness="0"
+                          Background="Transparent" Foreground="{StaticResource TextPrimary}"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Status" Width="70">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource BadgeInfoBg}" CornerRadius="3" Padding="4,1">
+                                            <TextBlock Text="Active" Foreground="{StaticResource BadgeInfoFg}" FontSize="11" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
 
-                        <GridViewColumn Header="Version" Width="65">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Version}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+                            <GridViewColumn Header="Plugin Name" Width="180">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
 
-                        <GridViewColumn Header="Author" Width="120">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Author}" Foreground="{StaticResource TextSecondary}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+                            <GridViewColumn Header="Version" Width="65">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Version}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
 
-                        <GridViewColumn Header="Directory Path" Width="300">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding DirectoryPath}" ToolTip="{Binding DirectoryPath}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                    </GridView>
-                </ListView.View>
-            </ListView>
-        </Border>
+                            <GridViewColumn Header="Author" Width="120">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Author}" Foreground="{StaticResource TextSecondary}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Directory Path" Width="300">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DirectoryPath}" ToolTip="{Binding DirectoryPath}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Border>
+
+            <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderSubtle}"/>
+
+            <!-- Plugin Load Log -->
+            <Border Grid.Row="2" Background="{StaticResource BgBase}" BorderBrush="{StaticResource BorderSubtle}"
+                    BorderThickness="1" CornerRadius="4" Margin="0,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Plugin Load Log" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMuted}" Margin="8,4,0,2"/>
+                    <ListBox Grid.Row="1" x:Name="LoadLogList" ItemsSource="{Binding LoadLog}" BorderThickness="0"
+                             Background="Transparent" Foreground="{StaticResource TextPrimary}"
+                             FontFamily="{StaticResource MonoFont}" FontSize="11"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Bottom Actions -->
         <DockPanel Grid.Row="2" Margin="0,14,0,0" LastChildFill="False">

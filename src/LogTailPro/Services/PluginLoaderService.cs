@@ -19,10 +19,19 @@ public sealed partial class PluginLoaderService : ObservableObject
 {
     private IPluginHost? _host;
 
+    // ── Plugin load log (visible in Plugins Manager dialog) ──────────────────
+    public ObservableCollection<string> LoadLog { get; } = new();
+
     public List<string> CustomPluginDirectories { get; set; } = new();
 
     public ObservableCollection<PluginMenuGroup> MenuGroups { get; } = new();
     public ObservableCollection<LoadedPluginInfo> LoadedPlugins { get; } = new();
+
+    // Track all ALC instances so we can Unload() them on reload (prevents assembly leak)
+    private readonly List<PluginLoadContext> _loadedContexts = new();
+
+    // ── Plugin init timeout ──────────────────────────────────────────────────
+    private static readonly TimeSpan PluginInitTimeout = TimeSpan.FromSeconds(10);
 
     private static void RunOnUI(Action action)
     {
@@ -55,25 +64,43 @@ public sealed partial class PluginLoaderService : ObservableObject
         await _reloadLock.WaitAsync();
         try
         {
-            // 1. Shutdown existing plugins
+            LogInfo("── Plugin reload started ──────────────────────────────────────");
+
+            // 1. Shutdown existing plugins gracefully
             foreach (var p in LoadedPlugins)
             {
-                try { p.Plugin.Shutdown(); } catch { /* Ignore shutdown errors */ }
+                try
+                {
+                    p.Plugin.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    LogWarn($"Shutdown error for '{p.Name}': {ex.Message}");
+                }
             }
+
+            // 2. Unload isolated ALCs to free memory (assembly leak prevention)
+            foreach (var alc in _loadedContexts)
+            {
+                try { alc.Unload(); } catch { /* best-effort */ }
+            }
+            _loadedContexts.Clear();
+
             RunOnUI(() =>
             {
                 LoadedPlugins.Clear();
                 MenuGroups.Clear();
+                LoadLog.Clear();
+                LogInfo("── Plugin reload started ──────────────────────────────────────");
             });
 
-            // 2. Ensure default discovery directories exist
+            // 3. Ensure default discovery directories exist
             EnsureDirectory(LocalPluginsDirectory);
             EnsureDirectory(UserPluginsDirectory);
 
-            // 3. Scan directories (Priority: Custom user directories > User AppData > App Local)
+            // 4. Scan directories (Priority: Custom > User AppData > App Local)
             var candidateDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // A. Custom Directories (e.g. user added Desktop\Testing Plusing)
             foreach (var custom in CustomPluginDirectories)
             {
                 if (Directory.Exists(custom))
@@ -89,7 +116,6 @@ public sealed partial class PluginLoaderService : ObservableObject
                 }
             }
 
-            // B. User AppData (%LOCALAPPDATA%\LogTailPro\plugins)
             if (Directory.Exists(UserPluginsDirectory))
             {
                 foreach (var sub in Directory.GetDirectories(UserPluginsDirectory))
@@ -98,7 +124,6 @@ public sealed partial class PluginLoaderService : ObservableObject
                 }
             }
 
-            // C. Local App Dir (<AppDir>\plugins)
             if (Directory.Exists(LocalPluginsDirectory))
             {
                 foreach (var sub in Directory.GetDirectories(LocalPluginsDirectory))
@@ -107,7 +132,9 @@ public sealed partial class PluginLoaderService : ObservableObject
                 }
             }
 
-            // 4. Load each discovered plugin with deduplication
+            LogInfo($"Discovered {candidateDirs.Count} candidate director{(candidateDirs.Count == 1 ? "y" : "ies")}.");
+
+            // 5. Load each discovered plugin with deduplication
             var loadedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var dir in candidateDirs)
             {
@@ -117,9 +144,12 @@ public sealed partial class PluginLoaderService : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[PluginLoader] Error loading plugin from '{dir}': {ex.Message}");
+                    // Catch-all so one bad plugin never crashes the entire reload
+                    LogError($"Unexpected error loading plugin from '{Path.GetFileName(dir)}': {ex.Message}");
                 }
             }
+
+            LogInfo($"── Reload complete: {LoadedPlugins.Count} plugin(s) loaded ──────────────");
         }
         finally
         {
@@ -141,13 +171,28 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[PluginLoader] Failed to parse manifest at '{manifestPath}': {ex.Message}");
+                LogWarn($"[{Path.GetFileName(dir)}] Failed to parse plugin.json: {ex.Message}");
             }
         }
 
+        // Skip if already loaded by manifest ID
         if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Id) && loadedIds.Contains(manifest.Id))
         {
+            LogInfo($"[{manifest.Id}] Skipped (already loaded).");
             return;
+        }
+
+        // ── Version gate ─────────────────────────────────────────────────────
+        if (manifest != null && !string.IsNullOrWhiteSpace(manifest.MinLogTailProVersion))
+        {
+            if (_host != null &&
+                Version.TryParse(manifest.MinLogTailProVersion, out var required) &&
+                Version.TryParse(_host.LogTailProVersion?.Split('+')[0], out var current) &&
+                current < required)
+            {
+                LogWarn($"[{manifest.Id ?? Path.GetFileName(dir)}] Requires LogTailPro >= {manifest.MinLogTailProVersion} (current: {_host.LogTailProVersion}). Skipped.");
+                return;
+            }
         }
 
         // Find assembly file
@@ -169,30 +214,48 @@ public sealed partial class PluginLoaderService : ObservableObject
                     {
                         pluginType = asm.GetType(manifest.EntryClass);
                     }
-                    pluginType ??= FindPluginType(asm);
+                    pluginType ??= FindPluginType(asm, dir);
+                }
+                catch (BadImageFormatException ex)
+                {
+                    LogError($"[{Path.GetFileName(dir)}] Not a valid .NET assembly '{manifest.EntryAssembly}': {ex.Message}");
+                    return;
+                }
+                catch (FileNotFoundException ex)
+                {
+                    LogError($"[{Path.GetFileName(dir)}] Missing dependency for '{manifest.EntryAssembly}': {ex.Message}");
+                    return;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[PluginLoader] Failed loading entry assembly '{assemblyPath}': {ex.Message}");
+                    LogError($"[{Path.GetFileName(dir)}] Failed loading entry assembly '{manifest.EntryAssembly}': {ex.Message}");
+                    return;
                 }
+            }
+            else
+            {
+                LogError($"[{Path.GetFileName(dir)}] Entry assembly '{manifest.EntryAssembly}' not found in directory.");
+                return;
             }
         }
         else
         {
-            // Auto-detect DLL with plugin implementation
-            // Exclude contract DLL and probe candidate DLLs
+            // Auto-detect: probe each DLL, skip contract, prefer *Extension.dll / *Plugin.dll
             var dlls = Directory.GetFiles(dir, "*.dll")
                 .Where(f => !Path.GetFileName(f).Equals("LogTailPro.PluginContract.dll", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(f => f.EndsWith("Extension.dll", StringComparison.OrdinalIgnoreCase) || f.EndsWith("Plugin.dll", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f =>
+                    f.EndsWith("Extension.dll", StringComparison.OrdinalIgnoreCase) ||
+                    f.EndsWith("Plugin.dll", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             foreach (var dll in dlls)
             {
+                PluginLoadContext? probeAlc = null;
                 try
                 {
-                    var probeAlc = new PluginLoadContext(dll);
+                    probeAlc = new PluginLoadContext(dll);
                     var probeAsm = probeAlc.LoadFromAssemblyPath(dll);
-                    var detectedType = FindPluginType(probeAsm);
+                    var detectedType = FindPluginType(probeAsm, dir);
                     if (detectedType != null)
                     {
                         assemblyPath = dll;
@@ -201,26 +264,77 @@ public sealed partial class PluginLoaderService : ObservableObject
                         pluginType = detectedType;
                         break;
                     }
+                    else
+                    {
+                        // Not a plugin DLL — unload its ALC immediately
+                        try { probeAlc.Unload(); } catch { }
+                    }
+                }
+                catch (BadImageFormatException)
+                {
+                    LogWarn($"[{Path.GetFileName(dir)}] Skipped '{Path.GetFileName(dll)}' (not a .NET assembly).");
+                    try { probeAlc?.Unload(); } catch { }
+                }
+                catch (FileNotFoundException ex)
+                {
+                    LogWarn($"[{Path.GetFileName(dir)}] Skipped '{Path.GetFileName(dll)}' (missing dependency: {ex.FileName}).");
+                    try { probeAlc?.Unload(); } catch { }
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    var loaderMsgs = ex.LoaderExceptions?
+                        .Where(e => e != null)
+                        .Select(e => e!.Message)
+                        .Distinct()
+                        .Take(3);
+                    LogWarn($"[{Path.GetFileName(dir)}] Skipped '{Path.GetFileName(dll)}': {string.Join("; ", loaderMsgs ?? Enumerable.Empty<string>())}");
+                    try { probeAlc?.Unload(); } catch { }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[PluginLoader] Probing '{Path.GetFileName(dll)}' skipped: {ex.Message}");
+                    LogWarn($"[{Path.GetFileName(dir)}] Probing '{Path.GetFileName(dll)}' skipped: {ex.Message}");
+                    try { probeAlc?.Unload(); } catch { }
                 }
             }
         }
 
         if (string.IsNullOrEmpty(assemblyPath) || asm == null || pluginType == null)
         {
+            if (Directory.GetFiles(dir, "*.dll").Length > 0)
+            {
+                LogWarn($"[{Path.GetFileName(dir)}] No ILogTailPlugin implementation found.");
+            }
             return;
         }
 
-        if (Activator.CreateInstance(pluginType) is not ILogTailPlugin plugin)
+        // Track ALC for unload on next reload
+        if (alc != null)
         {
+            _loadedContexts.Add(alc);
+        }
+
+        // Instantiate
+        ILogTailPlugin plugin;
+        try
+        {
+            var instance = Activator.CreateInstance(pluginType);
+            if (instance is not ILogTailPlugin p)
+            {
+                LogError($"[{Path.GetFileName(dir)}] Created instance does not implement ILogTailPlugin.");
+                return;
+            }
+            plugin = p;
+        }
+        catch (Exception ex)
+        {
+            LogError($"[{Path.GetFileName(dir)}] Activator.CreateInstance failed: {ex.InnerException?.Message ?? ex.Message}");
             return;
         }
 
+        // Dedup by plugin runtime ID
         if (loadedIds.Contains(plugin.PluginId))
         {
+            LogInfo($"[{plugin.PluginId}] Skipped (duplicate plugin ID).");
             return;
         }
         loadedIds.Add(plugin.PluginId);
@@ -246,9 +360,28 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
         };
 
+        // ── InitializeAsync with timeout ─────────────────────────────────────
         if (_host != null)
         {
-            await plugin.InitializeAsync(_host);
+            using var cts = new CancellationTokenSource(PluginInitTimeout);
+            try
+            {
+                await plugin.InitializeAsync(_host).WaitAsync(cts.Token);
+                LogInfo($"[{plugin.PluginId}] Initialized successfully (v{plugin.Version}).");
+            }
+            catch (OperationCanceledException)
+            {
+                LogError($"[{plugin.PluginId}] InitializeAsync timed out after {PluginInitTimeout.TotalSeconds}s. Plugin skipped.");
+                try { plugin.Shutdown(); } catch { }
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Plugin init failed — log and skip; don't crash the reload
+                LogError($"[{plugin.PluginId}] InitializeAsync threw: {ex.Message}");
+                try { plugin.Shutdown(); } catch { }
+                return;
+            }
         }
 
         var pluginInfo = new LoadedPluginInfo(plugin, manifest, dir, asm);
@@ -312,10 +445,14 @@ public sealed partial class PluginLoaderService : ObservableObject
 
     public void ExecutePluginCommand(string pluginId, string commandId)
     {
-        var pluginInfo = LoadedPlugins.FirstOrDefault(p => 
+        var pluginInfo = LoadedPlugins.FirstOrDefault(p =>
             p.Plugin.PluginId.Equals(pluginId, StringComparison.OrdinalIgnoreCase));
 
-        if (pluginInfo == null) return;
+        if (pluginInfo == null)
+        {
+            LogWarn($"ExecutePluginCommand: plugin '{pluginId}' not found.");
+            return;
+        }
 
         var context = _host?.GetActiveContext() ?? new PluginLogContext(null);
         try
@@ -339,8 +476,9 @@ public sealed partial class PluginLoaderService : ObservableObject
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[PluginLoader] Error executing '{commandId}' on plugin '{pluginId}': {ex.Message}");
-            _host?.SetStatusMessage($"Plugin Error ({pluginInfo.Plugin.PluginName}): {ex.Message}");
+            var msg = $"Plugin Error ({pluginInfo.Plugin.PluginName} / {commandId}): {ex.Message}";
+            LogError(msg);
+            _host?.SetStatusMessage(msg);
         }
     }
 
@@ -359,8 +497,8 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
             else if (mainWin.WindowState == System.Windows.WindowState.Normal)
             {
-                double targetWidth = Math.Max(win.MinWidth, mainWin.ActualWidth > 0 ? mainWin.ActualWidth : mainWin.Width);
-                double targetHeight = Math.Max(win.MinHeight, mainWin.ActualHeight > 0 ? mainWin.ActualHeight : mainWin.Height);
+                double targetWidth = Math.Max(win.MinWidth > 0 ? win.MinWidth : 800, mainWin.ActualWidth > 0 ? mainWin.ActualWidth : mainWin.Width);
+                double targetHeight = Math.Max(win.MinHeight > 0 ? win.MinHeight : 600, mainWin.ActualHeight > 0 ? mainWin.ActualHeight : mainWin.Height);
 
                 win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
                 win.Left = mainWin.Left;
@@ -381,7 +519,7 @@ public sealed partial class PluginLoaderService : ObservableObject
         EnsureDirectory(path);
         try
         {
-            Process.Start(new ProcessStartInfo
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = path,
                 UseShellExecute = true
@@ -389,11 +527,12 @@ public sealed partial class PluginLoaderService : ObservableObject
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[PluginLoader] Could not open plugins folder: {ex.Message}");
+            LogWarn($"Could not open plugins folder: {ex.Message}");
         }
     }
 
-    private static Type? FindPluginType(Assembly asm)
+    // ── FindPluginType: narrow exceptions so legit errors are surfaced ────────
+    private Type? FindPluginType(Assembly asm, string sourceDir)
     {
         try
         {
@@ -407,11 +546,22 @@ public sealed partial class PluginLoaderService : ObservableObject
                 types = ex.Types.Where(t => t != null).ToArray()!;
             }
 
-            return types.FirstOrDefault(t => 
+            return types.FirstOrDefault(t =>
                 typeof(ILogTailPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
         }
-        catch
+        catch (FileNotFoundException ex)
         {
+            LogWarn($"[{Path.GetFileName(sourceDir)}] Missing dependency: {ex.FileName}");
+            return null;
+        }
+        catch (BadImageFormatException ex)
+        {
+            LogWarn($"[{Path.GetFileName(sourceDir)}] Bad image format: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogWarn($"[{Path.GetFileName(sourceDir)}] GetTypes() error: {ex.Message}");
             return null;
         }
     }
@@ -426,6 +576,25 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
         }
         catch { /* Ignore creation errors */ }
+    }
+
+    // ── Internal logging helpers ─────────────────────────────────────────────
+    private void LogInfo(string message)
+    {
+        Debug.WriteLine($"[PluginLoader] {message}");
+        RunOnUI(() => LoadLog.Add($"[INFO]  {message}"));
+    }
+
+    private void LogWarn(string message)
+    {
+        Debug.WriteLine($"[PluginLoader][WARN] {message}");
+        RunOnUI(() => LoadLog.Add($"[WARN]  {message}"));
+    }
+
+    private void LogError(string message)
+    {
+        Debug.WriteLine($"[PluginLoader][ERROR] {message}");
+        RunOnUI(() => LoadLog.Add($"[ERROR] {message}"));
     }
 }
 
@@ -469,6 +638,7 @@ public class PluginMenuCommandViewModel
 
 /// <summary>
 /// Isolated AssemblyLoadContext for loading plugin assemblies and their dependencies.
+/// isCollectible=true so the ALC and all loaded assemblies can be GC'd after Unload().
 /// </summary>
 internal sealed class PluginLoadContext : AssemblyLoadContext
 {
@@ -481,7 +651,7 @@ internal sealed class PluginLoadContext : AssemblyLoadContext
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
-        // Prefer host's PluginContract assembly so interface types match identically
+        // Prefer host's PluginContract so interface types match identically
         if (assemblyName.Name == "LogTailPro.PluginContract")
         {
             return typeof(ILogTailPlugin).Assembly;

@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Specialized;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using LogTailPro.Services;
 using LogTailPro.ViewModels;
 using Microsoft.Win32;
 
@@ -15,7 +18,20 @@ public partial class PluginsAdminDialog : Window
         InitializeComponent();
         _mainViewModel = mainViewModel;
         DataContext = _mainViewModel.PluginLoaderService;
+
+        // Auto-scroll load log to bottom when new entries arrive
+        _mainViewModel.PluginLoaderService.LoadLog.CollectionChanged += LoadLog_CollectionChanged;
+        Closed += (_, _) => _mainViewModel.PluginLoaderService.LoadLog.CollectionChanged -= LoadLog_CollectionChanged;
     }
+
+    private void LoadLog_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Add && LoadLogList.Items.Count > 0)
+        {
+            LoadLogList.ScrollIntoView(LoadLogList.Items[^1]);
+        }
+    }
+
 
     private async void AddFolder_Click(object sender, RoutedEventArgs e)
     {
