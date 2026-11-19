@@ -523,7 +523,7 @@ internal static class Program
             // 7. Verify Notepad++ Style Plugin System
             var pluginLoader = mainVm.PluginLoaderService;
             Check(pluginLoader != null, "PluginLoaderService should not be null");
-            await pluginLoader.ReloadPluginsAsync();
+            await pluginLoader!.ReloadPluginsAsync();
             Check(Directory.Exists(LogTailPro.Services.PluginLoaderService.LocalPluginsDirectory), "Local plugins directory should exist");
 
             if (pluginLoader.LoadedPlugins.Any(p => p.Plugin.PluginId == "com.logtailpro.streamserver.dataflow"))
@@ -535,7 +535,7 @@ internal static class Program
                 mainVm.SelectedTab = chartTab;
                 var ctx = mainVm.PluginHost.GetActiveContext();
                 Check(ctx != null, "PluginLogContext should not be null");
-                Check(ctx.FilePath == chartFile, "PluginLogContext FilePath mismatch");
+                Check(ctx!.FilePath == chartLog, "PluginLogContext FilePath mismatch");
                 Check(ctx.TabTitle == chartTab.DisplayName, "PluginLogContext TabTitle mismatch");
             }
         }
