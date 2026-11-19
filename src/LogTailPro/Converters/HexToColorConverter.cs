@@ -17,6 +17,10 @@ public sealed class HexToColorConverter : IValueConverter
     {
         if (value is string hex && !string.IsNullOrWhiteSpace(hex))
         {
+            hex = hex.Trim();
+            if (!hex.StartsWith('#') && (hex.Length == 6 || hex.Length == 8))
+                hex = "#" + hex;
+
             if (BrushCache.TryGetValue(hex, out SolidColorBrush? cached))
                 return cached;
 

@@ -23,12 +23,16 @@ public sealed class HighlightColorConverter : IValueConverter
         if (value is not HighlightRule rule)
             return System.Windows.DependencyProperty.UnsetValue;
 
-        string colorHex = parameter is string p && p == "Foreground"
+        string? colorHex = parameter is string p && p == "Foreground"
             ? rule.ForegroundColor
             : rule.BackgroundColor;
 
-        if (string.IsNullOrEmpty(colorHex))
+        if (string.IsNullOrWhiteSpace(colorHex))
             return System.Windows.DependencyProperty.UnsetValue;
+
+        colorHex = colorHex.Trim();
+        if (!colorHex.StartsWith('#') && (colorHex.Length == 6 || colorHex.Length == 8))
+            colorHex = "#" + colorHex;
 
         if (BrushCache.TryGetValue(colorHex, out Brush? cached))
             return cached;

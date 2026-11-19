@@ -25,5 +25,8 @@
     <Compile Include="../../src/LogTailPro/Services/MultilineGroupingService.cs" Link="MultilineGroupingService.cs"/>
     <Compile Include="../../src/LogTailPro/Models/TimeBucket.cs" Link="TimeBucket.cs"/>
     <Compile Include="../../src/LogTailPro/Services/ErrorTimelineChartService.cs" Link="ErrorTimelineChartService.cs"/>
+    <Compile Include="../../src/LogTailPro/Models/FilterRule.cs" Link="FilterRule.cs"/>
+    <Compile Include="../../src/LogTailPro/Services/SearchService.cs" Link="SearchService.cs"/>
+    <Compile Include="../../src/LogTailPro/Services/HighlightService.cs" Link="HighlightService.cs"/>
   </ItemGroup>
 </Project>

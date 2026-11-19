@@ -6,8 +6,12 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     private static readonly System.ComponentModel.PropertyChangedEventArgs IsBookmarkedArgs = new(nameof(IsBookmarked));
     private static readonly System.ComponentModel.PropertyChangedEventArgs IsExpandedArgs = new(nameof(IsExpanded));
     private static readonly System.ComponentModel.PropertyChangedEventArgs ExpanderGlyphArgs = new(nameof(ExpanderGlyph));
+    private static readonly System.ComponentModel.PropertyChangedEventArgs MatchedRuleArgs = new(nameof(MatchedRule));
+    private static readonly System.ComponentModel.PropertyChangedEventArgs IsSearchMatchArgs = new(nameof(IsSearchMatch));
 
     private bool _isBookmarked;
+    private HighlightRule? _matchedRule;
+    private bool _isSearchMatch;
 
     /// <inheritdoc/>
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
@@ -25,10 +29,36 @@ public sealed class LogLine : System.ComponentModel.INotifyPropertyChanged
     public bool IsVisible { get; set; } = true;
 
     /// <summary>The first highlight rule that matched this line, or null.</summary>
-    public HighlightRule? MatchedRule { get; set; }
+    public HighlightRule? MatchedRule
+    {
+        get => _matchedRule;
+        set
+        {
+            if (!ReferenceEquals(_matchedRule, value))
+            {
+                _matchedRule = value;
+                PropertyChanged?.Invoke(this, MatchedRuleArgs);
+            }
+        }
+    }
+
+    /// <summary>Forces a property changed notification for <see cref="MatchedRule"/> to re-evaluate UI bindings.</summary>
+    public void NotifyMatchedRuleChanged()
+    {
+        PropertyChanged?.Invoke(this, MatchedRuleArgs);
+    }
 
     /// <summary>True when this line matches the active search pattern (used for visual highlighting).</summary>
-    public bool IsSearchMatch { get; set; }
+    public bool IsSearchMatch
+    {
+        get => _isSearchMatch;
+        set
+        {
+            if (_isSearchMatch == value) return;
+            _isSearchMatch = value;
+            PropertyChanged?.Invoke(this, IsSearchMatchArgs);
+        }
+    }
 
     /// <summary>Timestamp parsed from the line text, or null if no recognizable format found.</summary>
     public DateTime? Timestamp { get; set; }

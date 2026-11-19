@@ -646,20 +646,26 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
         _isFollowTail = false;
         FileStatus = FileStatus.Paused;
 
+        _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
+
         long num = 1;
         foreach (LogLine line in preloadedLines)
         {
+            string lineText = line.SourceFileName != null
+                ? $"[{line.SourceFileName}] {line.Text}"
+                : line.Text;
             LogLine copy = new()
             {
                 LineNumber = num++,
-                Text = line.SourceFileName != null
-                    ? $"[{line.SourceFileName}] {line.Text}"
-                    : line.Text,
+                Text = lineText,
                 Timestamp = line.Timestamp,
                 TimelineTimestamp = line.TimelineTimestamp,
                 StructuredEvent = line.StructuredEvent,
                 ElapsedSincePrevious = line.ElapsedSincePrevious,
-                ByteOffset = line.ByteOffset
+                ByteOffset = line.ByteOffset,
+                MatchedRule = IsHighlightingEnabled
+                    ? _highlightService.GetMatchingRule(lineText, _compiledHighlightRules)
+                    : null
             };
             if (copy.HasStructuredEvent) HasStructuredLogs = true;
             _allLines.Add(copy);
@@ -668,7 +674,6 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
 
         _nextLineNumber = num;
         TotalLineCount = preloadedLines.Count;
-        _compiledHighlightRules = _highlightService.CompileRules(settings.HighlightRules);
         IsLoaded = true;
         InitChart();
         UpdateStatsAll();
@@ -1541,8 +1546,12 @@ public sealed partial class LogTabViewModel : ObservableObject, IDisposable
     {
         _compiledHighlightRules = _highlightService.CompileRules(_settings.HighlightRules);
 
+        bool enabled = IsHighlightingEnabled;
         foreach (LogLine line in _allLines)
-            line.MatchedRule = _highlightService.GetMatchingRule(line.Text, _compiledHighlightRules);
+        {
+            line.MatchedRule = enabled ? _highlightService.GetMatchingRule(line.Text, _compiledHighlightRules) : null;
+            line.NotifyMatchedRuleChanged();
+        }
 
         Application.Current.Dispatcher.Invoke(() =>
         {

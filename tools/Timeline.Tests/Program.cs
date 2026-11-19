@@ -529,4 +529,47 @@ try
 }
 catch (OperationCanceledException) { }
 
-Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, Saved Workspaces, Multiline Exception Grouping, and Error Timeline Chart.");
+// 7. Highlight Rules Verification
+HighlightService highlightService = new();
+List<HighlightRule> defaultRules =
+[
+    new HighlightRule { Pattern = @"\b(ERROR|FATAL|CRITICAL)\b", IsRegex = true, Priority = 0, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
+    new HighlightRule { Pattern = @"\bEXCEPTION\b",              IsRegex = true, Priority = 1, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
+    new HighlightRule { Pattern = @"\bWARN(ING)?\b",             IsRegex = true, Priority = 2, ForegroundColor = "#92400E", BackgroundColor = "#FEF3C7" },
+    new HighlightRule { Pattern = @"\bINFO\b",                   IsRegex = true, Priority = 3, ForegroundColor = "#166534", BackgroundColor = "#00FFFFFF" },
+    new HighlightRule { Pattern = @"\bDEBUG\b",                  IsRegex = true, Priority = 4, ForegroundColor = "#6B7280", BackgroundColor = "#00FFFFFF" },
+];
+var compiledHighlightRules = highlightService.CompileRules(defaultRules);
+Check(compiledHighlightRules.Count == 5, $"Expected 5 default highlight rules, got {compiledHighlightRules.Count}");
+
+// Verify standard formats: bracketed, colon, plain, and JSON
+HighlightRule? errBracketMatch = highlightService.GetMatchingRule("2026-11-19 12:00:00 [ERROR] Database lost", compiledHighlightRules);
+Check(errBracketMatch != null && errBracketMatch.Priority == 0, "[ERROR] failed to match error highlight rule");
+
+HighlightRule? errColonMatch = highlightService.GetMatchingRule("2026-11-19 12:00:00 ERROR: Connection timed out", compiledHighlightRules);
+Check(errColonMatch != null && errColonMatch.Priority == 0, "ERROR: failed to match error highlight rule");
+
+HighlightRule? warnMatch = highlightService.GetMatchingRule("2026-11-19 12:00:00 [WARN] Disk 90% full", compiledHighlightRules);
+Check(warnMatch != null && warnMatch.Priority == 2, "[WARN] failed to match warning highlight rule");
+
+HighlightRule? infoMatch = highlightService.GetMatchingRule("2026-11-19 12:00:00 [INFO] Worker started", compiledHighlightRules);
+Check(infoMatch != null && infoMatch.Priority == 3, "[INFO] failed to match info highlight rule");
+
+HighlightRule? jsonErrMatch = highlightService.GetMatchingRule("{\"@t\":\"2026-11-19T12:00:00Z\",\"@l\":\"Error\",\"@m\":\"Failed\"}", compiledHighlightRules);
+Check(jsonErrMatch != null && jsonErrMatch.Priority == 0, "JSON Error failed to match error highlight rule");
+
+// Verify LogLine property changed notification
+LogLine testLine = Line(1, "Test Line");
+bool matchedRuleNotified = false;
+testLine.PropertyChanged += (s, e) =>
+{
+    if (e.PropertyName == nameof(LogLine.MatchedRule)) matchedRuleNotified = true;
+};
+testLine.MatchedRule = errBracketMatch;
+Check(matchedRuleNotified, "LogLine.MatchedRule did not raise PropertyChanged");
+
+matchedRuleNotified = false;
+testLine.NotifyMatchedRuleChanged();
+Check(matchedRuleNotified, "LogLine.NotifyMatchedRuleChanged did not raise PropertyChanged");
+
+Console.WriteLine("All service checks passed: Combined Timeline, Structured JSON, Request/Trace ID Correlation, Saved Workspaces, Multiline Exception Grouping, Error Timeline Chart, and Highlight Rules.");

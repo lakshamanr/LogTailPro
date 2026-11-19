@@ -41,28 +41,35 @@ public sealed class SettingsService
         if (settings.HighlightRules.Count == 0)
             settings.HighlightRules = CreateDefaultRules();
         else
-            MigrateLegacyDefaultColors(settings);
+            MigrateLegacyDefaultRules(settings);
 
         return settings;
     }
 
     private static List<HighlightRule> CreateDefaultRules() =>
     [
-        new HighlightRule { Pattern = @"ERROR",      IsRegex = true, Priority = 0, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
-        new HighlightRule { Pattern = @"EXCEPTION",  IsRegex = true, Priority = 1, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
-        new HighlightRule { Pattern = @"WARN(ING)?", IsRegex = true, Priority = 2, ForegroundColor = "#92400E", BackgroundColor = "#FEF3C7" },
-        new HighlightRule { Pattern = @"INFO",       IsRegex = true, Priority = 3, ForegroundColor = "#166534", BackgroundColor = "#00FFFFFF" },
-        new HighlightRule { Pattern = @"DEBUG",      IsRegex = true, Priority = 4, ForegroundColor = "#6B7280", BackgroundColor = "#00FFFFFF" },
+        new HighlightRule { Pattern = @"\b(ERROR|FATAL|CRITICAL)\b", IsRegex = true, Priority = 0, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
+        new HighlightRule { Pattern = @"\bEXCEPTION\b",              IsRegex = true, Priority = 1, ForegroundColor = "#991B1B", BackgroundColor = "#FEE2E2" },
+        new HighlightRule { Pattern = @"\bWARN(ING)?\b",             IsRegex = true, Priority = 2, ForegroundColor = "#92400E", BackgroundColor = "#FEF3C7" },
+        new HighlightRule { Pattern = @"\bINFO\b",                   IsRegex = true, Priority = 3, ForegroundColor = "#166534", BackgroundColor = "#00FFFFFF" },
+        new HighlightRule { Pattern = @"\bDEBUG\b",                  IsRegex = true, Priority = 4, ForegroundColor = "#6B7280", BackgroundColor = "#00FFFFFF" },
     ];
 
     /// <summary>
-    /// Upgrades the untouched colours of the old dark-theme default rules to the soft-light palette.
-    /// Rules the user has customised (any other colour combination) are left alone.
+    /// Upgrades legacy space-padded patterns and legacy dark-theme default colors.
+    /// Rules the user has customised are preserved.
     /// </summary>
-    private static void MigrateLegacyDefaultColors(AppSettings settings)
+    private static void MigrateLegacyDefaultRules(AppSettings settings)
     {
         foreach (HighlightRule r in settings.HighlightRules)
         {
+            // Upgrade space-padded patterns that failed on standard log formats ([ERROR], ERROR:, {"@l":"Error"})
+            if (r.Pattern == @" ERROR ")      r.Pattern = @"\b(ERROR|FATAL|CRITICAL)\b";
+            if (r.Pattern == @" EXCEPTION ")  r.Pattern = @"\bEXCEPTION\b";
+            if (r.Pattern == @" WARN(ING)? ") r.Pattern = @"\bWARN(ING)?\b";
+            if (r.Pattern == @" INFO ")       r.Pattern = @"\bINFO\b";
+            if (r.Pattern == @" DEBUG ")      r.Pattern = @"\bDEBUG\b";
+
             string fg = r.ForegroundColor.ToUpperInvariant();
             string bg = r.BackgroundColor.ToUpperInvariant();
             (string Fg, string Bg)? upgraded = (fg, bg) switch
