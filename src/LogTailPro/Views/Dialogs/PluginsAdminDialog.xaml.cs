@@ -19,39 +19,77 @@ public partial class PluginsAdminDialog : Window
 
     private async void AddFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog
+        try
         {
-            Title = "Select Plugin Directory (containing plugin.json or plugin .dll)"
-        };
-
-        if (dialog.ShowDialog(this) == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
-        {
-            string folder = dialog.FolderName;
-            if (!_mainViewModel.Settings.CustomPluginDirectories.Contains(folder, StringComparer.OrdinalIgnoreCase))
+            var dialog = new OpenFolderDialog
             {
-                _mainViewModel.Settings.CustomPluginDirectories.Add(folder);
-                _mainViewModel.SaveSettings();
+                Title = "Select Plugin Directory (containing plugin.json or plugin .dll)"
+            };
+
+            if (dialog.ShowDialog(this) == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
+            {
+                string folder = dialog.FolderName;
+                if (!_mainViewModel.Settings.CustomPluginDirectories.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                {
+                    _mainViewModel.Settings.CustomPluginDirectories.Add(folder);
+                    _mainViewModel.SaveSettings();
+                }
+
+                _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
+                await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
+
+                MessageBox.Show(
+                    $"Added plugin folder:\n{folder}\n\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",
+                    "Plugin Folder Added",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
-
-            _mainViewModel.PluginLoaderService.CustomPluginDirectories = _mainViewModel.Settings.CustomPluginDirectories;
-            await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
-
+        }
+        catch (Exception ex)
+        {
             MessageBox.Show(
-                $"Added plugin folder:\n{folder}\n\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",
-                "Plugin Folder Added",
+                $"Could not add plugin directory: {ex.Message}",
+                "Plugins Error",
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                MessageBoxImage.Error);
         }
     }
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        _mainViewModel.PluginLoaderService.OpenPluginsFolder();
+        try
+        {
+            _mainViewModel.PluginLoaderService.OpenPluginsFolder();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not open plugins folder: {ex.Message}",
+                "Plugins Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void Reload_Click(object sender, RoutedEventArgs e)
     {
-        await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
+        try
+        {
+            await _mainViewModel.PluginLoaderService.ReloadPluginsAsync();
+            MessageBox.Show(
+                $"Reload complete.\nTotal loaded plugins: {_mainViewModel.PluginLoaderService.LoadedPlugins.Count}",
+                "Plugins Reloaded",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not reload plugins: {ex.Message}",
+                "Plugins Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

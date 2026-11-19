@@ -169,11 +169,19 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenPluginsAdmin()
     {
-        var dialog = new Views.Dialogs.PluginsAdminDialog(this)
+        try
         {
-            Owner = Application.Current.MainWindow
-        };
-        dialog.ShowDialog();
+            var dialog = new Views.Dialogs.PluginsAdminDialog(this)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PluginsManager] Error opening Plugins Manager: {ex}");
+            MessageBox.Show($"Could not open Plugins Manager:\n{ex.Message}", "Plugins Manager Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]

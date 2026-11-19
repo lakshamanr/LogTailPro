@@ -17,12 +17,23 @@ namespace LogTailPro.Services;
 public sealed partial class PluginLoaderService : ObservableObject
 {
     private IPluginHost? _host;
-    private readonly List<LoadedPluginInfo> _loadedPlugins = new();
 
     public List<string> CustomPluginDirectories { get; set; } = new();
 
     public ObservableCollection<PluginMenuGroup> MenuGroups { get; } = new();
-    public IReadOnlyList<LoadedPluginInfo> LoadedPlugins => _loadedPlugins;
+    public ObservableCollection<LoadedPluginInfo> LoadedPlugins { get; } = new();
+
+    private static void RunOnUI(Action action)
+    {
+        if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(action);
+        }
+        else
+        {
+            action();
+        }
+    }
 
     public static string LocalPluginsDirectory =>
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins");
@@ -39,12 +50,15 @@ public sealed partial class PluginLoaderService : ObservableObject
     public async Task ReloadPluginsAsync()
     {
         // 1. Shutdown existing plugins
-        foreach (var p in _loadedPlugins)
+        foreach (var p in LoadedPlugins)
         {
             try { p.Plugin.Shutdown(); } catch { /* Ignore shutdown errors */ }
         }
-        _loadedPlugins.Clear();
-        MenuGroups.Clear();
+        RunOnUI(() =>
+        {
+            LoadedPlugins.Clear();
+            MenuGroups.Clear();
+        });
 
         // 2. Ensure default discovery directories exist
         EnsureDirectory(LocalPluginsDirectory);
@@ -202,7 +216,6 @@ public sealed partial class PluginLoaderService : ObservableObject
         }
 
         var pluginInfo = new LoadedPluginInfo(plugin, manifest, dir, asm);
-        _loadedPlugins.Add(pluginInfo);
 
         // Build Menu Group
         var group = new PluginMenuGroup
@@ -227,36 +240,43 @@ public sealed partial class PluginLoaderService : ObservableObject
             }
         }
 
-        MenuGroups.Add(group);
+        RunOnUI(() =>
+        {
+            LoadedPlugins.Add(pluginInfo);
+            MenuGroups.Add(group);
+        });
     }
 
     public void RegisterDynamicMenuItem(string pluginId, PluginMenuItem item)
     {
-        var group = MenuGroups.FirstOrDefault(g => g.PluginId.Equals(pluginId, StringComparison.OrdinalIgnoreCase));
-        if (group == null)
+        RunOnUI(() =>
         {
-            group = new PluginMenuGroup
+            var group = MenuGroups.FirstOrDefault(g => g.PluginId.Equals(pluginId, StringComparison.OrdinalIgnoreCase));
+            if (group == null)
+            {
+                group = new PluginMenuGroup
+                {
+                    PluginId = pluginId,
+                    Header = pluginId
+                };
+                MenuGroups.Add(group);
+            }
+
+            group.Items.Add(new PluginMenuCommandViewModel
             {
                 PluginId = pluginId,
-                Header = pluginId
-            };
-            MenuGroups.Add(group);
-        }
-
-        group.Items.Add(new PluginMenuCommandViewModel
-        {
-            PluginId = pluginId,
-            CommandId = item.Id,
-            Header = item.Header,
-            Shortcut = item.Shortcut,
-            SeparatorBefore = item.SeparatorBefore,
-            Command = new RelayCommand(() => ExecutePluginCommand(pluginId, item.Id))
+                CommandId = item.Id,
+                Header = item.Header,
+                Shortcut = item.Shortcut,
+                SeparatorBefore = item.SeparatorBefore,
+                Command = new RelayCommand(() => ExecutePluginCommand(pluginId, item.Id))
+            });
         });
     }
 
     public void ExecutePluginCommand(string pluginId, string commandId)
     {
-        var pluginInfo = _loadedPlugins.FirstOrDefault(p => 
+        var pluginInfo = LoadedPlugins.FirstOrDefault(p => 
             p.Plugin.PluginId.Equals(pluginId, StringComparison.OrdinalIgnoreCase));
 
         if (pluginInfo == null) return;
@@ -310,6 +330,11 @@ public class LoadedPluginInfo
     public PluginManifest Manifest { get; }
     public string DirectoryPath { get; }
     public Assembly Assembly { get; }
+
+    public string Name => !string.IsNullOrWhiteSpace(Manifest?.Name) ? Manifest.Name : (Plugin?.PluginName ?? "(Unnamed Plugin)");
+    public string Version => !string.IsNullOrWhiteSpace(Manifest?.Version) ? Manifest.Version : (Plugin?.Version ?? "1.0.0");
+    public string Author => !string.IsNullOrWhiteSpace(Manifest?.Author) ? Manifest.Author : "Unknown";
+    public string Description => Manifest?.Description ?? string.Empty;
 
     public LoadedPluginInfo(ILogTailPlugin plugin, PluginManifest manifest, string directoryPath, Assembly assembly)
     {

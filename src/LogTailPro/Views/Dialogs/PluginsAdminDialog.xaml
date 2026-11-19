@@ -23,7 +23,7 @@
                        Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <!-- Plugins DataGrid -->
+        <!-- Plugins List -->
         <Border Grid.Row="1" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
                 BorderThickness="1" CornerRadius="4">
             <ListView x:Name="PluginsListView" ItemsSource="{Binding LoadedPlugins}" BorderThickness="0"
@@ -43,7 +43,7 @@
                         <GridViewColumn Header="Plugin Name" Width="180">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Plugin.PluginName}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -51,7 +51,7 @@
                         <GridViewColumn Header="Version" Width="65">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Plugin.Version}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                    <TextBlock Text="{Binding Version}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -59,7 +59,7 @@
                         <GridViewColumn Header="Author" Width="120">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Manifest.Author}" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock Text="{Binding Author}" Foreground="{StaticResource TextSecondary}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -78,11 +78,11 @@
 
         <!-- Bottom Actions -->
         <DockPanel Grid.Row="2" Margin="0,14,0,0" LastChildFill="False">
-            <Button Content="Add Plugin / Folder…" Click="AddFolder_Click" Style="{StaticResource StandardButton}" Padding="12,6" Margin="0,0,8,0"/>
-            <Button Content="Open Plugins Folder" Click="OpenFolder_Click" Style="{StaticResource StandardButton}" Padding="12,6" Margin="0,0,8,0"/>
-            <Button Content="Reload All" Click="Reload_Click" Style="{StaticResource StandardButton}" Padding="12,6"/>
+            <Button Content="Add Plugin / Folder…" Click="AddFolder_Click" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0"/>
+            <Button Content="Open Plugins Folder" Click="OpenFolder_Click" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0"/>
+            <Button Content="Reload All" Click="Reload_Click" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
 
-            <Button DockPanel.Dock="Right" Content="Close" Click="Close_Click" Style="{StaticResource AccentButton}" Padding="18,6"/>
+            <Button DockPanel.Dock="Right" Content="Close" Click="Close_Click" Style="{StaticResource PrimaryButton}" Padding="18,6"/>
         </DockPanel>
     </Grid>
 </Window>

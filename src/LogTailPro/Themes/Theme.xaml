@@ -479,6 +479,11 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Backward-compatible Button Aliases -->
+    <Style x:Key="StandardButton"   TargetType="Button"       BasedOn="{StaticResource SecondaryButton}"/>
+    <Style x:Key="AccentButton"     TargetType="Button"       BasedOn="{StaticResource PrimaryButton}"/>
+
     <Style x:Key="StatusBarToggle"  TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"/>
     <Style x:Key="DarkTextBox"      TargetType="TextBox"      BasedOn="{StaticResource {x:Type TextBox}}"/>
     <Style x:Key="DarkComboBox"     TargetType="ComboBox"     BasedOn="{StaticResource {x:Type ComboBox}}"/>
