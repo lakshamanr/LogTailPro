@@ -61,6 +61,7 @@ public sealed partial class MainViewModel : ObservableObject
         _settingsService = settingsService;
         Settings = settingsService.Load();
         PluginHost = new PluginHost(this);
+        PluginLoaderService.CustomPluginDirectories = Settings.CustomPluginDirectories;
         _ = PluginLoaderService.InitializeAndLoadAsync(PluginHost);
 
         _directoryMonitor.NewFileDetected += async (_, path) =>
@@ -164,6 +165,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenPluginsFolder() => PluginLoaderService.OpenPluginsFolder();
+
+    [RelayCommand]
+    private void OpenPluginsAdmin()
+    {
+        var dialog = new Views.Dialogs.PluginsAdminDialog(this)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        dialog.ShowDialog();
+    }
 
     [RelayCommand]
     private async Task ReloadPluginsAsync()

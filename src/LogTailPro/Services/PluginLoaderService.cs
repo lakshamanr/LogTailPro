@@ -19,6 +19,8 @@ public sealed partial class PluginLoaderService : ObservableObject
     private IPluginHost? _host;
     private readonly List<LoadedPluginInfo> _loadedPlugins = new();
 
+    public List<string> CustomPluginDirectories { get; set; } = new();
+
     public ObservableCollection<PluginMenuGroup> MenuGroups { get; } = new();
     public IReadOnlyList<LoadedPluginInfo> LoadedPlugins => _loadedPlugins;
 
@@ -48,31 +50,50 @@ public sealed partial class PluginLoaderService : ObservableObject
         EnsureDirectory(LocalPluginsDirectory);
         EnsureDirectory(UserPluginsDirectory);
 
-        // 3. Scan directories
-        var pluginDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // 3. Scan directories (Priority: Custom user directories > User AppData > App Local)
+        var candidateDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (Directory.Exists(LocalPluginsDirectory))
+        // A. Custom Directories (e.g. user added Desktop\Testing Plusing)
+        foreach (var custom in CustomPluginDirectories)
         {
-            foreach (var d in Directory.GetDirectories(LocalPluginsDirectory))
+            if (Directory.Exists(custom))
             {
-                pluginDirs.Add(d);
+                if (File.Exists(Path.Combine(custom, "plugin.json")) || Directory.GetFiles(custom, "*.dll").Length > 0)
+                {
+                    candidateDirs.Add(custom);
+                }
+                foreach (var sub in Directory.GetDirectories(custom))
+                {
+                    candidateDirs.Add(sub);
+                }
             }
         }
 
+        // B. User AppData (%LOCALAPPDATA%\LogTailPro\plugins)
         if (Directory.Exists(UserPluginsDirectory))
         {
-            foreach (var d in Directory.GetDirectories(UserPluginsDirectory))
+            foreach (var sub in Directory.GetDirectories(UserPluginsDirectory))
             {
-                pluginDirs.Add(d);
+                candidateDirs.Add(sub);
             }
         }
 
-        // 4. Load each discovered plugin
-        foreach (var dir in pluginDirs)
+        // C. Local App Dir (<AppDir>\plugins)
+        if (Directory.Exists(LocalPluginsDirectory))
+        {
+            foreach (var sub in Directory.GetDirectories(LocalPluginsDirectory))
+            {
+                candidateDirs.Add(sub);
+            }
+        }
+
+        // 4. Load each discovered plugin with deduplication
+        var loadedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dir in candidateDirs)
         {
             try
             {
-                await LoadPluginFromDirectoryAsync(dir);
+                await LoadPluginFromDirectoryAsync(dir, loadedIds);
             }
             catch (Exception ex)
             {
@@ -81,7 +102,7 @@ public sealed partial class PluginLoaderService : ObservableObject
         }
     }
 
-    private async Task LoadPluginFromDirectoryAsync(string dir)
+    private async Task LoadPluginFromDirectoryAsync(string dir, HashSet<string> loadedIds)
     {
         string manifestPath = Path.Combine(dir, "plugin.json");
         PluginManifest? manifest = null;
@@ -97,6 +118,11 @@ public sealed partial class PluginLoaderService : ObservableObject
             {
                 Debug.WriteLine($"[PluginLoader] Failed to parse manifest at '{manifestPath}': {ex.Message}");
             }
+        }
+
+        if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Id) && loadedIds.Contains(manifest.Id))
+        {
+            return;
         }
 
         // Find assembly file
@@ -141,6 +167,16 @@ public sealed partial class PluginLoaderService : ObservableObject
         if (Activator.CreateInstance(pluginType) is not ILogTailPlugin plugin)
         {
             return;
+        }
+
+        if (loadedIds.Contains(plugin.PluginId))
+        {
+            return;
+        }
+        loadedIds.Add(plugin.PluginId);
+        if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Id))
+        {
+            loadedIds.Add(manifest.Id);
         }
 
         // Default manifest if not provided

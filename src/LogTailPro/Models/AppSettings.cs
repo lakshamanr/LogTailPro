@@ -35,6 +35,9 @@ public sealed class AppSettings
     /// <summary>Saved filter profiles.</summary>
     public List<FilterProfile> FilterProfiles { get; set; } = new();
 
+    /// <summary>Custom plugin directory paths configured by the user.</summary>
+    public List<string> CustomPluginDirectories { get; set; } = new();
+
     /// <summary>Main window width in device-independent pixels.</summary>
     public double WindowWidth { get; set; } = 1280;
 

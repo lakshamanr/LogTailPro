@@ -551,6 +551,11 @@ public partial class MainWindow : Window
         PluginsMenu.Items.Add(new Separator());
         PluginsMenu.Items.Add(new MenuItem
         {
+            Header = "Plugins Manager…",
+            Command = ViewModel.OpenPluginsAdminCommand
+        });
+        PluginsMenu.Items.Add(new MenuItem
+        {
             Header = "Open Plugins Folder…",
             Command = ViewModel.OpenPluginsFolderCommand
         });

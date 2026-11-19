@@ -1,0 +1,88 @@
+<Window x:Class="LogTailPro.Views.Dialogs.PluginsAdminDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Plugins Manager — LogTailPro"
+        Width="780" Height="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgElevated}"
+        Foreground="{StaticResource TextPrimary}"
+        FontFamily="{StaticResource UiFont}"
+        FontSize="{StaticResource UiSize}">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="Installed Plugins &amp; Extensions" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
+            <TextBlock Text="LogTailPro automatically loads all plugins found in standard folders or your custom directories."
+                       Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Plugins DataGrid -->
+        <Border Grid.Row="1" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderSubtle}"
+                BorderThickness="1" CornerRadius="4">
+            <ListView x:Name="PluginsListView" ItemsSource="{Binding LoadedPlugins}" BorderThickness="0"
+                      Background="Transparent" Foreground="{StaticResource TextPrimary}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Status" Width="70">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource BadgeInfoBg}" CornerRadius="3" Padding="4,1">
+                                        <TextBlock Text="Active" Foreground="{StaticResource BadgeInfoFg}" FontSize="11" FontWeight="SemiBold"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Plugin Name" Width="180">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Plugin.PluginName}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Version" Width="65">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Plugin.Version}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Author" Width="120">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Manifest.Author}" Foreground="{StaticResource TextSecondary}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Directory Path" Width="300">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DirectoryPath}" ToolTip="{Binding DirectoryPath}" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource MonoFont}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <!-- Bottom Actions -->
+        <DockPanel Grid.Row="2" Margin="0,14,0,0" LastChildFill="False">
+            <Button Content="Add Plugin / Folder…" Click="AddFolder_Click" Style="{StaticResource StandardButton}" Padding="12,6" Margin="0,0,8,0"/>
+            <Button Content="Open Plugins Folder" Click="OpenFolder_Click" Style="{StaticResource StandardButton}" Padding="12,6" Margin="0,0,8,0"/>
+            <Button Content="Reload All" Click="Reload_Click" Style="{StaticResource StandardButton}" Padding="12,6"/>
+
+            <Button DockPanel.Dock="Right" Content="Close" Click="Close_Click" Style="{StaticResource AccentButton}" Padding="18,6"/>
+        </DockPanel>
+    </Grid>
+</Window>
